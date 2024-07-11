@@ -18,6 +18,10 @@
   "homepage": "https://github.com/amorphicxyz/athena-contracts#readme",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@tenderly/hardhat-tenderly": "^2.2.2",
     "hardhat": "^2.22.6"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
   }
 }
