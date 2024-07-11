@@ -1,3 +1,4 @@
+import "@nomicfoundation/hardhat-ledger";
 import "@nomicfoundation/hardhat-toolbox";
 import * as tenderly from "@tenderly/hardhat-tenderly";
 import "dotenv/config";
