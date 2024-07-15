@@ -14,7 +14,6 @@ const config: HardhatUserConfig = {
     },
   },
   tenderly: {
-    // https://docs.tenderly.co/account/projects/account-project-slug
     project: process.env.TENDERLY_PROJECT!,
     username: process.env.TENDERLY_USERNAME!,
   },
