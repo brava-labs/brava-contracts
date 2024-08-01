@@ -20,7 +20,7 @@
     "@nomicfoundation/hardhat-ledger": "^1.0.3",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@tenderly/hardhat-tenderly": "^2.2.2",
-    "hardhat": "^2.22.6"
+    "hardhat": "^2.22.7"
   },
   "dependencies": {
     "dotenv": "^16.4.5"
