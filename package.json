@@ -4,6 +4,7 @@
   "description": "AthenaFi smart contracts",
   "main": "index.js",
   "scripts": {
+    "hardhat-run": "hardhat run",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -20,7 +21,7 @@
     "@nomicfoundation/hardhat-ledger": "^1.0.3",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@tenderly/hardhat-tenderly": "^2.2.2",
-    "hardhat": "^2.22.6"
+    "hardhat": "^2.22.7"
   },
   "dependencies": {
     "dotenv": "^16.4.5"
