@@ -21,23 +21,23 @@ contract FluidSupply is ActionBase {
         address to;
     }
 
+    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
+
     /// @inheritdoc ActionBase
     function executeAction(
         bytes memory _callData,
-        bytes32[] memory _subData,
         uint8[] memory _paramMapping,
         bytes32[] memory _returnValues
     ) public payable virtual override returns (bytes32) {
-        Params memory inputData = parseInputs(_callData);
+        Params memory inputData = _parseInputs(_callData);
 
         inputData.amount = _parseParamUint(
             inputData.amount,
             _paramMapping[0],
-            _subData,
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _subData, _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _subData, _returnValues);
+        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
+        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _returnValues);
 
         (uint256 fAmountReceived, bytes memory logData) = _fluidSupply(inputData);
         emit ActionEvent("FluidSupply", logData);
@@ -46,19 +46,19 @@ contract FluidSupply is ActionBase {
 
     /// @inheritdoc ActionBase
     function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = parseInputs(_callData);
+        Params memory inputData = _parseInputs(_callData);
         (, bytes memory logData) = _fluidSupply(inputData);
         logger.logActionDirectEvent("FluidSupply", logData);
     }
 
     /// @inheritdoc ActionBase
     function actionType() public pure virtual override returns (uint8) {
-        return uint8(ActionType.STANDARD_ACTION);
+        return uint8(ActionType.DEPOSIT_ACTION);
     }
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _fluidSupply(Params memory _inputData) internal returns (uint256 fTokenAmount, bytes memory logData) {
+    function _fluidSupply(Params memory _inputData) private returns (uint256 fTokenAmount, bytes memory logData) {
         IFToken fToken = IFToken(address(_inputData.token));
 
         uint256 amountPulled =
@@ -76,7 +76,7 @@ contract FluidSupply is ActionBase {
         logData = abi.encode(_inputData, fTokenAmount);
     }
 
-    function parseInputs(bytes memory _callData) public pure returns (Params memory inputData) {
+    function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
     }
 }

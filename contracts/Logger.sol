@@ -2,11 +2,11 @@
 
 pragma solidity =0.8.24;
 
-// TODO
 contract Logger {
-    event RecipeEvent(
+    event ActionEvent(
         address indexed caller,
-        string indexed logName
+        string indexed logName,
+        bytes data
     );
 
     event ActionDirectEvent(
@@ -15,10 +15,11 @@ contract Logger {
         bytes data
     );
 
-    function logRecipeEvent(
-        string memory _logName
+    function logActionEvent(
+        string memory _logName,
+        bytes memory _data
     ) public {
-        emit RecipeEvent(msg.sender, _logName);
+        emit ActionEvent(msg.sender, _logName, _data);
     }
 
     function logActionDirectEvent(

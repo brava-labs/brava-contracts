@@ -22,25 +22,25 @@ contract YearnSupply is ActionBase {
         address to;
     }
 
-    IYearnRegistry public constant yearnRegistry = IYearnRegistry(address(0x49849C98ae39Fff122806C06791Fa73784FB3675));
+    IYearnRegistry public constant yearnRegistry = IYearnRegistry(address(0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804));
 
+    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
+    
     /// @inheritdoc ActionBase
     function executeAction(
         bytes memory _callData,
-        bytes32[] memory _subData,
         uint8[] memory _paramMapping,
         bytes32[] memory _returnValues
     ) public payable virtual override returns (bytes32) {
-        Params memory inputData = parseInputs(_callData);
+        Params memory inputData = _parseInputs(_callData);
 
         inputData.amount = _parseParamUint(
             inputData.amount,
             _paramMapping[0],
-            _subData,
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _subData, _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _subData, _returnValues);
+        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
+        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _returnValues);
 
         (uint256 yAmountReceived, bytes memory logData) = _yearnSupply(inputData);
         emit ActionEvent("YearnSupply", logData);
@@ -49,19 +49,19 @@ contract YearnSupply is ActionBase {
 
     /// @inheritdoc ActionBase
     function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = parseInputs(_callData);
+        Params memory inputData = _parseInputs(_callData);
         (, bytes memory logData) = _yearnSupply(inputData);
         logger.logActionDirectEvent("YearnSupply", logData);
     }
 
     /// @inheritdoc ActionBase
     function actionType() public pure virtual override returns (uint8) {
-        return uint8(ActionType.STANDARD_ACTION);
+        return uint8(ActionType.DEPOSIT_ACTION);
     }
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _yearnSupply(Params memory _inputData) internal returns (uint256 yTokenAmount, bytes memory logData) {
+    function _yearnSupply(Params memory _inputData) private returns (uint256 yTokenAmount, bytes memory logData) {
         IYearnVault vault = IYearnVault(yearnRegistry.latestVault(_inputData.token));
 
         uint256 amountPulled =
@@ -79,7 +79,7 @@ contract YearnSupply is ActionBase {
         logData = abi.encode(_inputData, yTokenAmount);
     }
 
-    function parseInputs(bytes memory _callData) public pure returns (Params memory inputData) {
+    function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
     }
 }

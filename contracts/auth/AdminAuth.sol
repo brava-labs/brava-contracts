@@ -5,16 +5,15 @@ pragma solidity =0.8.24;
 import {SafeERC20} from "../libraries/SafeERC20.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {AdminVault} from "./AdminVault.sol";
-import {AuthConstants} from "./AuthConstants.sol";
 
 /// @title AdminAuth Handles owner/admin privileges over smart contracts
-contract AdminAuth is AuthConstants {
+abstract contract AdminAuth {
     using SafeERC20 for IERC20;
 
     error SenderNotOwner();
     error SenderNotAdmin();
 
-    AdminVault public constant adminVault = AdminVault(ADMIN_VAULT_ADDR);
+    AdminVault public immutable adminVault;
 
     modifier onlyOwner() {
         if (adminVault.owner() != msg.sender) {
@@ -28,6 +27,10 @@ contract AdminAuth is AuthConstants {
             revert SenderNotAdmin();
         }
         _;
+    }
+
+    constructor(address _adminVault) {
+        adminVault = AdminVault(_adminVault);
     }
 
     /// @notice withdraw stuck funds

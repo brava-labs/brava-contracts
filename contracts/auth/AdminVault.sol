@@ -11,9 +11,9 @@ contract AdminVault {
     address public admin;
 
 
-    constructor() {
-        owner = msg.sender;
-        admin = msg.sender;
+    constructor(address _owner, address _admin) {
+        owner = _owner;
+        admin = _admin;
     }
 
     /// @notice Admin is able to change owner
