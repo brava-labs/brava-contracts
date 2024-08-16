@@ -1,6 +1,9 @@
 node_modules
 .env
 
+# compilation artifacts (windows)
+/bin
+
 # Hardhat files
 /cache
 /artifacts
