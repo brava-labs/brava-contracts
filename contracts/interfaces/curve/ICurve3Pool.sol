@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface ICurvePool {
+interface ICurve3Pool {
     // Events
     event TokenExchange(
         address indexed buyer,
