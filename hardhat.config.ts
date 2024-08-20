@@ -1,23 +1,26 @@
-import "@nomicfoundation/hardhat-ledger";
-import "@nomicfoundation/hardhat-toolbox";
+import '@nomicfoundation/hardhat-ledger';
+import '@nomicfoundation/hardhat-toolbox';
 // import * as tenderly from "@tenderly/hardhat-tenderly";
-import "dotenv/config";
-import { HardhatUserConfig } from "hardhat/config";
- 
+import 'dotenv/config';
+import { HardhatUserConfig } from 'hardhat/config';
+
 // tenderly.setup({ automaticVerifications: true });
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.24",
+  solidity: '0.8.24',
+  paths: {
+    tests: './tests/',
+  },
   networks: {
     virtualMainnet: {
       url: process.env.TENDERLY_VIRTUAL_MAINNET_RPC!,
     },
     hardhat: {
       forking: {
-        url: "https://eth-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY!,
-        enabled: true
-      }
-    }
+        url: 'https://eth-mainnet.g.alchemy.com/v2/' + process.env.ALCHEMY_API_KEY!,
+        enabled: true,
+      },
+    },
   },
   // tenderly: {
   //   project: process.env.TENDERLY_PROJECT!,
