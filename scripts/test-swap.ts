@@ -3,6 +3,7 @@ import { ethers } from 'hardhat';
 import { deploySetup } from './deploy-setup';
 import { deploySafe, executeSafeTransaction } from './safe';
 import { fundAccountWithStablecoin } from './stablecoin-fund';
+import { tokenConfig } from './constants';
 
 async function testCurve3PoolSwap() {
   console.log('Testing Curve 3Pool Swap (USDC to USDT)');
@@ -19,8 +20,8 @@ async function testCurve3PoolSwap() {
   const curve3PoolSwap = await ethers.getContractAt('Curve3PoolSwap', curve3PoolSwapAddress);
 
   // USDC and USDT addresses (mainnet)
-  const USDC_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
-  const USDT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+  const USDC_ADDRESS = tokenConfig.USDC.address;
+  const USDT_ADDRESS = tokenConfig.USDT.address;
 
   // Approve USDC spending
   const usdcContract = await ethers.getContractAt('IERC20', USDC_ADDRESS);
@@ -48,11 +49,9 @@ async function testCurve3PoolSwap() {
     paramsEncoded,
   ]);
 
-  console.log('Encoded function call:', encodedFunctionCall);
-
   // fund the safe with some USDC
-  await fundAccountWithStablecoin(safeAddr, 'USDC', 100000);
-  await fundAccountWithStablecoin(await signer.getAddress(), 'USDC', 100000);
+  await fundAccountWithStablecoin(safeAddr, 'USDC', 1000);
+  await fundAccountWithStablecoin(await signer.getAddress(), 'USDC', 1000);
 
   // approve the safe to spend USDC
   await usdcContract.approve(safeAddr, swapAmount);
@@ -77,6 +76,16 @@ async function testCurve3PoolSwap() {
   const usdtContract = await ethers.getContractAt('IERC20', USDT_ADDRESS);
   const usdtBalance = await usdtContract.balanceOf(safeAddr);
   console.log('USDT balance after swap:', ethers.formatUnits(usdtBalance, 6));
+
+  /*
+  // More tests Required:
+  // - Swap in all 6 directions
+  // - Swap beyond slippage limits
+  // - fail swapping a token with itself
+  // - fail swapping a token with an invalid token
+  // - fail swapping a token with an invalid amount
+  // - fail swapping a token with an invalid min amount
+  */
 }
 
 async function main() {
