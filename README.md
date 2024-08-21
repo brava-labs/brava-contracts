@@ -22,6 +22,14 @@ Tests can be run using npm:
 or
 `npm run test:logging`
 
+Specific action tests can be run with the grep command and the name of the action.
+
+`npm run test -- --grep Curve`
+
+`npx hardhat test --grep Curve`
+
+Note that when using npm the additional hyphens are required.
+
 ## Development
 
 This project uses Hardhat for Ethereum development. The main configuration can be found in `hardhat.config.ts`.
