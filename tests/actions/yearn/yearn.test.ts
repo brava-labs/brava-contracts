@@ -3,7 +3,7 @@ import { network } from 'hardhat';
 import { YearnSupply, IERC20 } from '../../../typechain-types';
 import { YEARN_REGISTRY_ADDRESS, tokenConfig } from '../../constants';
 import { deploy, log, getBaseSetup } from '../../utils';
-import { executeSafeTransaction } from '../../utils-safe';
+import { executeSafeTransaction } from 'athena-sdk';
 import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
 
 // AI generated test, this doesn't work yet

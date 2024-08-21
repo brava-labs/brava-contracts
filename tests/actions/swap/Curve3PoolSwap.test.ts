@@ -3,7 +3,7 @@ import { network } from 'hardhat';
 import { Curve3PoolSwap, IERC20 } from '../../../typechain-types';
 import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../../tests/constants';
 import { deploy, log, getBaseSetup } from '../../utils';
-import { executeSafeTransaction } from '../../utils-safe';
+import { executeSafeTransaction } from 'athena-sdk';
 import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
 
 // These tests function, but are far from complete
