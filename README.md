@@ -16,11 +16,11 @@ This project contains the smart contracts used within the AthenaFi system. It's 
 
 ## Running Tests
 
-Tests can be run using Hardhat or npm:
+Tests can be run using npm:
 
-`npx hardhat test`
+`npm run test`
 or
-`npm test`
+`npm run test:logging`
 
 ## Development
 
