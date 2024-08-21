@@ -2,12 +2,21 @@ import { ethers } from 'hardhat';
 import { BigNumber } from '@ethersproject/bignumber';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { formatUnits } from 'ethers';
-import { tokenConfig } from './constants';
+import * as constants from './constants';
+import { log } from './utils';
 
 const hre: HardhatRuntimeEnvironment = require('hardhat');
 
+// Stablecoin contract getters
+const getUSDC = () => ethers.getContractAt('IERC20', constants.tokenConfig.USDC.address);
+const getUSDT = () => ethers.getContractAt('IERC20', constants.tokenConfig.USDT.address);
+const getDAI = () => ethers.getContractAt('IERC20', constants.tokenConfig.DAI.address);
+const getStables = async () => {
+  return { USDC: await getUSDC(), USDT: await getUSDT(), DAI: await getDAI() };
+};
+
 async function fundAccountWithStablecoin(recipient: string, tokenSymbol: string, amount: number) {
-  const token = tokenConfig[tokenSymbol as keyof typeof tokenConfig];
+  const token = constants.tokenConfig[tokenSymbol as keyof typeof constants.tokenConfig];
 
   if (!token) {
     throw new Error(`Unsupported token: ${tokenSymbol}`);
@@ -30,7 +39,7 @@ async function fundAccountWithStablecoin(recipient: string, tokenSymbol: string,
     params: [token.whale],
   });
 
-  console.log(
+  log(
     `Funded ${recipient} with ${formatUnits(
       amountToSend.toString(),
       token.decimals
@@ -38,27 +47,4 @@ async function fundAccountWithStablecoin(recipient: string, tokenSymbol: string,
   );
 }
 
-export async function main(recipient?: string, tokenSymbol?: string, amountStr?: string) {
-  if (!recipient || !tokenSymbol || !amountStr) {
-    const args = process.argv.slice(2);
-    if (args.length !== 3) {
-      console.error(
-        'Usage: npx hardhat run scripts/stablecoin-fund.ts <recipient> <tokenSymbol> <amount>'
-      );
-      process.exit(1);
-    }
-    [recipient, tokenSymbol, amountStr] = args;
-  }
-
-  const amount = BigNumber.from(amountStr);
-  await fundAccountWithStablecoin(recipient, tokenSymbol, amount.toNumber());
-}
-
-if (require.main === module) {
-  main().catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
-}
-
-export { fundAccountWithStablecoin };
+export { fundAccountWithStablecoin, getStables, getUSDC, getUSDT, getDAI };
