@@ -1,8 +1,9 @@
 import { ethers, network } from 'hardhat';
 import { Signer, BaseContract } from 'ethers';
 import * as constants from './constants';
-import * as safe from './utils-safe';
+// import * as safe from './utils-safe';
 import { ISafe } from '../typechain-types/interfaces/safe/ISafe';
+import { deploySafe } from 'athena-sdk';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 
@@ -33,7 +34,6 @@ export async function deployBaseSetup(signer?: Signer): Promise<{
   logger: BaseContract;
   adminVault: BaseContract;
   contractRegistry: BaseContract;
-  safeContract: ISafe;
   safeAddr: string;
 }> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
@@ -49,8 +49,8 @@ export async function deployBaseSetup(signer?: Signer): Promise<{
     deploySigner,
     await adminVault.getAddress()
   );
-  const { safeContract, safeAddr } = await safe.deploySafe();
-  return { logger, adminVault, contractRegistry, safeContract, safeAddr };
+  const safeAddr = await deploySafe(deploySigner);
+  return { logger, adminVault, contractRegistry, safeAddr };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
