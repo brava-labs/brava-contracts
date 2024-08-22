@@ -78,6 +78,9 @@ contract Curve3PoolSwap is ActionBase {
 
         uint256 balanceAfter = IERC20(tokenOut).balanceOf(address(this));
         amountOut = balanceAfter - balanceBefore;
+        // TODO: We should add slippage protection here
+
+        // TODO: We currently aren't using _params.to, will we need it for some actions in the future?
 
         logData = abi.encode(_params, amountOut);
     }
