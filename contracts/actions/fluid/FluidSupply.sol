@@ -61,17 +61,12 @@ contract FluidSupply is ActionBase {
     function _fluidSupply(Params memory _inputData) private returns (uint256 fTokenAmount, bytes memory logData) {
         IFToken fToken = IFToken(address(_inputData.token));
 
-        uint256 amountPulled =
-            _inputData.token.pullTokensIfNeeded(_inputData.from, _inputData.amount);
-        _inputData.token.approveToken(address(fToken), amountPulled);
-        _inputData.amount = amountPulled;
+        _inputData.token.approveToken(address(fToken), _inputData.amount);
 
         uint256 fBalanceBefore = address(fToken).getBalance(address(this));
         fToken.deposit(_inputData.amount, address(this));
         uint256 fBalanceAfter = address(fToken).getBalance(address(this));
         fTokenAmount = fBalanceAfter - fBalanceBefore;
-
-        address(fToken).withdrawTokens(_inputData.to, fTokenAmount);
 
         logData = abi.encode(_inputData, fTokenAmount);
     }

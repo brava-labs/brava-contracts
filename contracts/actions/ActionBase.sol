@@ -32,6 +32,7 @@ abstract contract ActionBase {
         SWAP_ACTION,
         INSURE_ACTION,
         FEE_ACTION,
+        UTIL_ACTION,
         CUSTOM_ACTION
     }
 
