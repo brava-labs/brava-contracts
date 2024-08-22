@@ -22,7 +22,7 @@ export async function deploy<T extends BaseContract>(
   signer: Signer,
   ...args: unknown[]
 ): Promise<T> {
-  log(`Deploying ${contractName} with args:`, args);
+  log(`Deploying ${contractName} with args:`, ...args);
   const factory = await ethers.getContractFactory(contractName, signer);
   const contract = (await factory.deploy(...args)) as T;
   await contract.waitForDeployment();
@@ -50,6 +50,7 @@ export async function deployBaseSetup(signer?: Signer): Promise<{
     await adminVault.getAddress()
   );
   const safeAddr = await deploySafe(deploySigner);
+  log('Safe deployed at:', safeAddr);
   return { logger, adminVault, contractRegistry, safeAddr };
 }
 
