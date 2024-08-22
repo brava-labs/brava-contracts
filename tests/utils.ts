@@ -23,8 +23,13 @@ export async function deploy<T extends BaseContract>(
   ...args: unknown[]
 ): Promise<T> {
   log(`Deploying ${contractName} with args:`, ...args);
+  const feeData = await ethers.provider.getFeeData();
+  const gasOverrides = {
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+  };
   const factory = await ethers.getContractFactory(contractName, signer);
-  const contract = (await factory.deploy(...args)) as T;
+  const contract = (await factory.deploy(...args, gasOverrides)) as T;
   await contract.waitForDeployment();
   log(`${contractName} deployed at:`, await contract.getAddress());
   return contract;
