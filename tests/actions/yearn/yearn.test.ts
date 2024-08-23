@@ -36,6 +36,9 @@ describe('YearnSupply tests', () => {
 
   afterEach(async () => {
     await network.provider.send('evm_revert', [snapshotId]);
+
+    // IMPORTANT: take a new snapshot, they can't be reused!
+    snapshotId = await network.provider.send('evm_snapshot');
   });
 
   // Skip this until it's implemented properly
