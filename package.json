@@ -7,7 +7,8 @@
     "hardhat-run": "hardhat run",
     "test": "hardhat test",
     "test:logging": "ENABLE_LOGGING=true hardhat test",
-    "coverage": "hardhat coverage"
+    "coverage": "hardhat coverage",
+    "lint": "hardhat check"
   },
   "repository": {
     "type": "git",
@@ -26,6 +27,7 @@
     "hardhat": "^2.22.7"
   },
   "dependencies": {
+    "@nomiclabs/hardhat-solhint": "^4.0.0",
     "dotenv": "^16.4.5"
   }
 }
