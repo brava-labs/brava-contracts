@@ -6,7 +6,8 @@
   "scripts": {
     "hardhat-run": "hardhat run",
     "test": "hardhat test",
-    "test:logging": "ENABLE_LOGGING=true hardhat test"
+    "test:logging": "ENABLE_LOGGING=true hardhat test",
+    "coverage": "hardhat coverage"
   },
   "repository": {
     "type": "git",
