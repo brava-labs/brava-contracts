@@ -11,7 +11,6 @@ contract Curve3PoolSwap is ActionBase {
 
     ICurve3Pool public immutable pool;
 
-    //TODO: we're reading in the index of the token, but should we be reading in the address?
     /// @notice Params for the Curve3PoolSwap action
     /// @param fromToken Curve 3Pool token index
     /// @param toToken Curve 3Pool token index
@@ -62,8 +61,8 @@ contract Curve3PoolSwap is ActionBase {
         );
         require(_params.fromToken != _params.toToken, "Cannot swap same token");
 
-        address tokenIn = pool.coins(uint256(uint128(_params.fromToken)));
-        address tokenOut = pool.coins(uint256(uint128(_params.toToken)));
+        address tokenIn = pool.coins(uint128(_params.fromToken));
+        address tokenOut = pool.coins(uint128(_params.toToken));
 
         // check if we need to pull the tokens
         if (IERC20(tokenIn).balanceOf(_params.from) < _params.amountIn) {
