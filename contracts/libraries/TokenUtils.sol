@@ -26,7 +26,7 @@ library TokenUtils {
         }
     }
 
-    function pullTokensIfNeeded(
+    function pullTokens(
         address _token,
         address _from,
         uint256 _amount
@@ -43,7 +43,7 @@ library TokenUtils {
         return _amount;
     }
 
-    function pullTokensIfNeededWithPermit(
+    function pullTokensWithPermit(
         address _token,
         address _from,
         uint256 _amount,

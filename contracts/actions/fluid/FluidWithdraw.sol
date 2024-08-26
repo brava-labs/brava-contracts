@@ -64,18 +64,12 @@ contract FluidWithdraw is ActionBase {
     {
         IFToken fToken = IFToken(_inputData.fToken);
 
-        uint256 amountPulled =
-            _inputData.fToken.pullTokensIfNeeded(_inputData.from, _inputData.fAmount);
-        _inputData.fAmount = amountPulled;
-
         address underlyingToken = fToken.asset();
 
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
         fToken.withdraw(_inputData.fAmount, _inputData.to, address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
-
-        underlyingToken.withdrawTokens(_inputData.to, tokenAmountReceived);
 
         logData = abi.encode(_inputData, tokenAmountReceived);
     }

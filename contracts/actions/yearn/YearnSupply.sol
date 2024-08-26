@@ -64,17 +64,12 @@ contract YearnSupply is ActionBase {
     function _yearnSupply(Params memory _inputData) private returns (uint256 yTokenAmount, bytes memory logData) {
         IYearnVault vault = IYearnVault(yearnRegistry.latestVault(_inputData.token));
 
-        uint256 amountPulled =
-            _inputData.token.pullTokensIfNeeded(_inputData.from, _inputData.amount);
-        _inputData.token.approveToken(address(vault), amountPulled);
-        _inputData.amount = amountPulled;
+        _inputData.token.approveToken(address(vault), _inputData.amount);
 
         uint256 yBalanceBefore = address(vault).getBalance(address(this));
         vault.deposit(_inputData.amount, address(this));
         uint256 yBalanceAfter = address(vault).getBalance(address(this));
         yTokenAmount = yBalanceAfter - yBalanceBefore;
-
-        address(vault).withdrawTokens(_inputData.to, yTokenAmount);
 
         logData = abi.encode(_inputData, yTokenAmount);
     }
