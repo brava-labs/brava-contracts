@@ -11,7 +11,6 @@ contract Curve3PoolSwap is ActionBase {
 
     ICurve3Pool public immutable pool;
 
-    //TODO: we're reading in the index of the token, but should we be reading in the address?
     /// @notice Params for the Curve3PoolSwap action
     /// @param fromToken Curve 3Pool token index
     /// @param toToken Curve 3Pool token index
