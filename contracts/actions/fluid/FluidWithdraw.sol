@@ -4,21 +4,18 @@ pragma solidity =0.8.24;
 import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IFToken } from "../../interfaces/fluid/IFToken.sol";
+import { FluidHelper } from "./FluidHelper.sol";
 
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
-contract FluidWithdraw is ActionBase {
+contract FluidWithdraw is ActionBase, FluidHelper {
     using TokenUtils for address;
 
     /// @param fToken - address of yToken to withdraw
     /// @param fAmount - amount of yToken to withdraw
-    /// @param from - address from which to pull fTokens from
-    /// @param to - address where received underlying tokens will be sent to
     struct Params {
         address fToken;
         uint256 fAmount;
-        address from;
-        address to;
     }
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
@@ -27,7 +24,8 @@ contract FluidWithdraw is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues
+        bytes32[] memory _returnValues,
+        uint16 _strategyId
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
@@ -36,18 +34,17 @@ contract FluidWithdraw is ActionBase {
             _paramMapping[0],
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _returnValues);
 
-        (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData);
-        emit ActionEvent("FluidWithdraw", logData);
+        (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData, _strategyId);
+        logger.logActionEvent("FluidWithdraw", logData);
         return (bytes32(amountReceived));
     }
 
     /// @inheritdoc ActionBase
+    // TODO do we want strategy IDs for direct executions?
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _fluidWithdraw(inputData);
+        (, bytes memory logData) = _fluidWithdraw(inputData, 0);
         logger.logActionDirectEvent("FluidWithdraw", logData);
     }
 
@@ -58,7 +55,7 @@ contract FluidWithdraw is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _fluidWithdraw(Params memory _inputData)
+    function _fluidWithdraw(Params memory _inputData, uint16 _strategyId)
        private 
         returns (uint256 tokenAmountReceived, bytes memory logData)
     {
@@ -67,11 +64,12 @@ contract FluidWithdraw is ActionBase {
         address underlyingToken = fToken.asset();
 
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
-        fToken.withdraw(_inputData.fAmount, _inputData.to, address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
 
         logData = abi.encode(_inputData, tokenAmountReceived);
+
+        logger.logBalanceUpdateEvent(_poolId(address(fToken)), underlyingTokenBalanceBefore, underlyingTokenBalanceAfter, _strategyId);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

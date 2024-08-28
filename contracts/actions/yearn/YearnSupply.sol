@@ -5,21 +5,18 @@ import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IYearnVault } from "../../interfaces/yearn/IYearnVault.sol";
 import { IYearnRegistry } from "../../interfaces/yearn/IYearnRegistry.sol";
+import { YearnHelper } from "./YearnHelper.sol";
 
 /// @title Supplies tokens to Yearn vault
 /// @dev tokens need to be approved for user's wallet to pull them (token address)
-contract YearnSupply is ActionBase {
+contract YearnSupply is ActionBase, YearnHelper {
     using TokenUtils for address;
 
     /// @param token - address of token to supply
     /// @param amount - amount of token to supply
-    /// @param from - address from which to pull tokens from
-    /// @param to - address where received yTokens will be sent to
     struct Params {
         address token;
         uint256 amount;
-        address from;
-        address to;
     }
 
     IYearnRegistry public constant yearnRegistry = IYearnRegistry(address(0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804));
@@ -30,7 +27,8 @@ contract YearnSupply is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues
+        bytes32[] memory _returnValues,
+        uint16 _strategyId
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
@@ -39,18 +37,16 @@ contract YearnSupply is ActionBase {
             _paramMapping[0],
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _returnValues);
 
-        (uint256 yAmountReceived, bytes memory logData) = _yearnSupply(inputData);
-        emit ActionEvent("YearnSupply", logData);
+        (uint256 yAmountReceived, bytes memory logData) = _yearnSupply(inputData, _strategyId);
+        logger.logActionEvent("YearnSupply", logData);
         return bytes32(yAmountReceived);
     }
 
     /// @inheritdoc ActionBase
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _yearnSupply(inputData);
+        (, bytes memory logData) = _yearnSupply(inputData, 0);
         logger.logActionDirectEvent("YearnSupply", logData);
     }
 
@@ -61,7 +57,7 @@ contract YearnSupply is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _yearnSupply(Params memory _inputData) private returns (uint256 yTokenAmount, bytes memory logData) {
+    function _yearnSupply(Params memory _inputData, uint16 _strategyId) private returns (uint256 yTokenAmount, bytes memory logData) {
         IYearnVault vault = IYearnVault(yearnRegistry.latestVault(_inputData.token));
 
         _inputData.token.approveToken(address(vault), _inputData.amount);
@@ -72,6 +68,8 @@ contract YearnSupply is ActionBase {
         yTokenAmount = yBalanceAfter - yBalanceBefore;
 
         logData = abi.encode(_inputData, yTokenAmount);
+
+        logger.logBalanceUpdateEvent(_poolId((address(vault))), yBalanceBefore, yBalanceAfter, _strategyId);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

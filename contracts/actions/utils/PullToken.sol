@@ -24,7 +24,8 @@ contract PullToken is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues
+        bytes32[] memory _returnValues,
+        uint16 /*_strategyId*/
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
