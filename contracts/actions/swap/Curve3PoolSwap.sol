@@ -11,20 +11,21 @@ contract Curve3PoolSwap is ActionBase {
 
     ICurve3Pool public immutable pool;
 
+    error InvalidTokenIndices();
+    error CannotSwapSameToken();
+    error AmountInMustBeGreaterThanZero();
+    error MinimumAmountOutMustBeGreaterThanZero();
+
     /// @notice Params for the Curve3PoolSwap action
     /// @param fromToken Curve 3Pool token index
     /// @param toToken Curve 3Pool token index
     /// @param amountIn Amount of tokens to swap
     /// @param minAmountOut Minimum amount of tokens to receive
-    /// @param from Address to pull tokens from
-    /// @param to Address to send tokens to
     struct Params {
         int128 fromToken;
         int128 toToken;
         uint256 amountIn;
         uint256 minAmountOut;
-        address from;
-        address to;
     }
 
     constructor(address _registry, address _logger, address _poolAddress) ActionBase(_registry, _logger) {
@@ -37,8 +38,7 @@ contract Curve3PoolSwap is ActionBase {
         bytes32[] memory _returnValues
     ) public payable virtual override returns (bytes32) {
         Params memory params = _parseInputs(_callData);
-        params.from = _parseParamAddr(params.from, _paramMapping[4], _returnValues);
-        params.to = _parseParamAddr(params.to, _paramMapping[5], _returnValues);
+        params.amountIn = _parseParamUint(params.amountIn, _paramMapping[0], _returnValues);
 
         (uint256 amountOut, bytes memory logData) = _curve3PoolSwap(params);
         emit ActionEvent("Curve3PoolSwap", logData);
@@ -55,19 +55,24 @@ contract Curve3PoolSwap is ActionBase {
     }
 
     function _curve3PoolSwap(Params memory _params) internal returns (uint256 amountOut, bytes memory logData) {
-        require(
-            _params.fromToken >= 0 && _params.fromToken < 3 && _params.toToken >= 0 && _params.toToken < 3,
-            "Invalid token indices"
-        );
-        require(_params.fromToken != _params.toToken, "Cannot swap same token");
+        if (!(_params.fromToken >= 0 && _params.fromToken < 3 && _params.toToken >= 0 && _params.toToken < 3)) {
+            revert InvalidTokenIndices();
+        }
+
+        if (_params.fromToken == _params.toToken) {
+            revert CannotSwapSameToken();
+        }
+
+        if (_params.amountIn == 0) {
+            revert AmountInMustBeGreaterThanZero();
+        }
+
+        if (_params.minAmountOut == 0) {
+            revert MinimumAmountOutMustBeGreaterThanZero();
+        }
 
         address tokenIn = pool.coins(uint256(uint128(_params.fromToken)));
         address tokenOut = pool.coins(uint256(uint128(_params.toToken)));
-
-        // check if we need to pull the tokens
-        if (IERC20(tokenIn).balanceOf(_params.from) < _params.amountIn) {
-            tokenIn.pullTokensIfNeeded(_params.from, _params.amountIn);
-        }
 
         tokenIn.approveToken(address(pool), _params.amountIn);
 
@@ -77,9 +82,6 @@ contract Curve3PoolSwap is ActionBase {
 
         uint256 balanceAfter = IERC20(tokenOut).balanceOf(address(this));
         amountOut = balanceAfter - balanceBefore;
-        // TODO: We should add slippage protection here
-
-        // TODO: We currently aren't using _params.to, will we need it for some actions in the future?
 
         logData = abi.encode(_params, amountOut);
     }
