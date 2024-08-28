@@ -13,8 +13,6 @@ library TokenUtils {
     address public constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address public constant ETH_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    event LogTokenApproval(address token, address to, uint256 amount);
-
     /// @dev Only approves the amount if allowance is lower than amount, does not decrease allowance
     function approveToken(
         address _tokenAddr,
@@ -26,7 +24,6 @@ library TokenUtils {
         if (IERC20(_tokenAddr).allowance(address(this), _to) < _amount) {
             IERC20(_tokenAddr).safeApprove(_to, _amount);
         }
-        emit LogTokenApproval(_tokenAddr, _to, _amount);
     }
 
     function pullTokens(
