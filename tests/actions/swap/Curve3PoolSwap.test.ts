@@ -222,10 +222,6 @@ describe('Curve3PoolSwap tests', () => {
       // lets wait for more of the sdk to be implemented before we implement this test
       // TODO: Is this test more of a check that the safe can handle multiple transactions?
     });
-
-    it('should swap and then swap back to the original token', async () => {
-      // Is there any reason for this when we've checked all permutations already?
-    });
   });
   describe('Error handling', () => {
     it('should fail with invalid token indices', async () => {
@@ -264,10 +260,6 @@ describe('Curve3PoolSwap tests', () => {
         curve3PoolSwap,
         'CannotSwapSameToken'
       );
-    });
-
-    it('should fail with invalid addresses for from and to parameters', async () => {
-      //TODO: Do we need to check the from and to addresses? Maybe we can remove them entirely?
     });
   });
 });
