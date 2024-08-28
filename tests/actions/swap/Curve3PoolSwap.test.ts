@@ -6,14 +6,12 @@ import { deploy, log, getBaseSetup } from '../../utils';
 import { executeSafeTransaction } from 'athena-sdk';
 import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
 import { BigNumberish } from 'ethers';
-
+import { Curve3PoolSwapParams } from '../../params';
 interface SwapParams {
   fromToken: number;
   toToken: number;
   amountIn: BigNumberish;
   minAmountOut: BigNumberish;
-  from: string;
-  to: string;
 }
 
 describe('Curve3PoolSwap tests', () => {
@@ -28,12 +26,7 @@ describe('Curve3PoolSwap tests', () => {
     params: SwapParams
   ): Promise<[string, string]> {
     const abiCoder = new ethers.AbiCoder();
-    const paramsEncoded = abiCoder.encode(
-      [
-        'tuple(int128 fromToken, int128 toToken, uint256 amountIn, uint256 minAmountOut, address from, address to)',
-      ],
-      [params]
-    );
+    const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
 
     return curve3PoolSwap
       .getAddress()
@@ -69,8 +62,6 @@ describe('Curve3PoolSwap tests', () => {
         (fundAmount * 0.99).toString(),
         tokenConfig[toToken].decimals
       ),
-      from: safeAddr,
-      to: safeAddr,
     };
 
     const [curve3PoolSwapAddress, encodedFunctionCall] = await prepareSwapParameters(
@@ -205,7 +196,19 @@ describe('Curve3PoolSwap tests', () => {
     });
 
     it('should fail when swapping zero amount', async () => {
-      await expect(testSwap('DAI', 'USDC', 0)).to.be.revertedWith('GS013');
+      const params: SwapParams = {
+        fromToken: CURVE_3POOL_INDICES.DAI,
+        toToken: CURVE_3POOL_INDICES.USDC,
+        amountIn: 0,
+        minAmountOut: 0,
+      };
+      const [curve3PoolSwapAddress, encodedFunctionCall] = await prepareSwapParameters(
+        curve3PoolSwap,
+        params
+      );
+      await expect(
+        executeSafeTransaction(safeAddr, curve3PoolSwapAddress, 0, encodedFunctionCall, 1, signer)
+      ).to.be.revertedWith('GS013');
     });
   });
   describe.skip('Slippage protection', () => {
@@ -232,23 +235,17 @@ describe('Curve3PoolSwap tests', () => {
 
       const params = {
         fromToken: 1,
-        toToken: 42,
+        toToken: 42, // invalid token index
         amountIn: swapAmount,
         minAmountOut: 0,
-        from: await signer.getAddress(),
-        to: await signer.getAddress(),
       };
 
       const abiCoder = new ethers.AbiCoder();
-      const paramsEncoded = abiCoder.encode(
-        [
-          'tuple(int128 fromToken, int128 toToken, uint256 amountIn, uint256 minAmountOut, address from, address to)',
-        ],
-        [params]
-      );
+      const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
 
-      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWith(
-        'Invalid token indices'
+      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWithCustomError(
+        curve3PoolSwap,
+        'InvalidTokenIndices'
       );
     });
     it('should fail with matching token indices', async () => {
@@ -259,19 +256,13 @@ describe('Curve3PoolSwap tests', () => {
         toToken: 0,
         amountIn: swapAmount,
         minAmountOut: 0,
-        from: await signer.getAddress(),
-        to: await signer.getAddress(),
       };
 
       const abiCoder = new ethers.AbiCoder();
-      const paramsEncoded = abiCoder.encode(
-        [
-          'tuple(int128 fromToken, int128 toToken, uint256 amountIn, uint256 minAmountOut, address from, address to)',
-        ],
-        [params]
-      );
-      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWith(
-        'Cannot swap same token'
+      const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
+      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWithCustomError(
+        curve3PoolSwap,
+        'CannotSwapSameToken'
       );
     });
 
