@@ -211,10 +211,24 @@ describe('Curve3PoolSwap tests', () => {
       ).to.be.revertedWith('GS013');
     });
   });
-  describe.skip('Slippage protection', () => {
+  describe('Slippage protection', () => {
     it('should fail when slippage is too high', async () => {
-      // TODO: Currently there is no slippage protection in the curve3PoolSwap contract
-      // We should add it and then implement this test
+      const mainSwapParams: SwapParams = {
+        fromToken: CURVE_3POOL_INDICES.USDC,
+        toToken: CURVE_3POOL_INDICES.DAI,
+        amountIn: 100,
+        minAmountOut: 150,
+      };
+
+      const [mainSwapAddress, mainSwapEncodedCall] = await prepareSwapParameters(
+        curve3PoolSwap,
+        mainSwapParams
+      );
+
+      // The transaction should revert due to unrealistic slippage expectation
+      await expect(
+        executeSafeTransaction(safeAddr, mainSwapAddress, 0, mainSwapEncodedCall, 1, signer)
+      ).to.be.revertedWith('GS013');
     });
   });
   describe.skip('Multi-step transactions', () => {
