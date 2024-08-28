@@ -205,7 +205,7 @@ describe('Curve3PoolSwap tests', () => {
     });
 
     it('should fail when swapping zero amount', async () => {
-      expect(testSwap('DAI', 'USDC', 0)).to.be.revertedWith('GS013');
+      await expect(testSwap('DAI', 'USDC', 0)).to.be.revertedWith('GS013');
     });
   });
   describe.skip('Slippage protection', () => {
@@ -225,13 +225,7 @@ describe('Curve3PoolSwap tests', () => {
     });
   });
   describe('Error handling', () => {
-    it.skip('should fail with invalid token indices', async () => {
-      // TODO: This test is intermittenly failing, not sure why yet
-      // It fails with "ProviderError: Unknown account 0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503"
-      // when run with other tests. That address is the owner and admin address.
-      // It's failing inside the fundAccountWithStablecoin function, however that function
-      // is used in other tests and they pass.
-
+    it('should fail with invalid token indices', async () => {
       // Not using the safe as it obsfucates the error message
       const swapAmount = ethers.parseUnits('10', tokenConfig.USDC.decimals);
       await fundAccountWithStablecoin(await curve3PoolSwap.getAddress(), 'USDC', 100);
