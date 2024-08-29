@@ -36,11 +36,11 @@ contract YearnSupply is ActionBase {
 
         inputData.amount = _parseParamUint(
             inputData.amount,
-            _paramMapping[0],
+            _paramMapping[1],
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _returnValues);
+        inputData.from = _parseParamAddr(inputData.from, _paramMapping[2], _returnValues);
+        inputData.to = _parseParamAddr(inputData.to, _paramMapping[3], _returnValues);
 
         (uint256 yAmountReceived, bytes memory logData) = _yearnSupply(inputData);
         emit ActionEvent("YearnSupply", logData);
@@ -64,17 +64,12 @@ contract YearnSupply is ActionBase {
     function _yearnSupply(Params memory _inputData) private returns (uint256 yTokenAmount, bytes memory logData) {
         IYearnVault vault = IYearnVault(yearnRegistry.latestVault(_inputData.token));
 
-        uint256 amountPulled =
-            _inputData.token.pullTokensIfNeeded(_inputData.from, _inputData.amount);
-        _inputData.token.approveToken(address(vault), amountPulled);
-        _inputData.amount = amountPulled;
+        _inputData.token.approveToken(address(vault), _inputData.amount);
 
         uint256 yBalanceBefore = address(vault).getBalance(address(this));
         vault.deposit(_inputData.amount, address(this));
         uint256 yBalanceAfter = address(vault).getBalance(address(this));
         yTokenAmount = yBalanceAfter - yBalanceBefore;
-
-        address(vault).withdrawTokens(_inputData.to, yTokenAmount);
 
         logData = abi.encode(_inputData, yTokenAmount);
     }

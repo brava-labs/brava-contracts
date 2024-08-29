@@ -104,15 +104,13 @@ contract BuyCover is ActionBase {
         }
 
         address paymentAsset = _assetIdToTokenAddress(_inputData.paymentAsset);
-        uint256 amountPulled = paymentAsset.pullTokensIfNeeded(_inputData.owner, _inputData.maxPremiumInAsset);
-        paymentAsset.approveToken(address(coverBroker), amountPulled);
+        paymentAsset.approveToken(address(coverBroker), _inputData.maxPremiumInAsset);
 
         if (_inputData.paymentAsset == 0) {
-            coverId = coverBroker.buyCover{value: amountPulled}(params, poolAllocationRequests);
+            coverId = coverBroker.buyCover{value: _inputData.maxPremiumInAsset}(params, poolAllocationRequests);
         } else {
             coverId = coverBroker.buyCover(params, poolAllocationRequests);
         }
-        paymentAsset.withdrawTokens(_inputData.owner, type(uint256).max);
         
         coverNft.safeTransferFrom(address(this), _inputData.owner, coverId);
 
