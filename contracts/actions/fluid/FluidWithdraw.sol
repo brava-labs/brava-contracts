@@ -33,11 +33,11 @@ contract FluidWithdraw is ActionBase {
 
         inputData.fAmount = _parseParamUint(
             inputData.fAmount,
-            _paramMapping[0],
+            _paramMapping[1],
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _returnValues);
+        inputData.from = _parseParamAddr(inputData.from, _paramMapping[2], _returnValues);
+        inputData.to = _parseParamAddr(inputData.to, _paramMapping[3], _returnValues);
 
         (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData);
         emit ActionEvent("FluidWithdraw", logData);
