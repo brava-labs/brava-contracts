@@ -9,7 +9,10 @@ tenderly.setup({
 });
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.24",
+  solidity: '0.8.24',
+  paths: {
+    tests: './tests/',
+  },
   networks: {
     virtualMainnet: {
       url: process.env.TENDERLY_VIRTUAL_MAINNET_RPC!,
