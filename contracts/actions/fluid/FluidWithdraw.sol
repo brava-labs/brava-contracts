@@ -5,7 +5,6 @@ import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IFToken } from "../../interfaces/fluid/IFToken.sol";
 import { ActionUtils } from "../../libraries/ActionUtils.sol";
-import { IERC20 } from "../../interfaces/IERC20.sol";
 
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
