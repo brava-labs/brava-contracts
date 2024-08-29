@@ -6,14 +6,12 @@ import { deploy, log, getBaseSetup } from '../../utils';
 import { executeSafeTransaction } from 'athena-sdk';
 import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
 import { BigNumberish } from 'ethers';
-
+import { Curve3PoolSwapParams } from '../../params';
 interface SwapParams {
   fromToken: number;
   toToken: number;
   amountIn: BigNumberish;
   minAmountOut: BigNumberish;
-  from: string;
-  to: string;
 }
 
 describe('Curve3PoolSwap tests', () => {
@@ -28,12 +26,7 @@ describe('Curve3PoolSwap tests', () => {
     params: SwapParams
   ): Promise<[string, string]> {
     const abiCoder = new ethers.AbiCoder();
-    const paramsEncoded = abiCoder.encode(
-      [
-        'tuple(int128 fromToken, int128 toToken, uint256 amountIn, uint256 minAmountOut, address from, address to)',
-      ],
-      [params]
-    );
+    const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
 
     return curve3PoolSwap
       .getAddress()
@@ -69,8 +62,6 @@ describe('Curve3PoolSwap tests', () => {
         (fundAmount * 0.99).toString(),
         tokenConfig[toToken].decimals
       ),
-      from: safeAddr,
-      to: safeAddr,
     };
 
     const [curve3PoolSwapAddress, encodedFunctionCall] = await prepareSwapParameters(
@@ -205,13 +196,39 @@ describe('Curve3PoolSwap tests', () => {
     });
 
     it('should fail when swapping zero amount', async () => {
-      expect(testSwap('DAI', 'USDC', 0)).to.be.revertedWith('GS013');
+      const params: SwapParams = {
+        fromToken: CURVE_3POOL_INDICES.DAI,
+        toToken: CURVE_3POOL_INDICES.USDC,
+        amountIn: 0,
+        minAmountOut: 0,
+      };
+      const [curve3PoolSwapAddress, encodedFunctionCall] = await prepareSwapParameters(
+        curve3PoolSwap,
+        params
+      );
+      await expect(
+        executeSafeTransaction(safeAddr, curve3PoolSwapAddress, 0, encodedFunctionCall, 1, signer)
+      ).to.be.revertedWith('GS013');
     });
   });
-  describe.skip('Slippage protection', () => {
+  describe('Slippage protection', () => {
     it('should fail when slippage is too high', async () => {
-      // TODO: Currently there is no slippage protection in the curve3PoolSwap contract
-      // We should add it and then implement this test
+      const mainSwapParams: SwapParams = {
+        fromToken: CURVE_3POOL_INDICES.USDC,
+        toToken: CURVE_3POOL_INDICES.DAI,
+        amountIn: 100,
+        minAmountOut: 150,
+      };
+
+      const [mainSwapAddress, mainSwapEncodedCall] = await prepareSwapParameters(
+        curve3PoolSwap,
+        mainSwapParams
+      );
+
+      // The transaction should revert due to unrealistic slippage expectation
+      await expect(
+        executeSafeTransaction(safeAddr, mainSwapAddress, 0, mainSwapEncodedCall, 1, signer)
+      ).to.be.revertedWith('GS013');
     });
   });
   describe.skip('Multi-step transactions', () => {
@@ -219,42 +236,26 @@ describe('Curve3PoolSwap tests', () => {
       // lets wait for more of the sdk to be implemented before we implement this test
       // TODO: Is this test more of a check that the safe can handle multiple transactions?
     });
-
-    it('should swap and then swap back to the original token', async () => {
-      // Is there any reason for this when we've checked all permutations already?
-    });
   });
   describe('Error handling', () => {
-    it.skip('should fail with invalid token indices', async () => {
-      // TODO: This test is intermittenly failing, not sure why yet
-      // It fails with "ProviderError: Unknown account 0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503"
-      // when run with other tests. That address is the owner and admin address.
-      // It's failing inside the fundAccountWithStablecoin function, however that function
-      // is used in other tests and they pass.
-
+    it('should fail with invalid token indices', async () => {
       // Not using the safe as it obsfucates the error message
       const swapAmount = ethers.parseUnits('10', tokenConfig.USDC.decimals);
       await fundAccountWithStablecoin(await curve3PoolSwap.getAddress(), 'USDC', 100);
 
       const params = {
         fromToken: 1,
-        toToken: 42,
+        toToken: 42, // invalid token index
         amountIn: swapAmount,
         minAmountOut: 0,
-        from: await signer.getAddress(),
-        to: await signer.getAddress(),
       };
 
       const abiCoder = new ethers.AbiCoder();
-      const paramsEncoded = abiCoder.encode(
-        [
-          'tuple(int128 fromToken, int128 toToken, uint256 amountIn, uint256 minAmountOut, address from, address to)',
-        ],
-        [params]
-      );
+      const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
 
-      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWith(
-        'Invalid token indices'
+      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWithCustomError(
+        curve3PoolSwap,
+        'InvalidTokenIndices'
       );
     });
     it('should fail with matching token indices', async () => {
@@ -265,24 +266,14 @@ describe('Curve3PoolSwap tests', () => {
         toToken: 0,
         amountIn: swapAmount,
         minAmountOut: 0,
-        from: await signer.getAddress(),
-        to: await signer.getAddress(),
       };
 
       const abiCoder = new ethers.AbiCoder();
-      const paramsEncoded = abiCoder.encode(
-        [
-          'tuple(int128 fromToken, int128 toToken, uint256 amountIn, uint256 minAmountOut, address from, address to)',
-        ],
-        [params]
+      const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
+      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWithCustomError(
+        curve3PoolSwap,
+        'CannotSwapSameToken'
       );
-      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWith(
-        'Cannot swap same token'
-      );
-    });
-
-    it('should fail with invalid addresses for from and to parameters', async () => {
-      //TODO: Do we need to check the from and to addresses? Maybe we can remove them entirely?
     });
   });
 });
