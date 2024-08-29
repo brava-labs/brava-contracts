@@ -31,7 +31,7 @@ contract FluidSupply is ActionBase, FluidHelper {
 
         inputData.amount = _parseParamUint(
             inputData.amount,
-            _paramMapping[0],
+            _paramMapping[1],
             _returnValues
         );
 

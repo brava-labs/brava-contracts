@@ -31,7 +31,7 @@ contract YearnWithdraw is ActionBase, YearnHelper {
 
         inputData.yAmount = _parseParamUint(
             inputData.yAmount,
-            _paramMapping[0],
+            _paramMapping[1],
             _returnValues
         );
 

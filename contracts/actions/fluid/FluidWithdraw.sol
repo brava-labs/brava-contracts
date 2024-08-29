@@ -31,7 +31,7 @@ contract FluidWithdraw is ActionBase, FluidHelper {
 
         inputData.fAmount = _parseParamUint(
             inputData.fAmount,
-            _paramMapping[0],
+            _paramMapping[1],
             _returnValues
         );
 
