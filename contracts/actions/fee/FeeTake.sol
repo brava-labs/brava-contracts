@@ -25,7 +25,8 @@ contract FeeTake is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues
+        bytes32[] memory _returnValues,
+        uint16 /*_strategyId*/
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = parseInputs(_callData);
 
@@ -35,12 +36,12 @@ contract FeeTake is ActionBase {
 
         _takeFee(inputData);
 
-        emit ActionEvent("FeeTake", abi.encode(inputData));
+        logger.logActionEvent("FeeTake", abi.encode(inputData));
         return bytes32(inputData.amount);
     }
 
     function _takeFee(Params memory _inputData) internal {
-        _inputData.feeToken.pullTokensIfNeeded(_inputData.from, _inputData.amount);
+        _inputData.feeToken.pullTokens(_inputData.from, _inputData.amount);
         _inputData.feeToken.withdrawTokens(FEE_RECIPIENT, _inputData.amount);
     }
 

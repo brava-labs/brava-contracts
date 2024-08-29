@@ -4,6 +4,7 @@ pragma solidity =0.8.24;
 import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IYearnVault } from "../../interfaces/yearn/IYearnVault.sol";
+import { ActionUtils } from "../../libraries/ActionUtils.sol";
 
 /// @title Burns yTokens and receive underlying tokens in return
 /// @dev yTokens need to be approved for user's wallet to pull them (yToken address)
@@ -12,13 +13,9 @@ contract YearnWithdraw is ActionBase {
 
     /// @param yToken - address of yToken to withdraw (same as yVault address)
     /// @param yAmount - amount of yToken to withdraw
-    /// @param from - address from which to pull yTokens from
-    /// @param to - address where received underlying tokens will be sent to
     struct Params {
         address yToken;
         uint256 yAmount;
-        address from;
-        address to;
     }
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
@@ -27,7 +24,8 @@ contract YearnWithdraw is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues
+        bytes32[] memory _returnValues,
+        uint16 _strategyId
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
@@ -36,19 +34,17 @@ contract YearnWithdraw is ActionBase {
             _paramMapping[1],
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[2], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[3], _returnValues);
 
-        (uint256 amountReceived, bytes memory logData) = _yearnWithdraw(inputData);
-        emit ActionEvent("YearnWithdraw", logData);
+        (uint256 amountReceived, bytes memory logData) = _yearnWithdraw(inputData, _strategyId);
+        logger.logActionEvent("YearnWithdraw", logData);
         return (bytes32(amountReceived));
     }
 
     /// @inheritdoc ActionBase
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _yearnWithdraw(inputData);
-        logger.logActionDirectEvent("YearnWithdraw", logData);
+        (, bytes memory logData) = _yearnWithdraw(inputData, 0);
+        logger.logActionEvent("YearnWithdraw", logData);
     }
 
     /// @inheritdoc ActionBase
@@ -58,7 +54,7 @@ contract YearnWithdraw is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _yearnWithdraw(Params memory _inputData)
+    function _yearnWithdraw(Params memory _inputData, uint16 _strategyId)
        private 
         returns (uint256 tokenAmountReceived, bytes memory logData)
     {
@@ -66,14 +62,17 @@ contract YearnWithdraw is ActionBase {
 
         address underlyingToken = vault.token();
 
+        uint256 yBalanceBefore = address(vault).getBalance(address(this));
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
         vault.withdraw(_inputData.yAmount, address(this));
+        uint256 yBalanceAfter = address(vault).getBalance(address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
 
-        underlyingToken.withdrawTokens(_inputData.to, tokenAmountReceived);
-
         logData = abi.encode(_inputData, tokenAmountReceived);
+
+        logger.logActionEvent("BalanceUpdate", ActionUtils._encodeBalanceUpdate(_strategyId, ActionUtils._poolIdFromAddress(address(vault)), yBalanceBefore, yBalanceAfter));
+
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

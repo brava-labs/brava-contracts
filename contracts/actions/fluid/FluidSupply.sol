@@ -4,6 +4,7 @@ pragma solidity =0.8.24;
 import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IFToken } from "../../interfaces/fluid/IFToken.sol";
+import { ActionUtils } from "../../libraries/ActionUtils.sol";
 
 /// @title Supplies tokens to Yearn vault
 /// @dev tokens need to be approved for user's wallet to pull them (token address)
@@ -12,13 +13,9 @@ contract FluidSupply is ActionBase {
 
     /// @param token - address of fToken contract
     /// @param amount - amount of token to supply
-    /// @param from - address from which to pull tokens from
-    /// @param to - address where received fTokens will be sent to
     struct Params {
         address token;
         uint256 amount;
-        address from;
-        address to;
     }
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
@@ -27,7 +24,8 @@ contract FluidSupply is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues
+        bytes32[] memory _returnValues,
+        uint16 _strategyId
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
@@ -36,19 +34,17 @@ contract FluidSupply is ActionBase {
             _paramMapping[1],
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[2], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[3], _returnValues);
 
-        (uint256 fAmountReceived, bytes memory logData) = _fluidSupply(inputData);
-        emit ActionEvent("FluidSupply", logData);
+        (uint256 fAmountReceived, bytes memory logData) = _fluidSupply(inputData, _strategyId);
+        logger.logActionEvent("FluidSupply", logData);
         return bytes32(fAmountReceived);
     }
 
     /// @inheritdoc ActionBase
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _fluidSupply(inputData);
-        logger.logActionDirectEvent("FluidSupply", logData);
+        (, bytes memory logData) = _fluidSupply(inputData, 0);
+        logger.logActionEvent("FluidSupply", logData);
     }
 
     /// @inheritdoc ActionBase
@@ -58,7 +54,7 @@ contract FluidSupply is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _fluidSupply(Params memory _inputData) private returns (uint256 fTokenAmount, bytes memory logData) {
+    function _fluidSupply(Params memory _inputData, uint16 _strategyId) private returns (uint256 fTokenAmount, bytes memory logData) {
         IFToken fToken = IFToken(address(_inputData.token));
 
         _inputData.token.approveToken(address(fToken), _inputData.amount);
@@ -69,6 +65,8 @@ contract FluidSupply is ActionBase {
         fTokenAmount = fBalanceAfter - fBalanceBefore;
 
         logData = abi.encode(_inputData, fTokenAmount);
+
+        logger.logActionEvent("BalanceUpdate", ActionUtils._encodeBalanceUpdate(_strategyId, ActionUtils._poolIdFromAddress(address(fToken)), fBalanceBefore, fBalanceAfter));
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

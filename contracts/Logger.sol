@@ -9,12 +9,6 @@ contract Logger {
         bytes data
     );
 
-    event ActionDirectEvent(
-        address indexed caller,
-        string indexed logName,
-        bytes data
-    );
-
     function logActionEvent(
         string memory _logName,
         bytes memory _data
@@ -22,10 +16,4 @@ contract Logger {
         emit ActionEvent(msg.sender, _logName, _data);
     }
 
-    function logActionDirectEvent(
-        string memory _logName,
-        bytes memory _data
-    ) public {
-        emit ActionDirectEvent(msg.sender, _logName, _data);
-    }
 }
