@@ -39,6 +39,9 @@ describe('Fluid Supply and Withdraw tests', () => {
     // Revert local snapshot after each test
     log('Reverting to local snapshot');
     await network.provider.send('evm_revert', [snapshotId]);
+
+    // IMPORTANT: take a new snapshot, they can't be reused!
+    snapshotId = await network.provider.send('evm_snapshot');
   });
 
   it.skip('Should execute Fluid Supply', async () => {

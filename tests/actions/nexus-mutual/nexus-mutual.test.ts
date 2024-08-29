@@ -36,9 +36,13 @@ describe.skip('BuyCover tests', () => {
 
   afterEach(async () => {
     await network.provider.send('evm_revert', [snapshotId]);
+
+    // IMPORTANT: take a new snapshot, they can't be reused!
+    snapshotId = await network.provider.send('evm_snapshot');
   });
 
-  it('should buy cover from Nexus Mutual', async () => {
+  // Skip this until it's implemented properly
+  it.skip('should buy cover from Nexus Mutual', async () => {
     const fundAmount = 1000; // 1000 DAI
     await fundAccountWithStablecoin(safeAddr, 'DAI', fundAmount);
 

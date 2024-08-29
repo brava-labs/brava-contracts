@@ -32,6 +32,9 @@ describe('Some Action tests', () => {
     // Revert local snapshot after each test
     log('Reverting to local snapshot');
     await network.provider.send('evm_revert', [snapshotId]);
+
+    // IMPORTANT: take a new snapshot, they can't be reused!
+    snapshotId = await network.provider.send('evm_snapshot');
   });
 
   it('First test here', async () => {});
