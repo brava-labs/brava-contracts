@@ -35,26 +35,30 @@ contract Curve3PoolSwap is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues
+        bytes32[] memory _returnValues,
+        uint16 _strategyId
     ) public payable virtual override returns (bytes32) {
         Params memory params = _parseInputs(_callData);
         params.amountIn = _parseParamUint(params.amountIn, _paramMapping[0], _returnValues);
 
-        (uint256 amountOut, bytes memory logData) = _curve3PoolSwap(params);
-        emit ActionEvent("Curve3PoolSwap", logData);
+        (uint256 amountOut, bytes memory logData) = _curve3PoolSwap(params, _strategyId);
+        logger.logActionEvent("Curve3PoolSwap", logData);
         return bytes32(amountOut);
     }
 
     function executeActionDirect(bytes memory _callData) public payable virtual override {
         Params memory params = _parseInputs(_callData);
-        _curve3PoolSwap(params);
+        _curve3PoolSwap(params, 0);
     }
 
     function actionType() public pure virtual override returns (uint8) {
         return uint8(ActionType.SWAP_ACTION);
     }
 
-    function _curve3PoolSwap(Params memory _params) internal returns (uint256 amountOut, bytes memory logData) {
+    function _curve3PoolSwap(
+        Params memory _params,
+        uint16 _strategyId
+    ) internal returns (uint256 amountOut, bytes memory logData) {
         if (!(_params.fromToken >= 0 && _params.fromToken < 3 && _params.toToken >= 0 && _params.toToken < 3)) {
             revert InvalidTokenIndices();
         }
