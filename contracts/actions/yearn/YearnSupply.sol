@@ -5,11 +5,11 @@ import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IYearnVault } from "../../interfaces/yearn/IYearnVault.sol";
 import { IYearnRegistry } from "../../interfaces/yearn/IYearnRegistry.sol";
-import { YearnHelper } from "./YearnHelper.sol";
+import { ActionUtils } from "../../libraries/ActionUtils.sol";
 
 /// @title Supplies tokens to Yearn vault
 /// @dev tokens need to be approved for user's wallet to pull them (token address)
-contract YearnSupply is ActionBase, YearnHelper {
+contract YearnSupply is ActionBase {
     using TokenUtils for address;
 
     /// @param token - address of token to supply
@@ -47,7 +47,7 @@ contract YearnSupply is ActionBase, YearnHelper {
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
         (, bytes memory logData) = _yearnSupply(inputData, 0);
-        logger.logActionDirectEvent("YearnSupply", logData);
+        logger.logActionEvent("YearnSupply", logData);
     }
 
     /// @inheritdoc ActionBase
@@ -69,7 +69,7 @@ contract YearnSupply is ActionBase, YearnHelper {
 
         logData = abi.encode(_inputData, yTokenAmount);
 
-        logger.logBalanceUpdateEvent(_poolId((address(vault))), yBalanceBefore, yBalanceAfter, _strategyId);
+        logger.logActionEvent("BalanceUpdate", ActionUtils._encodeBalanceUpdate(_strategyId, ActionUtils._poolIdFromAddress(address(vault)), yBalanceBefore, yBalanceAfter));
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

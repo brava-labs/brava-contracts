@@ -43,7 +43,7 @@ abstract contract ActionBase {
     /// @notice Parses inputs and runs the implemented action through a user wallet
     /// @dev Is called by the RecipeExecutor chaining actions together
     /// @param _callData Array of input values each value encoded as bytes
-    /// @param _paramMapping Array that specifies how return and subscribed values are mapped in input
+    /// @param _paramMapping Array that specifies how return values are mapped in input
     /// @param _returnValues Returns values from actions before, which can be injected in inputs
     /// @param _strategyId The index of the strategy the action is related to
     /// @return Returns a bytes32 value through user wallet, each actions implements what that value is

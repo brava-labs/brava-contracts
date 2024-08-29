@@ -61,7 +61,7 @@ contract BuyCover is ActionBase {
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
         (, bytes memory logData) = _buyCover(inputData, 0);
-        logger.logActionDirectEvent("BuyCover", logData);
+        logger.logActionEvent("BuyCover", logData);
     }
 
     /// @inheritdoc ActionBase
@@ -104,7 +104,7 @@ contract BuyCover is ActionBase {
 
         logData = abi.encode(_inputData, coverId);
 
-        logger.logCoverBuyEvent(_inputData.poolId, _inputData.amount, _inputData.period, _strategyId);
+        logger.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, _inputData.poolId, _inputData.period, _inputData.amount));
     }
 
     function _assetIdToTokenAddress(uint256 _assetId) private pure returns (address) {
@@ -117,6 +117,10 @@ contract BuyCover is ActionBase {
         } else {
             revert("Invalid assetId");
         }
+    }
+
+    function _encodeBuyCover(uint16 _strategyId, bytes4 _poolId, uint32 _period, uint256 _amount) private pure returns (bytes memory) {
+        return abi.encode(_strategyId, _poolId, _period, _amount);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

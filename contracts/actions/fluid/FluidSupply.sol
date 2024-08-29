@@ -4,11 +4,11 @@ pragma solidity =0.8.24;
 import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IFToken } from "../../interfaces/fluid/IFToken.sol";
-import { FluidHelper } from "./FluidHelper.sol";
+import { ActionUtils } from "../../libraries/ActionUtils.sol";
 
 /// @title Supplies tokens to Yearn vault
 /// @dev tokens need to be approved for user's wallet to pull them (token address)
-contract FluidSupply is ActionBase, FluidHelper {
+contract FluidSupply is ActionBase {
     using TokenUtils for address;
 
     /// @param token - address of fToken contract
@@ -44,7 +44,7 @@ contract FluidSupply is ActionBase, FluidHelper {
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
         (, bytes memory logData) = _fluidSupply(inputData, 0);
-        logger.logActionDirectEvent("FluidSupply", logData);
+        logger.logActionEvent("FluidSupply", logData);
     }
 
     /// @inheritdoc ActionBase
@@ -66,7 +66,7 @@ contract FluidSupply is ActionBase, FluidHelper {
 
         logData = abi.encode(_inputData, fTokenAmount);
 
-        logger.logBalanceUpdateEvent(_poolId(address(fToken)), fBalanceBefore, fBalanceAfter, _strategyId);
+        logger.logActionEvent("BalanceUpdate", ActionUtils._encodeBalanceUpdate(_strategyId, ActionUtils._poolIdFromAddress(address(fToken)), fBalanceBefore, fBalanceAfter));
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

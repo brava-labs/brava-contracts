@@ -4,11 +4,11 @@ pragma solidity =0.8.24;
 import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IYearnVault } from "../../interfaces/yearn/IYearnVault.sol";
-import { YearnHelper } from "./YearnHelper.sol";
+import { ActionUtils } from "../../libraries/ActionUtils.sol";
 
 /// @title Burns yTokens and receive underlying tokens in return
 /// @dev yTokens need to be approved for user's wallet to pull them (yToken address)
-contract YearnWithdraw is ActionBase, YearnHelper {
+contract YearnWithdraw is ActionBase {
     using TokenUtils for address;
 
     /// @param yToken - address of yToken to withdraw (same as yVault address)
@@ -44,7 +44,7 @@ contract YearnWithdraw is ActionBase, YearnHelper {
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
         (, bytes memory logData) = _yearnWithdraw(inputData, 0);
-        logger.logActionDirectEvent("YearnWithdraw", logData);
+        logger.logActionEvent("YearnWithdraw", logData);
     }
 
     /// @inheritdoc ActionBase
@@ -62,14 +62,17 @@ contract YearnWithdraw is ActionBase, YearnHelper {
 
         address underlyingToken = vault.token();
 
+        uint256 yBalanceBefore = address(vault).getBalance(address(this));
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
         vault.withdraw(_inputData.yAmount, address(this));
+        uint256 yBalanceAfter = address(vault).getBalance(address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
 
         logData = abi.encode(_inputData, tokenAmountReceived);
 
-        logger.logBalanceUpdateEvent(_poolId(address(vault)), underlyingTokenBalanceBefore, underlyingTokenBalanceAfter, _strategyId);
+        logger.logActionEvent("BalanceUpdate", ActionUtils._encodeBalanceUpdate(_strategyId, ActionUtils._poolIdFromAddress(address(vault)), yBalanceBefore, yBalanceAfter));
+
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

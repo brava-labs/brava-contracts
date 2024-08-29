@@ -4,11 +4,12 @@ pragma solidity =0.8.24;
 import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IFToken } from "../../interfaces/fluid/IFToken.sol";
-import { FluidHelper } from "./FluidHelper.sol";
+import { ActionUtils } from "../../libraries/ActionUtils.sol";
+import { IERC20 } from "../../interfaces/IERC20.sol";
 
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
-contract FluidWithdraw is ActionBase, FluidHelper {
+contract FluidWithdraw is ActionBase {
     using TokenUtils for address;
 
     /// @param fToken - address of yToken to withdraw
@@ -45,7 +46,7 @@ contract FluidWithdraw is ActionBase, FluidHelper {
     function executeActionDirect(bytes memory _callData) public payable override {
         Params memory inputData = _parseInputs(_callData);
         (, bytes memory logData) = _fluidWithdraw(inputData, 0);
-        logger.logActionDirectEvent("FluidWithdraw", logData);
+        logger.logActionEvent("FluidWithdraw", logData);
     }
 
     /// @inheritdoc ActionBase
@@ -63,13 +64,24 @@ contract FluidWithdraw is ActionBase, FluidHelper {
 
         address underlyingToken = fToken.asset();
 
+        uint256 fBalanceBefore = address(fToken).getBalance(address(this));
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
+        fToken.withdraw(_inputData.fAmount, address(this), address(this));
+        uint256 fBalanceAfter = address(fToken).getBalance(address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
 
         logData = abi.encode(_inputData, tokenAmountReceived);
 
-        logger.logBalanceUpdateEvent(_poolId(address(fToken)), underlyingTokenBalanceBefore, underlyingTokenBalanceAfter, _strategyId);
+        logger.logActionEvent(
+            "BalanceUpdate",
+            ActionUtils._encodeBalanceUpdate(
+                _strategyId,
+                ActionUtils._poolIdFromAddress(_inputData.fToken),
+                fBalanceBefore,
+                fBalanceAfter
+            )
+        );
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
