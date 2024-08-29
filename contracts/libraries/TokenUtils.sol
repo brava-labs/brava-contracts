@@ -22,8 +22,12 @@ library TokenUtils {
         }
     }
 
-    //TODO: This always pulls tokens, but should we only pull if needed?
-    function pullTokensIfNeeded(address _token, address _from, uint256 _amount) internal returns (uint256) {
+
+    function pullTokens(
+        address _token,
+        address _from,
+        uint256 _amount
+    ) internal returns (uint256) {
         // handle max uint amount
         if (_amount == type(uint256).max) {
             _amount = getBalance(_token, _from);
@@ -36,7 +40,7 @@ library TokenUtils {
         return _amount;
     }
 
-    function pullTokensIfNeededWithPermit(
+    function pullTokensWithPermit(
         address _token,
         address _from,
         uint256 _amount,
