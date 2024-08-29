@@ -33,11 +33,11 @@ contract FluidWithdraw is ActionBase {
 
         inputData.fAmount = _parseParamUint(
             inputData.fAmount,
-            _paramMapping[0],
+            _paramMapping[1],
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _returnValues);
+        inputData.from = _parseParamAddr(inputData.from, _paramMapping[2], _returnValues);
+        inputData.to = _parseParamAddr(inputData.to, _paramMapping[3], _returnValues);
 
         (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData);
         emit ActionEvent("FluidWithdraw", logData);
@@ -64,18 +64,12 @@ contract FluidWithdraw is ActionBase {
     {
         IFToken fToken = IFToken(_inputData.fToken);
 
-        uint256 amountPulled =
-            _inputData.fToken.pullTokensIfNeeded(_inputData.from, _inputData.fAmount);
-        _inputData.fAmount = amountPulled;
-
         address underlyingToken = fToken.asset();
 
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
         fToken.withdraw(_inputData.fAmount, _inputData.to, address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
-
-        underlyingToken.withdrawTokens(_inputData.to, tokenAmountReceived);
 
         logData = abi.encode(_inputData, tokenAmountReceived);
     }

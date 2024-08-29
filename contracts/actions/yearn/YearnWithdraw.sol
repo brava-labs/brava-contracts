@@ -33,11 +33,11 @@ contract YearnWithdraw is ActionBase {
 
         inputData.yAmount = _parseParamUint(
             inputData.yAmount,
-            _paramMapping[0],
+            _paramMapping[1],
             _returnValues
         );
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[2], _returnValues);
+        inputData.from = _parseParamAddr(inputData.from, _paramMapping[2], _returnValues);
+        inputData.to = _parseParamAddr(inputData.to, _paramMapping[3], _returnValues);
 
         (uint256 amountReceived, bytes memory logData) = _yearnWithdraw(inputData);
         emit ActionEvent("YearnWithdraw", logData);
@@ -63,10 +63,6 @@ contract YearnWithdraw is ActionBase {
         returns (uint256 tokenAmountReceived, bytes memory logData)
     {
         IYearnVault vault = IYearnVault(_inputData.yToken);
-
-        uint256 amountPulled =
-            _inputData.yToken.pullTokensIfNeeded(_inputData.from, _inputData.yAmount);
-        _inputData.yAmount = amountPulled;
 
         address underlyingToken = vault.token();
 
