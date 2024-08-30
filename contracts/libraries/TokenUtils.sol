@@ -2,10 +2,10 @@
 
 pragma solidity =0.8.24;
 
-import { IWETH } from "../interfaces/IWETH.sol";
-import { IERC20 } from "../interfaces/IERC20.sol";
-import { IERC20Permit } from "../interfaces/IERC20Permit.sol";
-import { SafeERC20 } from "./SafeERC20.sol";
+import {IWETH} from "../interfaces/IWETH.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
+import {IERC20Permit} from "../interfaces/IERC20Permit.sol";
+import {SafeERC20} from "./SafeERC20.sol";
 
 library TokenUtils {
     using SafeERC20 for IERC20;
@@ -14,11 +14,7 @@ library TokenUtils {
     address public constant ETH_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @dev Only approves the amount if allowance is lower than amount, does not decrease allowance
-    function approveToken(
-        address _tokenAddr,
-        address _to,
-        uint256 _amount
-    ) internal {
+    function approveToken(address _tokenAddr, address _to, uint256 _amount) internal {
         if (_tokenAddr == ETH_ADDR) return;
 
         if (IERC20(_tokenAddr).allowance(address(this), _to) < _amount) {
@@ -26,11 +22,7 @@ library TokenUtils {
         }
     }
 
-    function pullTokensIfNeeded(
-        address _token,
-        address _from,
-        uint256 _amount
-    ) internal returns (uint256) {
+    function pullTokens(address _token, address _from, uint256 _amount) internal returns (uint256) {
         // handle max uint amount
         if (_amount == type(uint256).max) {
             _amount = getBalance(_token, _from);
@@ -43,7 +35,7 @@ library TokenUtils {
         return _amount;
     }
 
-    function pullTokensIfNeededWithPermit(
+    function pullTokensWithPermit(
         address _token,
         address _from,
         uint256 _amount,
@@ -65,11 +57,7 @@ library TokenUtils {
         return _amount;
     }
 
-    function withdrawTokens(
-        address _token,
-        address _to,
-        uint256 _amount
-    ) internal returns (uint256) {
+    function withdrawTokens(address _token, address _to, uint256 _amount) internal returns (uint256) {
         if (_amount == type(uint256).max) {
             _amount = getBalance(_token, address(this));
         }
