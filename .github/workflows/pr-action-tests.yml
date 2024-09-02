@@ -58,4 +58,6 @@ jobs:
               npx hardhat test tests/actions/$subdir
             fi
           done
-  
+ 
+      - name: Coverage
+        run: npx hardhat coverage
