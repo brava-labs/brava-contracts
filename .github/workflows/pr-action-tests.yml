@@ -13,6 +13,8 @@ jobs:
 
     steps:
 
+      - uses: actions/checkout@v4
+      
       - uses: ./.github/workflows/reusable-env-setup.yml
 
       - name: Compile contracts
