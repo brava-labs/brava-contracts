@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 /* solhint-disable one-contract-per-file */
-pragma solidity^0.8.0;
+pragma solidity ^0.8.0;
 
 /**
  * @title IGuardManager - A contract interface managing transaction guards which perform pre and post-checks on Safe transactions.

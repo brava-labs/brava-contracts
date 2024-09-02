@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity^0.8.0;
+pragma solidity ^0.8.0;
 
 interface IFToken {
     function previewDeposit(uint256 _assets) external view returns (uint256);
