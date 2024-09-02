@@ -5,14 +5,12 @@ on:
   pull_request:
 
 jobs:
-  setup:
-    uses: ./.github/workflows/reusable-env-setup.yml
-    secrets: inherit
 
   lint:
-    needs: setup
     runs-on: ubuntu-latest
 
     steps:
+      - uses: ./.github/workflows/reusable-env-setup.yml
+
       - name: Run lint check
         run: npm run lint
