@@ -8,7 +8,7 @@ import {ParamSelectorLib} from "../../libraries/ParamSelector.sol";
 /// @title Helper action to send a token to the specified address
 contract FeeTake is ActionBase {
     using TokenUtils for address;
-    using ParamSelectorLib for uint256;
+    using ParamSelectorLib for *;
 
     struct Params {
         address from;
@@ -31,9 +31,10 @@ contract FeeTake is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = parseInputs(_callData);
 
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[0], _returnValues);
-        inputData.feeToken = _parseParamAddr(inputData.feeToken, _paramMapping[1], _returnValues);
-        inputData.amount._paramSelector(_paramMapping[2], _returnValues);
+        // TODO: Are we ever going to change the from and feeToken in a previous action?
+        inputData.from = inputData.from._paramSelector(_paramMapping[0], _returnValues);
+        inputData.feeToken = inputData.feeToken._paramSelector(_paramMapping[1], _returnValues);
+        inputData.amount = inputData.amount._paramSelector(_paramMapping[2], _returnValues);
 
         _takeFee(inputData);
 

@@ -1,8 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {ISafe} from "../interfaces/safe/ISafe.sol";
+
 library ParamSelectorLib {
     error ParamSelectorError(uint8);
+
+    uint8 public constant WALLET_ADDRESS_PARAM_MAPPING = 254;
+    uint8 public constant OWNER_ADDRESS_PARAM_MAPPING = 255;
+
+    function _paramSelector(
+        address _param,
+        uint8 _mapPosition,
+        bytes32[] memory _returnValues
+    ) internal view returns (address) {
+        if (_mapPosition != 0) {
+            if (_mapPosition > _returnValues.length) {
+                revert ParamSelectorError(_mapPosition);
+            }
+            /// @dev The last two values are specially reserved for proxy addr and owner addr
+            if (_mapPosition == WALLET_ADDRESS_PARAM_MAPPING) return address(this); // wallet address
+            if (_mapPosition == OWNER_ADDRESS_PARAM_MAPPING) return fetchOwnersOrWallet(); // owner if 1/1 wallet or the wallet itself
+
+            return address(uint160(uint256(_returnValues[_mapPosition - 1])));
+        }
+        return _param;
+    }
+
+    function fetchOwnersOrWallet() internal view returns (address) {
+        address[] memory owners = ISafe(address(this)).getOwners();
+        return owners.length == 1 ? owners[0] : address(this);
+    }
 
     // ==========================
     // ===== Start of bytes32 ====

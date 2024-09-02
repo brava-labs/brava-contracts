@@ -54,41 +54,4 @@ abstract contract ActionBase {
 
     /// @notice Returns the type of action we are implementing
     function actionType() public pure virtual returns (uint8);
-
-    //////////////////////////// HELPER METHODS ////////////////////////////
-
-    /// @notice Given an addr input, injects return/sub values if specified
-    /// @param _param The original input value
-    /// @param _mapType Indicated the type of the input in paramMapping
-    /// @param _returnValues Array of subscription data we can replace the input value with
-    function _parseParamAddr(
-        address _param,
-        uint8 _mapType,
-        bytes32[] memory _returnValues
-    ) internal view returns (address) {
-        if (isReplaceable(_mapType)) {
-            /// @dev The last two values are specially reserved for proxy addr and owner addr
-            if (_mapType == WALLET_ADDRESS_PARAM_MAPPING) return address(this); // wallet address
-            if (_mapType == OWNER_ADDRESS_PARAM_MAPPING) return fetchOwnersOrWallet(); // owner if 1/1 wallet or the wallet itself
-            return address(bytes20((_returnValues[getReturnIndex(_mapType)])));
-        }
-        return _param;
-    }
-
-    /// @notice Checks if the paramMapping value indicated that we need to inject values
-    /// @param _type Indicated the type of the input
-    function isReplaceable(uint8 _type) internal pure returns (bool) {
-        return _type != NO_PARAM_MAPPING;
-    }
-
-    /// @notice Transforms the paramMapping value to the index in return array value
-    /// @param _type Indicated the type of the input
-    function getReturnIndex(uint8 _type) internal pure returns (uint8) {
-        return _type - 1;
-    }
-
-    function fetchOwnersOrWallet() internal view returns (address) {
-        address[] memory owners = ISafe(address(this)).getOwners();
-        return owners.length == 1 ? owners[0] : address(this);
-    }
 }
