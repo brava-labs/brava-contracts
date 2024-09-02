@@ -46,10 +46,6 @@ contract FeeTake is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    // solhint-disable-next-line no-empty-blocks
-    function executeActionDirect(bytes memory _callData) public payable virtual override {}
-
-    /// @inheritdoc ActionBase
     function actionType() public pure virtual override returns (uint8) {
         return uint8(ActionType.FEE_ACTION);
     }

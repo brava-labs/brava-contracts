@@ -41,14 +41,6 @@ contract FluidWithdraw is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    // TODO do we want strategy IDs for direct executions?
-    function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _fluidWithdraw(inputData, 0);
-        logger.logActionEvent("FluidWithdraw", logData);
-    }
-
-    /// @inheritdoc ActionBase
     function actionType() public pure virtual override returns (uint8) {
         return uint8(ActionType.WITHDRAW_ACTION);
     }

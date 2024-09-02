@@ -44,13 +44,6 @@ contract YearnSupply is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _yearnSupply(inputData, 0);
-        logger.logActionEvent("YearnSupply", logData);
-    }
-
-    /// @inheritdoc ActionBase
     function actionType() public pure virtual override returns (uint8) {
         return uint8(ActionType.DEPOSIT_ACTION);
     }

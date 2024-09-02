@@ -54,10 +54,6 @@ abstract contract ActionBase {
         uint16 _strategyId
     ) public payable virtual returns (bytes32);
 
-    /// @notice Parses inputs and runs the single implemented action through a user wallet
-    /// @dev Used to save gas when executing a single action directly
-    function executeActionDirect(bytes memory _callData) public payable virtual;
-
     /// @notice Returns the type of action we are implementing
     function actionType() public pure virtual returns (uint8);
 

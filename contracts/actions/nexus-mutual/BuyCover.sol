@@ -58,13 +58,6 @@ contract BuyCover is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _buyCover(inputData, 0);
-        logger.logActionEvent("BuyCover", logData);
-    }
-
-    /// @inheritdoc ActionBase
     function actionType() public pure virtual override returns (uint8) {
         return uint8(ActionType.COVER_ACTION);
     }
