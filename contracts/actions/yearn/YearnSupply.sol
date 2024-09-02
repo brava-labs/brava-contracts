@@ -32,7 +32,7 @@ contract YearnSupply is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.amount._paramSelector(_paramMapping[1], _returnValues);
+        inputData.amount = inputData.amount._paramSelector(_paramMapping[1], _returnValues);
 
         (uint256 yAmountReceived, bytes memory logData) = _yearnSupply(inputData, _strategyId);
         logger.logActionEvent("YearnSupply", logData);

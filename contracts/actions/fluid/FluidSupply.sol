@@ -31,7 +31,7 @@ contract FluidSupply is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.amount._paramSelector(_paramMapping[1], _returnValues);
+        inputData.amount = inputData.amount._paramSelector(_paramMapping[1], _returnValues);
 
         (uint256 fAmountReceived, bytes memory logData) = _fluidSupply(inputData, _strategyId);
         logger.logActionEvent("FluidSupply", logData);
