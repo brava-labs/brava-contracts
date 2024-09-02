@@ -11,8 +11,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: ./.github/workflows/reusable-env-setup.yml
+
+      - uses: ./.github/actions/env-setup
 
       - name: Run lint check
         run: npm run lint

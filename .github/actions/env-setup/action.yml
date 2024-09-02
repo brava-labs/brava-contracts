@@ -1,4 +1,5 @@
 name: Set up environment
+description: 'Set up environment variables and dependencies'
 
 runs:
   using: 'composite'
@@ -16,6 +17,7 @@ runs:
         ssh-private-key: ${{ secrets.SSH }}
         
     - name: Create .env file
+      shell: bash
       run: |
         touch .env
         echo TENDERLY_VIRTUAL_MAINNET_RPC=${{ secrets.TENDERLY_VIRTUAL_MAINNET_RPC }} >> .env
@@ -26,4 +28,5 @@ runs:
         echo ADMIN_ADDR=${{ secrets.ADMIN_ADDR }} >> .env
 
     - name: Install dependencies
+      shell: bash
       run: npm ci
