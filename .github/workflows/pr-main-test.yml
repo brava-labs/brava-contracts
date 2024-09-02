@@ -1,0 +1,28 @@
+name: Run full test and coverage
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  suite-test:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/env-setup
+        with:
+          ssh-private-key: ${{ secrets.SSH }}
+          tenderly-virtual-mainnet-rpc: ${{ secrets.TENDERLY_VIRTUAL_MAINNET_RPC }}
+          tenderly-project: ${{ secrets.TENDERLY_PROJECT }}
+          tenderly-username: ${{ secrets.TENDERLY_USERNAME }}
+          alchemy-api-key: ${{ secrets.ALCHEMY_API_KEY }}
+          owner-addr: ${{ secrets.OWNER_ADDR }}
+          admin-addr: ${{ secrets.ADMIN_ADDR }}
+
+      - name: Run tests with coverage
+        run: npm run coverage
