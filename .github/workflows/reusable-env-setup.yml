@@ -2,6 +2,21 @@ name: Set up environment
 
 on:
   workflow_call:
+    secrets:
+      SSH:
+        required: true
+      TENDERLY_VIRTUAL_MAINNET_RPC:
+        required: true
+      TENDERLY_PROJECT:
+        required: true
+      TENDERLY_USERNAME:
+        required: true
+      ALCHEMY_API_KEY:
+        required: true
+      OWNER_ADDR:
+        required: true
+      ADMIN_ADDR:
+        required: true
 
 jobs:
   setup:
