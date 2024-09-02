@@ -1,9 +1,9 @@
-import { ethers, Signer, expect } from '../..';
-import { network } from 'hardhat';
-import { YearnSupply, IERC20 } from '../../../typechain-types';
-import { YEARN_REGISTRY_ADDRESS, tokenConfig } from '../../constants';
-import { deploy, log, getBaseSetup } from '../../utils';
 import { executeSafeTransaction } from 'athena-sdk';
+import { network } from 'hardhat';
+import { Signer, ethers, expect } from '../..';
+import { IERC20, YearnSupply } from '../../../typechain-types';
+import { YEARN_REGISTRY_ADDRESS, tokenConfig } from '../../constants';
+import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
 
 // AI generated test, this doesn't work yet
@@ -65,8 +65,11 @@ describe('YearnSupply tests', () => {
     );
 
     const yearnSupplyAddress = await yearnSupply.getAddress();
-    const encodedFunctionCall = yearnSupply.interface.encodeFunctionData('executeActionDirect', [
+    const encodedFunctionCall = yearnSupply.interface.encodeFunctionData('executeAction', [
       paramsEncoded,
+      [0, 0, 0, 0],
+      [],
+      0,
     ]);
 
     // Approve USDC spending
@@ -95,4 +98,5 @@ describe('YearnSupply tests', () => {
   });
 });
 
-export {};
+export { };
+

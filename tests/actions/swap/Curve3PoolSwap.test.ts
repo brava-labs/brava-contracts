@@ -1,12 +1,12 @@
-import { ethers, Signer, expect } from '../..';
-import { network } from 'hardhat';
-import { Curve3PoolSwap, IERC20 } from '../../../typechain-types';
-import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../../tests/constants';
-import { deploy, log, getBaseSetup } from '../../utils';
 import { executeSafeTransaction } from 'athena-sdk';
-import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
 import { BigNumberish } from 'ethers';
+import { network } from 'hardhat';
+import { ethers, expect, Signer } from '../..';
+import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../../tests/constants';
+import { Curve3PoolSwap, IERC20 } from '../../../typechain-types';
 import { Curve3PoolSwapParams } from '../../params';
+import { deploy, getBaseSetup, log } from '../../utils';
+import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
 interface SwapParams {
   fromToken: number;
   toToken: number;
@@ -32,7 +32,7 @@ describe('Curve3PoolSwap tests', () => {
       .getAddress()
       .then((curve3PoolSwapAddress) => [
         curve3PoolSwapAddress,
-        curve3PoolSwap.interface.encodeFunctionData('executeActionDirect', [paramsEncoded]),
+        curve3PoolSwap.interface.encodeFunctionData('executeAction', [paramsEncoded, [0, 0, 0, 0], [], 0]),
       ]);
   }
 
@@ -253,7 +253,7 @@ describe('Curve3PoolSwap tests', () => {
       const abiCoder = new ethers.AbiCoder();
       const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
 
-      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWithCustomError(
+      await expect(curve3PoolSwap.executeAction(paramsEncoded, [0, 0, 0, 0], [], 0)).to.be.revertedWithCustomError(
         curve3PoolSwap,
         'InvalidTokenIndices'
       );
@@ -270,7 +270,7 @@ describe('Curve3PoolSwap tests', () => {
 
       const abiCoder = new ethers.AbiCoder();
       const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
-      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWithCustomError(
+      await expect(curve3PoolSwap.executeAction(paramsEncoded, [0, 0, 0, 0], [], 0)).to.be.revertedWithCustomError(
         curve3PoolSwap,
         'CannotSwapSameToken'
       );
@@ -278,4 +278,5 @@ describe('Curve3PoolSwap tests', () => {
   });
 });
 
-export {};
+export { };
+
