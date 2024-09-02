@@ -20,15 +20,9 @@ jobs:
             cache: 'npm'
 
       - name: Set up SSH key
-        uses: webfactory/ssh-agent@v0.5.0
+        uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH }}
-
-      - name: Configure npm
-        run: |
-          echo "//npm.pkg.github.com/:_authToken=${PAT}" >> .npmrc
-        env:
-          PAT: ${{ secrets.PAT }}
 
       - name: Install dependencies
         run: npm ci
