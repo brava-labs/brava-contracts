@@ -29,8 +29,8 @@ jobs:
       - name: Configure npm
         run: |
           echo "//npm.pkg.github.com/:_authToken=${PAT}" >> .npmrc
-          env:
-            GH_TOKEN: ${{ secrets.PAT }}
+        env:
+          PAT: ${{ secrets.PAT }}
 
       - name: Install dependencies
         run: npm ci
