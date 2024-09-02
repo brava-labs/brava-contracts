@@ -30,9 +30,9 @@ contract SendToken is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.tokenAddr = _parseParamAddr(inputData.tokenAddr, _paramMapping[0], _returnValues);
-        inputData.to = _parseParamAddr(inputData.to, _paramMapping[1], _returnValues);
-        inputData.amount._paramSelector(_paramMapping[2], _returnValues);
+        inputData.tokenAddr = inputData.tokenAddr._paramSelector(_paramMapping[0], _returnValues);
+        inputData.to = inputData.to._paramSelector(_paramMapping[1], _returnValues);
+        inputData.amount = inputData.amount._paramSelector(_paramMapping[2], _returnValues);
 
         inputData.amount = _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
 

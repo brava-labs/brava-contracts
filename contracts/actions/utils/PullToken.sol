@@ -30,9 +30,9 @@ contract PullToken is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.tokenAddr = _parseParamAddr(inputData.tokenAddr, _paramMapping[0], _returnValues);
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.amount._paramSelector(_paramMapping[2], _returnValues);
+        inputData.tokenAddr = inputData.tokenAddr._paramSelector(_paramMapping[0], _returnValues);
+        inputData.from = inputData.from._paramSelector(_paramMapping[1], _returnValues);
+        inputData.amount = inputData.amount._paramSelector(_paramMapping[2], _returnValues);
 
         inputData.amount = _pullToken(inputData.tokenAddr, inputData.from, inputData.amount);
 
