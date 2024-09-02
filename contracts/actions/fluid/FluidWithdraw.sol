@@ -12,11 +12,11 @@ contract FluidWithdraw is ActionBase {
     using TokenUtils for address;
     using ParamSelectorLib for *;
 
-    /// @param fToken - address of yToken to withdraw
-    /// @param fAmount - amount of yToken to withdraw
+    /// @param token - address of fToken contract
+    /// @param amount - amount of fToken to withdraw
     struct Params {
-        address fToken;
-        uint256 fAmount;
+        address token;
+        uint256 amount;
     }
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
@@ -30,7 +30,7 @@ contract FluidWithdraw is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.fAmount = inputData.fAmount._paramSelector(_paramMapping[1], _returnValues);
+        inputData.amount = inputData.amount._paramSelector(_paramMapping[1], _returnValues);
 
         (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData, _strategyId);
         logger.logActionEvent("FluidWithdraw", logData);
@@ -48,13 +48,13 @@ contract FluidWithdraw is ActionBase {
         Params memory _inputData,
         uint16 _strategyId
     ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
-        IFToken fToken = IFToken(_inputData.fToken);
+        IFToken fToken = IFToken(_inputData.token);
 
         address underlyingToken = fToken.asset();
 
         uint256 fBalanceBefore = address(fToken).getBalance(address(this));
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
-        fToken.withdraw(_inputData.fAmount, address(this), address(this));
+        fToken.withdraw(_inputData.amount, address(this), address(this));
         uint256 fBalanceAfter = address(fToken).getBalance(address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
@@ -65,7 +65,7 @@ contract FluidWithdraw is ActionBase {
             "BalanceUpdate",
             ActionUtils._encodeBalanceUpdate(
                 _strategyId,
-                ActionUtils._poolIdFromAddress(_inputData.fToken),
+                ActionUtils._poolIdFromAddress(_inputData.token),
                 fBalanceBefore,
                 fBalanceAfter
             )

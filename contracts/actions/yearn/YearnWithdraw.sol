@@ -12,11 +12,11 @@ contract YearnWithdraw is ActionBase {
     using TokenUtils for address;
     using ParamSelectorLib for *;
 
-    /// @param yToken - address of yToken to withdraw (same as yVault address)
-    /// @param yAmount - amount of yToken to withdraw
+    /// @param token - address of yToken to withdraw (same as yVault address)
+    /// @param amount - amount of yToken to withdraw
     struct Params {
-        address yToken;
-        uint256 yAmount;
+        address token;
+        uint256 amount;
     }
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
@@ -30,7 +30,7 @@ contract YearnWithdraw is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.yAmount = inputData.yAmount._paramSelector(_paramMapping[1], _returnValues);
+        inputData.amount = inputData.amount._paramSelector(_paramMapping[1], _returnValues);
 
         (uint256 amountReceived, bytes memory logData) = _yearnWithdraw(inputData, _strategyId);
         logger.logActionEvent("YearnWithdraw", logData);
@@ -48,13 +48,13 @@ contract YearnWithdraw is ActionBase {
         Params memory _inputData,
         uint16 _strategyId
     ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
-        IYearnVault vault = IYearnVault(_inputData.yToken);
+        IYearnVault vault = IYearnVault(_inputData.token);
 
         address underlyingToken = vault.token();
 
         uint256 yBalanceBefore = address(vault).getBalance(address(this));
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
-        vault.withdraw(_inputData.yAmount, address(this));
+        vault.withdraw(_inputData.amount, address(this));
         uint256 yBalanceAfter = address(vault).getBalance(address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
