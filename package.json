@@ -29,6 +29,6 @@
   "dependencies": {
     "@nomiclabs/hardhat-solhint": "^4.0.0",
     "dotenv": "^16.4.5",
-    "athena-sdk": "github:amorphicxyz/athena-sdk#main"
+    "athena-sdk": "https://github.com/amorphicxyz/athena-sdk.git#main"
   }
 }
