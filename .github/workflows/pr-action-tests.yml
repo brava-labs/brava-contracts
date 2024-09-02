@@ -14,8 +14,8 @@ jobs:
     steps:
 
       - uses: actions/checkout@v4
-      
-      - uses: ./.github/workflows/reusable-env-setup.yml
+
+      - uses: ./.github/actions/env-setup
 
       - name: Compile contracts
         run: npx hardhat compile
