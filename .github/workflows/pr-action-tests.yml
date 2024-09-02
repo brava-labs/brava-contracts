@@ -29,7 +29,8 @@ jobs:
       - name: Link package
         run: |
           cd athena-sdk
-          npm ci 
+          npm ci
+          npm run build
           npm link
           cd ..
           npm link athena-sdk
