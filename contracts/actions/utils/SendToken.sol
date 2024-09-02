@@ -40,13 +40,6 @@ contract SendToken is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = _parseInputs(_callData);
-
-        _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
-    }
-
-    /// @inheritdoc ActionBase
     function actionType() public virtual override pure returns (uint8) {
         return uint8(ActionType.TRANSFER_ACTION);
     }

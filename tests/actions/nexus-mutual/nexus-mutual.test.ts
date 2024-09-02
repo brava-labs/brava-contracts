@@ -1,9 +1,9 @@
-import { ethers, Signer, expect } from '../..';
+import { executeSafeTransaction } from 'athena-sdk';
 import { network } from 'hardhat';
+import { ethers, expect, Signer } from '../..';
 import { BuyCover, IERC20 } from '../../../typechain-types';
 import { tokenConfig } from '../../constants';
-import { deploy, log, getBaseSetup } from '../../utils';
-import { executeSafeTransaction } from 'athena-sdk';
+import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithStablecoin } from '../../utils-stable';
 
 // AI generated test, this doesn't work yet
@@ -83,8 +83,11 @@ describe.skip('BuyCover tests', () => {
     );
 
     const buyCoverAddress = await buyCover.getAddress();
-    const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeActionDirect', [
+    const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
       paramsEncoded,
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [],
+      0,
     ]);
 
     // Approve DAI spending
@@ -103,4 +106,5 @@ describe.skip('BuyCover tests', () => {
   });
 });
 
-export {};
+export { };
+
