@@ -25,5 +25,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create .env file
+        run: |
+          touch .env
+          echo TENDERLY_VIRTUAL_MAINNET_RPC=${{ secrets.TENDERLY_VIRTUAL_MAINNET_RPC }} >> .env
+          echo TENDERLY_PROJECT=${{ secrets.TENDERLY_PROJECT }} >> .env
+          echo TENDERLY_USERNAME=${{ secrets.TENDERLY_USERNAME }} >> .env
+          echo ALCHEMY_API_KEY=${{ secrets.ALCHEMY_API_KEY }} >> .env
+          echo OWNER_ADDR=${{ secrets.OWNER_ADDR }} >> .env
+          echo ADMIN_ADDR=${{ secrets.ADMIN_ADDR }} >> .env
+
       - name: Run lint check
         run: npm run lint
