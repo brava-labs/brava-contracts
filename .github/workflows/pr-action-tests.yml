@@ -17,7 +17,7 @@ jobs:
 
       - uses: ./.github/actions/env-setup
         with:
-          ssh-private-key: ${{ secrets.SSH }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
           tenderly-virtual-mainnet-rpc: ${{ secrets.TENDERLY_VIRTUAL_MAINNET_RPC }}
           tenderly-project: ${{ secrets.TENDERLY_PROJECT }}
           tenderly-username: ${{ secrets.TENDERLY_USERNAME }}
@@ -25,9 +25,6 @@ jobs:
           owner-addr: ${{ secrets.OWNER_ADDR }}
           admin-addr: ${{ secrets.ADMIN_ADDR }}
 
-      - name: Compile contracts
-        run: npx hardhat compile
-  
       - name: Get changed files
         id: changed-files
         uses: tj-actions/changed-files@v45
