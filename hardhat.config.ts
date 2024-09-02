@@ -1,5 +1,6 @@
 import "@nomicfoundation/hardhat-ledger";
 import "@nomicfoundation/hardhat-toolbox";
+import "@nomiclabs/hardhat-solhint";
 import * as tenderly from "@tenderly/hardhat-tenderly";
 import "dotenv/config";
 import { HardhatUserConfig } from "hardhat/config";

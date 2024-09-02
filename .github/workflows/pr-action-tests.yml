@@ -1,7 +1,6 @@
 name: Run Action tests
 
 on:
-  workflow_dispatch:
   pull_request:
     paths:
       - 'contracts/actions/**'
@@ -58,6 +57,3 @@ jobs:
               npx hardhat test tests/actions/$subdir
             fi
           done
- 
-      - name: Coverage
-        run: npx hardhat coverage
