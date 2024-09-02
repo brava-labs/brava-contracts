@@ -3,11 +3,12 @@ pragma solidity =0.8.24;
 
 import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {ActionBase} from "../ActionBase.sol";
-
+import {ParamSelectorLib} from "../../libraries/ParamSelector.sol";
 /// @title Helper action to pull a token from the specified address
 // TODO tests
 contract PullToken is ActionBase {
     using TokenUtils for address;
+    using ParamSelectorLib for *;
 
     /// @param tokenAddr Address of token
     /// @param from From where the tokens are pulled
@@ -31,7 +32,7 @@ contract PullToken is ActionBase {
 
         inputData.tokenAddr = _parseParamAddr(inputData.tokenAddr, _paramMapping[0], _returnValues);
         inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.amount = _parseParamUint(inputData.amount, _paramMapping[2],  _returnValues);
+        inputData.amount._paramSelector(_paramMapping[2], _returnValues);
 
         inputData.amount = _pullToken(inputData.tokenAddr, inputData.from, inputData.amount);
 

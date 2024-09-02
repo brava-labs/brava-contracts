@@ -1,15 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
+<<<<<<< Updated upstream
 import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IFToken } from "../../interfaces/fluid/IFToken.sol";
 import { ActionUtils } from "../../libraries/ActionUtils.sol";
 
+=======
+import {ActionBase} from "../ActionBase.sol";
+import {TokenUtils} from "../../libraries/TokenUtils.sol";
+import {IFToken} from "../../interfaces/fluid/IFToken.sol";
+import {ActionUtils} from "../../libraries/ActionUtils.sol";
+import {ParamSelectorLib} from "../../libraries/ParamSelector.sol";
+>>>>>>> Stashed changes
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
 contract FluidWithdraw is ActionBase {
     using TokenUtils for address;
+    using ParamSelectorLib for *;
 
     /// @param fToken - address of yToken to withdraw
     /// @param fAmount - amount of yToken to withdraw
@@ -29,11 +38,15 @@ contract FluidWithdraw is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
+<<<<<<< Updated upstream
         inputData.fAmount = _parseParamUint(
             inputData.fAmount,
             _paramMapping[1],
             _returnValues
         );
+=======
+        inputData.fAmount._paramSelector(_paramMapping[1], _returnValues);
+>>>>>>> Stashed changes
 
         (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData, _strategyId);
         logger.logActionEvent("FluidWithdraw", logData);

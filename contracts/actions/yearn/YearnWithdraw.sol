@@ -1,15 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
+<<<<<<< Updated upstream
 import { ActionBase } from "../ActionBase.sol";
 import { TokenUtils } from "../../libraries/TokenUtils.sol";
 import { IYearnVault } from "../../interfaces/yearn/IYearnVault.sol";
 import { ActionUtils } from "../../libraries/ActionUtils.sol";
 
+=======
+import {ActionBase} from "../ActionBase.sol";
+import {TokenUtils} from "../../libraries/TokenUtils.sol";
+import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
+import {ActionUtils} from "../../libraries/ActionUtils.sol";
+import {ParamSelectorLib} from "../../libraries/ParamSelector.sol";
+>>>>>>> Stashed changes
 /// @title Burns yTokens and receive underlying tokens in return
 /// @dev yTokens need to be approved for user's wallet to pull them (yToken address)
 contract YearnWithdraw is ActionBase {
     using TokenUtils for address;
+    using ParamSelectorLib for *;
 
     /// @param yToken - address of yToken to withdraw (same as yVault address)
     /// @param yAmount - amount of yToken to withdraw
@@ -29,11 +38,15 @@ contract YearnWithdraw is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
+<<<<<<< Updated upstream
         inputData.yAmount = _parseParamUint(
             inputData.yAmount,
             _paramMapping[1],
             _returnValues
         );
+=======
+        inputData.yAmount._paramSelector(_paramMapping[1], _returnValues);
+>>>>>>> Stashed changes
 
         (uint256 amountReceived, bytes memory logData) = _yearnWithdraw(inputData, _strategyId);
         logger.logActionEvent("YearnWithdraw", logData);

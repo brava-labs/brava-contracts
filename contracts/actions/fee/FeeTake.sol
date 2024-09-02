@@ -2,12 +2,13 @@
 
 pragma solidity =0.8.24;
 
-import { ActionBase } from "../ActionBase.sol";
-import { TokenUtils } from "../../libraries/TokenUtils.sol";
-
+import {ActionBase} from "../ActionBase.sol";
+import {TokenUtils} from "../../libraries/TokenUtils.sol";
+import {ParamSelectorLib} from "../../libraries/ParamSelector.sol";
 /// @title Helper action to send a token to the specified address
 contract FeeTake is ActionBase {
     using TokenUtils for address;
+    using ParamSelectorLib for uint256;
 
     struct Params {
         address from;
@@ -32,7 +33,7 @@ contract FeeTake is ActionBase {
 
         inputData.from = _parseParamAddr(inputData.from, _paramMapping[0], _returnValues);
         inputData.feeToken = _parseParamAddr(inputData.feeToken, _paramMapping[1], _returnValues);
-        inputData.amount = _parseParamUint(inputData.amount, _paramMapping[2], _returnValues);
+        inputData.amount._paramSelector(_paramMapping[2], _returnValues);
 
         _takeFee(inputData);
 

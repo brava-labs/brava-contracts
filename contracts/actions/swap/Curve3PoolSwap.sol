@@ -5,10 +5,10 @@ import {ActionBase} from "../ActionBase.sol";
 import {ICurve3Pool} from "../../interfaces/curve/ICurve3Pool.sol";
 import {IERC20} from "../../interfaces/IERC20.sol";
 import {TokenUtils} from "../../libraries/TokenUtils.sol";
-
+import {ParamSelectorLib} from "../../libraries/ParamSelector.sol";
 contract Curve3PoolSwap is ActionBase {
     using TokenUtils for address;
-
+    using ParamSelectorLib for *;
     ICurve3Pool public immutable pool;
 
     error InvalidTokenIndices();
@@ -39,7 +39,7 @@ contract Curve3PoolSwap is ActionBase {
         uint16 _strategyId
     ) public payable virtual override returns (bytes32) {
         Params memory params = _parseInputs(_callData);
-        params.amountIn = _parseParamUint(params.amountIn, _paramMapping[0], _returnValues);
+        params.amountIn._paramSelector(_paramMapping[2], _returnValues);
 
         (uint256 amountOut, bytes memory logData) = _curve3PoolSwap(params, _strategyId);
         logger.logActionEvent("Curve3PoolSwap", logData);
