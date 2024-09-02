@@ -27,11 +27,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build athena-sdk
-        run: |
-          cd node_modules/athena-sdk
-          npm run build
-
       - name: Create .env file
         run: |
           touch .env
@@ -64,7 +59,3 @@ jobs:
             fi
           done
   
-      - name: Run coverage
-        run: npx hardhat coverage
-
-
