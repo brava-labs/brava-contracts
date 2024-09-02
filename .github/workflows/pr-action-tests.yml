@@ -9,6 +9,7 @@ on:
 jobs:
   setup:
     uses: ./.github/workflows/reusable-env-setup.yml
+    secrets: inherit
 
   action-test:
     needs: setup
