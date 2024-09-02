@@ -47,3 +47,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+    outputs:
+      cache-hit: ${{ steps.npm-cache.outputs.cache-hit }}
