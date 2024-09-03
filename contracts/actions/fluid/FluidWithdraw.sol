@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import { ActionBase } from "../ActionBase.sol";
-import { TokenUtils } from "../../libraries/TokenUtils.sol";
-import { IFToken } from "../../interfaces/fluid/IFToken.sol";
-import { ActionUtils } from "../../libraries/ActionUtils.sol";
+import {ActionBase} from "../ActionBase.sol";
+import {TokenUtils} from "../../libraries/TokenUtils.sol";
+import {IFToken} from "../../interfaces/fluid/IFToken.sol";
+import {ActionUtils} from "../../libraries/ActionUtils.sol";
 
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
@@ -19,7 +19,7 @@ contract FluidWithdraw is ActionBase {
     }
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
-    
+
     /// @inheritdoc ActionBase
     function executeAction(
         bytes memory _callData,
@@ -29,11 +29,7 @@ contract FluidWithdraw is ActionBase {
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.fAmount = _parseParamUint(
-            inputData.fAmount,
-            _paramMapping[1],
-            _returnValues
-        );
+        inputData.fAmount = _parseParamUint(inputData.fAmount, _paramMapping[1], _returnValues);
 
         (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData, _strategyId);
         logger.logActionEvent("FluidWithdraw", logData);
@@ -45,12 +41,18 @@ contract FluidWithdraw is ActionBase {
         return uint8(ActionType.WITHDRAW_ACTION);
     }
 
+    function exit(address _fToken) public {
+        IFToken fToken = IFToken(_fToken);
+        Params memory inputData = Params({fToken: _fToken, fAmount: address(fToken).getBalance(address(this))});
+        _fluidWithdraw(inputData, type(uint16).max);
+    }
+
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _fluidWithdraw(Params memory _inputData, uint16 _strategyId)
-       private 
-        returns (uint256 tokenAmountReceived, bytes memory logData)
-    {
+    function _fluidWithdraw(
+        Params memory _inputData,
+        uint16 _strategyId
+    ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
         IFToken fToken = IFToken(_inputData.fToken);
 
         address underlyingToken = fToken.asset();
