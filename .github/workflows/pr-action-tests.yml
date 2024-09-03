@@ -40,6 +40,6 @@ jobs:
               
               # Run tests for the corresponding subdirectory
               echo "Running tests for $subdir"
-              npx hardhat test tests/actions/$subdir
+              npx hardhat test tests/actions/$subdir/*.test.ts
             fi
           done
