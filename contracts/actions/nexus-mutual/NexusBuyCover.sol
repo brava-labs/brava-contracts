@@ -9,7 +9,7 @@ import {ICoverBroker, BuyCoverParams, PoolAllocationRequest} from "../../interfa
 import {TokenAddressesMainnet} from "../../libraries/TokenAddressesMainnet.sol";
 
 /// @title Buys cover for a specific asset and protocol
-contract BuyCover is ActionBase {
+contract NexusBuyCover is ActionBase {
     using TokenUtils for address;
     using SafeUIntCast for uint256;
 
@@ -53,7 +53,7 @@ contract BuyCover is ActionBase {
         inputData.owner = _parseParamAddr(inputData.owner, _paramMapping[0], _returnValues);
 
         (uint256 coverId, bytes memory logData) = _buyCover(inputData, _strategyId);
-        logger.logActionEvent("BuyCover", logData);
+        logger.logActionEvent("NexusBuyCover", logData);
         return bytes32(coverId);
     }
 

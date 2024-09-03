@@ -8,7 +8,7 @@ import { fundAccountWithStablecoin } from '../../utils-stable';
 
 // AI generated test, this doesn't work yet
 
-describe.skip('BuyCover tests', () => {
+describe.skip('NexusBuyCover tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let buyCover: BuyCover;
@@ -22,7 +22,7 @@ describe.skip('BuyCover tests', () => {
     log('Safe Address', safeAddr);
 
     buyCover = await deploy(
-      'BuyCover',
+      'NexusBuyCover',
       signer,
       baseSetup.contractRegistry.getAddress(),
       baseSetup.logger.getAddress()
