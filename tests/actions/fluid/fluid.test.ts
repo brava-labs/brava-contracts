@@ -1,8 +1,8 @@
-import { ethers, Signer, expect, utils } from '../..';
+import { ethers, Signer, utils } from '../..';
 import { network } from 'hardhat';
-import { IERC20, FluidSupply } from '../../../typechain-types';
-import { deploy, log, getBaseSetup } from '../../utils';
 import { executeSafeTransaction, FluidSupplyAction, FluidWithdrawAction } from 'athena-sdk';
+import { IERC20, FluidSupply, FluidWithdraw } from '../../../typechain-types';
+import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithStablecoin, getUSDC } from '../../utils-stable';
 
 describe('Fluid Supply and Withdraw tests', () => {
@@ -11,6 +11,7 @@ describe('Fluid Supply and Withdraw tests', () => {
   let snapshotId: string;
   let USDC: IERC20;
   let fluidSupplyContract: FluidSupply;
+  let fluidWithdrawContract: FluidWithdraw;
 
   before(async () => {
     [signer] = await ethers.getSigners();
@@ -23,6 +24,13 @@ describe('Fluid Supply and Withdraw tests', () => {
     // Initialize FluidSupply and FluidWithdraw actions
     fluidSupplyContract = await deploy(
       'FluidSupply',
+      signer,
+      await baseSetup.contractRegistry.getAddress(),
+      await baseSetup.logger.getAddress()
+    );
+
+    fluidWithdrawContract = await deploy(
+      'FluidWithdraw',
       signer,
       await baseSetup.contractRegistry.getAddress(),
       await baseSetup.logger.getAddress()
@@ -44,7 +52,7 @@ describe('Fluid Supply and Withdraw tests', () => {
     snapshotId = await network.provider.send('evm_snapshot');
   });
 
-  it.skip('Should execute Fluid Supply', async () => {
+  it('Should execute Fluid Supply', async () => {
     const supplyAmount = utils.formatAmount(BigInt(1), 6);
     const fluidSupplyAction = new FluidSupplyAction(
       '0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33',
