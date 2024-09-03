@@ -6,22 +6,23 @@ import {ISafe} from "../interfaces/safe/ISafe.sol";
 library ParamSelectorLib {
     error ParamSelectorError(uint8);
 
-    uint8 public constant WALLET_ADDRESS_PARAM_MAPPING = 254;
-    uint8 public constant OWNER_ADDRESS_PARAM_MAPPING = 255;
+    // ==========================
+    // ===== Start of address ====
+    // ==========================
 
+    /// @notice Given an address input, injects return/sub values if specified
+    /// @param _param The original input value
+    /// @param _mapPosition Indicated the type of the input in paramMapping
+    /// @param _returnValues Array of data we can replace the input value with
     function _paramSelector(
         address _param,
         uint8 _mapPosition,
         bytes32[] memory _returnValues
-    ) internal view returns (address) {
+    ) internal pure returns (address) {
         if (_mapPosition != 0) {
             if (_mapPosition > _returnValues.length) {
                 revert ParamSelectorError(_mapPosition);
             }
-            /// @dev The last two values are specially reserved for proxy addr and owner addr
-            if (_mapPosition == WALLET_ADDRESS_PARAM_MAPPING) return address(this); // wallet address
-            if (_mapPosition == OWNER_ADDRESS_PARAM_MAPPING) return fetchOwnersOrWallet(); // owner if 1/1 wallet or the wallet itself
-
             return address(uint160(uint256(_returnValues[_mapPosition - 1])));
         }
         return _param;
