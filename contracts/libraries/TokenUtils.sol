@@ -6,6 +6,7 @@ import {IWETH} from "../interfaces/IWETH.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IERC20Permit} from "../interfaces/IERC20Permit.sol";
 import {SafeERC20} from "./SafeERC20.sol";
+import "hardhat/console.sol";
 
 library TokenUtils {
     using SafeERC20 for IERC20;
@@ -16,10 +17,14 @@ library TokenUtils {
     /// @dev Only approves the amount if allowance is lower than amount, does not decrease allowance
     function approveToken(address _tokenAddr, address _to, uint256 _amount) internal {
         if (_tokenAddr == ETH_ADDR) return;
-
         if (IERC20(_tokenAddr).allowance(address(this), _to) < _amount) {
             IERC20(_tokenAddr).safeApprove(_to, _amount);
         }
+    }
+
+    function allowance(address _tokenAddr, address _spender) internal view returns (uint256) {
+        if (_tokenAddr == ETH_ADDR) return type(uint256).max;
+        return IERC20(_tokenAddr).allowance(address(this), _spender);
     }
 
     function pullTokens(address _token, address _from, uint256 _amount) internal returns (uint256) {
