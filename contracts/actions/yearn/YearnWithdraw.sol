@@ -6,6 +6,7 @@ import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
 import {ActionUtils} from "../../libraries/ActionUtils.sol";
 import {ParamSelectorLib} from "../../libraries/ParamSelector.sol";
+
 /// @title Burns yTokens and receive underlying tokens in return
 /// @dev yTokens need to be approved for user's wallet to pull them (yToken address)
 contract YearnWithdraw is ActionBase {
@@ -40,6 +41,12 @@ contract YearnWithdraw is ActionBase {
     /// @inheritdoc ActionBase
     function actionType() public pure virtual override returns (uint8) {
         return uint8(ActionType.WITHDRAW_ACTION);
+    }
+
+    function exit(address _yToken) public {
+        IYearnVault yToken = IYearnVault(_yToken);
+        Params memory inputData = Params({yToken: _yToken, yAmount: address(yToken).getBalance(address(this))});
+        _yearnWithdraw(inputData, type(uint16).max);
     }
 
     //////////////////////////// ACTION LOGIC ////////////////////////////

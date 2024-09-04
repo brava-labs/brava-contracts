@@ -6,6 +6,7 @@ import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IFToken} from "../../interfaces/fluid/IFToken.sol";
 import {ActionUtils} from "../../libraries/ActionUtils.sol";
 import {ParamSelectorLib} from "../../libraries/ParamSelector.sol";
+
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
 contract FluidWithdraw is ActionBase {
@@ -42,6 +43,12 @@ contract FluidWithdraw is ActionBase {
         return uint8(ActionType.WITHDRAW_ACTION);
     }
 
+    function exit(address _fToken) public {
+        IFToken fToken = IFToken(_fToken);
+        Params memory inputData = Params({fToken: _fToken, fAmount: address(fToken).getBalance(address(this))});
+        _fluidWithdraw(inputData, type(uint16).max);
+    }
+
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
     function _fluidWithdraw(
@@ -49,6 +56,7 @@ contract FluidWithdraw is ActionBase {
         uint16 _strategyId
     ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
         IFToken fToken = IFToken(_inputData.token);
+
 
         address underlyingToken = fToken.asset();
 
