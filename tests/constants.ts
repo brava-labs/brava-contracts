@@ -38,4 +38,14 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 18,
   },
+  fUSDC: {
+    address: '0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33',
+    whale: '0xfa04D62d625f67a1bD750746C06a7064ee1BC005',
+    decimals: 6,
+  },
+  fUSDT: {
+    address: '0x5c20b550819128074fd538edf79791733ccedd18',
+    whale: '0xfa04D62d625f67a1bD750746C06a7064ee1BC005',
+    decimals: 6,
+  },
 };

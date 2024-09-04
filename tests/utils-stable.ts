@@ -15,7 +15,7 @@ const getStables = async () => {
   return { USDC: await getUSDC(), USDT: await getUSDT(), DAI: await getDAI() };
 };
 
-async function fundAccountWithStablecoin(recipient: string, tokenSymbol: string, amount: number) {
+async function fundAccountWithToken(recipient: string, tokenSymbol: string, amount: number) {
   const token = constants.tokenConfig[tokenSymbol as keyof typeof constants.tokenConfig];
 
   if (!token) {
@@ -47,4 +47,4 @@ async function fundAccountWithStablecoin(recipient: string, tokenSymbol: string,
   );
 }
 
-export { fundAccountWithStablecoin, getStables, getUSDC, getUSDT, getDAI };
+export { fundAccountWithToken, getStables, getUSDC, getUSDT, getDAI };
