@@ -45,7 +45,7 @@ contract YearnWithdraw is ActionBase {
 
     function exit(address _yToken) public {
         IYearnVault yToken = IYearnVault(_yToken);
-        Params memory inputData = Params({yToken: _yToken, yAmount: address(yToken).getBalance(address(this))});
+        Params memory inputData = Params({token: _yToken, amount: address(yToken).getBalance(address(this))});
         _yearnWithdraw(inputData, type(uint16).max);
     }
 

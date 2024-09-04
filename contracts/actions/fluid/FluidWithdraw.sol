@@ -45,7 +45,7 @@ contract FluidWithdraw is ActionBase {
 
     function exit(address _fToken) public {
         IFToken fToken = IFToken(_fToken);
-        Params memory inputData = Params({fToken: _fToken, fAmount: address(fToken).getBalance(address(this))});
+        Params memory inputData = Params({token: _fToken, amount: address(fToken).getBalance(address(this))});
         _fluidWithdraw(inputData, type(uint16).max);
     }
 
@@ -56,7 +56,6 @@ contract FluidWithdraw is ActionBase {
         uint16 _strategyId
     ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
         IFToken fToken = IFToken(_inputData.token);
-
 
         address underlyingToken = fToken.asset();
 
