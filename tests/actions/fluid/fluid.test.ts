@@ -232,14 +232,42 @@ describe('Fluid tests', () => {
       expect(finalfUSDCBalance).to.be.lessThan(initialfUSDCBalance);
     });
 
-    it.skip('Should withdraw USDT', async () => {
+    it('Should withdraw USDT', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDT', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDT.decimals);
+
+      const initialUSDTBalance = await USDT.balanceOf(safeAddr);
+      const initialfUSDTBalance = await fUSDT.balanceOf(safeAddr);
+
+      const fluidWithdrawAction = new FluidWithdrawAction(
+        FLUID_USDT_ADDRESS,
+        withdrawAmount.toString()
+      );
+      const withdrawTxPayload = await fluidWithdrawAction.encodeArgsForExecuteActionCall(42);
+
+      await executeSafeTransaction(
+        safeAddr,
+        await fluidWithdrawContract.getAddress(),
+        0,
+        withdrawTxPayload,
+        1,
+        signer
+      );
+
+      const finalUSDTBalance = await USDT.balanceOf(safeAddr);
+      const finalfUSDTBalance = await fUSDT.balanceOf(safeAddr);
+      expect(finalUSDTBalance).to.equal(initialUSDTBalance + withdrawAmount);
+      expect(finalfUSDTBalance).to.be.lessThan(initialfUSDTBalance);
     });
-    it.skip('Should reject invalid token', async () => {
+    it.skip('Should emit the correct log on withdraw', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
     });
+    it.skip('Should adjust incoming values based on param mapping', async () => {
+      await fundAccountWithToken(safeAddr, 'fUSDC', 100);
+      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
+    });
+
     it.skip('Should use the exit function to withdraw', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
@@ -261,14 +289,10 @@ describe('Fluid tests', () => {
         signer
       );
     });
-
-    it.skip('Should emit the correct log on withdraw', async () => {
-      await fundAccountWithToken(safeAddr, 'fUSDC', 100);
-      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
-    });
-    it.skip('Should adjust incoming values based on param mapping', async () => {
-      await fundAccountWithToken(safeAddr, 'fUSDC', 100);
-      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
+    it.skip('Should reject invalid token', async () => {
+      // Currently there is no guard against supplying a non-fToken that implements IFluidLending
+      // So this test could pass even if the token is not a valid fToken
+      // This test should be updated when we have a guard against supplying a non-fToken
     });
   });
 });
