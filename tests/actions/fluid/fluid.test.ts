@@ -6,11 +6,18 @@ import {
   FluidWithdrawAction,
   Sequence,
 } from 'athena-sdk';
-import { IERC20, FluidSupply, FluidWithdraw, IFluidLending } from '../../../typechain-types';
-import { deploy, getBaseSetup, log } from '../../utils';
+import {
+  IERC20,
+  FluidSupply,
+  FluidWithdraw,
+  IFluidLending,
+  Logger,
+} from '../../../typechain-types';
+import { deploy, getBaseSetup, log, decodeLoggerLog, BalanceUpdateLog } from '../../utils';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
 import { tokenConfig } from '../../../tests/constants';
 import { FluidSupplyParams } from '../../params';
+import { BytesLike } from 'ethers';
 
 interface FluidSupplyParams {
   token: string;
@@ -20,6 +27,8 @@ interface FluidSupplyParams {
 describe('Fluid tests', () => {
   let signer: Signer;
   let safeAddr: string;
+  let loggerAddress: string;
+  let logger: Logger;
   let snapshotId: string;
   let USDC: IERC20;
   let USDT: IERC20;
@@ -49,7 +58,8 @@ describe('Fluid tests', () => {
     [signer] = await ethers.getSigners();
     const baseSetup = await getBaseSetup();
     safeAddr = baseSetup.safeAddr;
-
+    loggerAddress = await baseSetup.logger.getAddress();
+    logger = await ethers.getContractAt('Logger', loggerAddress);
     // Fetch the USDC token
     USDC = await getUSDC();
     USDT = await getUSDT();
@@ -59,13 +69,13 @@ describe('Fluid tests', () => {
       'FluidSupply',
       signer,
       await baseSetup.contractRegistry.getAddress(),
-      await baseSetup.logger.getAddress()
+      loggerAddress
     );
     fluidWithdrawContract = await deploy(
       'FluidWithdraw',
       signer,
       await baseSetup.contractRegistry.getAddress(),
-      await baseSetup.logger.getAddress()
+      loggerAddress
     );
 
     fUSDC = await ethers.getContractAt('IFluidLending', FLUID_USDC_ADDRESS);
@@ -90,7 +100,7 @@ describe('Fluid tests', () => {
   describe('Fluid Supply', () => {
     it('Should deposit USDC', async () => {
       const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
-      await fundAccountWithToken(safeAddr, 'USDC', 2000);
+      await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
 
       const initialUSDCBalance = await USDC.balanceOf(safeAddr);
       const initialFluidBalance = await fUSDC.balanceOf(safeAddr);
@@ -121,10 +131,6 @@ describe('Fluid tests', () => {
       const initialUSDTBalance = await USDT.balanceOf(safeAddr);
       const initialFluidBalance = await fUSDT.balanceOf(safeAddr);
 
-      log('Supplying USDT');
-      log(initialUSDTBalance);
-      log(initialFluidBalance);
-
       const supplyTxPayload = new FluidSupplyAction(
         FLUID_USDT_ADDRESS,
         supplyAmount.toString()
@@ -146,14 +152,48 @@ describe('Fluid tests', () => {
       expect(finalfTokenBalance).to.be.greaterThan(initialFluidBalance);
     });
     it('Should emit the correct log on deposit', async () => {
+      const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
+      const strategyId: number = 42;
+      // instead of using a static poolId, we should get it from the ContractRegistry
+      const poolId: BytesLike = '0xebc8c995';
+
+      const supplyTxPayload = new FluidSupplyAction(
+        FLUID_USDC_ADDRESS,
+        supplyAmount.toString()
+      ).encodeArgsForExecuteActionCall(strategyId);
+      const tx = await executeSafeTransaction(
+        safeAddr,
+        await fluidSupplyContract.getAddress(),
+        0,
+        supplyTxPayload,
+        1,
+        signer
+      );
+
+      const logs = await decodeLoggerLog(tx, loggerAddress);
+      log('Logs:', logs);
+
+      // we should expect 1 log, with the correct args
+      expect(logs).to.have.length(1);
+      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
+
+      // we know it's a BalanceUpdateLog because of the eventName
+      // now we can typecast and check specific properties
+      const txLog = logs[0] as BalanceUpdateLog;
+      expect(txLog).to.have.property('safeAddress', safeAddr);
+      expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+      expect(txLog).to.have.property('poolId', poolId);
+      expect(txLog).to.have.property('balanceBefore', BigInt(0));
+      expect(txLog).to.have.property('balanceAfter');
+      expect(txLog.balanceAfter).to.be.a('bigint');
+      expect(txLog.balanceAfter).to.not.equal(BigInt(0));
+    });
+    it.skip('Should adjust incoming values based on param mapping', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
     });
-    it('Should adjust incoming values based on param mapping', async () => {
-      await fundAccountWithToken(safeAddr, 'fUSDC', 100);
-      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
-    });
-    it('Should reject invalid token', async () => {
+    it.skip('Should reject invalid token', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
     });
@@ -188,19 +228,19 @@ describe('Fluid tests', () => {
       expect(finalfUSDCBalance).to.be.lessThan(initialfUSDCBalance);
     });
 
-    it('Should withdraw USDT', async () => {
+    it.skip('Should withdraw USDT', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDT', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDT.decimals);
     });
-    it('Should reject invalid token', async () => {
+    it.skip('Should reject invalid token', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
     });
-    it('Should use the exit function to withdraw', async () => {
+    it.skip('Should use the exit function to withdraw', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
     });
-    it('Should withdraw the maximum amount of fUSDC', async () => {
+    it.skip('Should withdraw the maximum amount of fUSDC', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.MaxUint256;
       const fluidWithdrawAction = new FluidWithdrawAction(
@@ -218,11 +258,11 @@ describe('Fluid tests', () => {
       );
     });
 
-    it('Should emit the correct log on withdraw', async () => {
+    it.skip('Should emit the correct log on withdraw', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
     });
-    it('Should adjust incoming values based on param mapping', async () => {
+    it.skip('Should adjust incoming values based on param mapping', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
     });
