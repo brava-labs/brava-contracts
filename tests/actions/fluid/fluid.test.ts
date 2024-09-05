@@ -259,9 +259,42 @@ describe('Fluid tests', () => {
       expect(finalUSDTBalance).to.equal(initialUSDTBalance + withdrawAmount);
       expect(finalfUSDTBalance).to.be.lessThan(initialfUSDTBalance);
     });
-    it.skip('Should emit the correct log on withdraw', async () => {
+    it('Should emit the correct log on withdraw', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
+      const strategyId: number = 42;
+      const poolId: BytesLike = ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10);
+      const withdrawTxPayload = new FluidSupplyAction(
+        FLUID_USDC_ADDRESS,
+        withdrawAmount.toString()
+      ).encodeArgsForExecuteActionCall(strategyId);
+
+      const tx = await executeSafeTransaction(
+        safeAddr,
+        await fluidWithdrawContract.getAddress(),
+        0,
+        withdrawTxPayload,
+        1,
+        signer
+      );
+
+      const logs = await decodeLoggerLog(tx, loggerAddress);
+      log('Logs:', logs);
+
+      // we should expect 1 log, with the correct args
+      expect(logs).to.have.length(1);
+      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
+
+      // we know it's a BalanceUpdateLog because of the eventName
+      // now we can typecast and check specific properties
+      const txLog = logs[0] as BalanceUpdateLog;
+      expect(txLog).to.have.property('safeAddress', safeAddr);
+      expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+      expect(txLog).to.have.property('poolId', poolId);
+      expect(txLog).to.have.property('balanceBefore', withdrawAmount);
+      expect(txLog).to.have.property('balanceAfter');
+      expect(txLog.balanceAfter).to.be.a('bigint');
+      expect(txLog.balanceAfter).to.not.equal(BigInt(0));
     });
     it.skip('Should adjust incoming values based on param mapping', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
