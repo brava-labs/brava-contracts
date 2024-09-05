@@ -155,9 +155,7 @@ describe('Fluid tests', () => {
       const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
       await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
       const strategyId: number = 42;
-      // instead of using a static poolId, we should get it from the ContractRegistry
-      const poolId: BytesLike = '0xebc8c995';
-
+      const poolId: BytesLike = ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10);
       const supplyTxPayload = new FluidSupplyAction(
         FLUID_USDC_ADDRESS,
         supplyAmount.toString()
