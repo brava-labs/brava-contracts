@@ -31,8 +31,7 @@ contract FluidWithdraw is ActionBase {
 
         inputData.fAmount = _parseParamUint(inputData.fAmount, _paramMapping[1], _returnValues);
 
-        (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData, _strategyId);
-        logger.logActionEvent("FluidWithdraw", logData);
+        uint256 amountReceived = _fluidWithdraw(inputData, _strategyId);
         return (bytes32(amountReceived));
     }
 
@@ -46,7 +45,7 @@ contract FluidWithdraw is ActionBase {
     function _fluidWithdraw(
         Params memory _inputData,
         uint16 _strategyId
-    ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
+    ) private returns (uint256 tokenAmountReceived) {
         IFluidLending fToken = IFluidLending(_inputData.fToken);
 
         address underlyingToken = fToken.asset();
@@ -57,8 +56,6 @@ contract FluidWithdraw is ActionBase {
         uint256 fBalanceAfter = address(fToken).getBalance(address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
-
-        logData = abi.encode(_inputData, tokenAmountReceived);
 
         logger.logActionEvent(
             "BalanceUpdate",
