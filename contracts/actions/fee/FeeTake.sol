@@ -10,7 +10,6 @@ contract FeeTake is ActionBase {
     using TokenUtils for address;
 
     struct Params {
-        address from;
         address feeToken;
         uint256 amount;
     }
@@ -24,15 +23,11 @@ contract FeeTake is ActionBase {
     /// @inheritdoc ActionBase
     function executeAction(
         bytes memory _callData,
-        uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues,
+        uint8[] memory /*_paramMapping*/,
+        bytes32[] memory /*_returnValues*/,
         uint16 /*_strategyId*/
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = parseInputs(_callData);
-
-        inputData.from = _parseParamAddr(inputData.from, _paramMapping[0], _returnValues);
-        inputData.feeToken = _parseParamAddr(inputData.feeToken, _paramMapping[1], _returnValues);
-        inputData.amount = _parseParamUint(inputData.amount, _paramMapping[2], _returnValues);
 
         _takeFee(inputData);
 
@@ -41,7 +36,6 @@ contract FeeTake is ActionBase {
     }
 
     function _takeFee(Params memory _inputData) internal {
-        _inputData.feeToken.pullTokens(_inputData.from, _inputData.amount);
         _inputData.feeToken.withdrawTokens(FEE_RECIPIENT, _inputData.amount);
     }
 
