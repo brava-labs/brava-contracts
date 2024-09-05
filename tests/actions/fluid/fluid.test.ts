@@ -264,7 +264,7 @@ describe('Fluid tests', () => {
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
       const strategyId: number = 42;
       const poolId: BytesLike = ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10);
-      const withdrawTxPayload = new FluidSupplyAction(
+      const withdrawTxPayload = new FluidWithdrawAction(
         FLUID_USDC_ADDRESS,
         withdrawAmount.toString()
       ).encodeArgsForExecuteActionCall(strategyId);
