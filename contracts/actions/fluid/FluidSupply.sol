@@ -31,8 +31,7 @@ contract FluidSupply is ActionBase {
 
         inputData.amount = _parseParamUint(inputData.amount, _paramMapping[1], _returnValues);
 
-        (uint256 fAmountReceived, bytes memory logData) = _fluidSupply(inputData, _strategyId);
-        logger.logActionEvent("FluidSupply", logData);
+        uint256 fAmountReceived = _fluidSupply(inputData, _strategyId);
         return bytes32(fAmountReceived);
     }
 
@@ -43,10 +42,7 @@ contract FluidSupply is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _fluidSupply(
-        Params memory _inputData,
-        uint16 _strategyId
-    ) private returns (uint256 fTokenAmount, bytes memory logData) {
+    function _fluidSupply(Params memory _inputData, uint16 _strategyId) private returns (uint256 fTokenAmount) {
         IFluidLending fToken = IFluidLending(address(_inputData.token));
 
         address stableToken = fToken.asset();
@@ -57,8 +53,6 @@ contract FluidSupply is ActionBase {
         uint256 fBalanceAfter = address(fToken).getBalance(address(this));
         fTokenAmount = fBalanceAfter - fBalanceBefore;
         assert(fTokenAmount == returnValue);
-
-        logData = abi.encode(_inputData, fTokenAmount);
 
         logger.logActionEvent(
             "BalanceUpdate",
