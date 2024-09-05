@@ -19,11 +19,6 @@ import { tokenConfig } from '../../../tests/constants';
 import { FluidSupplyParams } from '../../params';
 import { BytesLike } from 'ethers';
 
-interface FluidSupplyParams {
-  token: string;
-  amount: string;
-}
-
 describe('Fluid tests', () => {
   let signer: Signer;
   let safeAddr: string;
@@ -38,21 +33,6 @@ describe('Fluid tests', () => {
   let fUSDT: IFluidLending;
   const FLUID_USDC_ADDRESS = tokenConfig.fUSDC.address;
   const FLUID_USDT_ADDRESS = tokenConfig.fUSDT.address;
-
-  // function to take in params and return encoded function call
-  function getEncodedFunctionCall(params: FluidSupplyParams) {
-    const abiCoder = new ethers.AbiCoder();
-    const paramsEncoded = abiCoder.encode([FluidSupplyParams], [params]);
-
-    const encodedFunctionCall = fluidSupplyContract.interface.encodeFunctionData('executeAction', [
-      paramsEncoded,
-      [0, 0],
-      [],
-      42,
-    ]);
-
-    return encodedFunctionCall;
-  }
 
   before(async () => {
     [signer] = await ethers.getSigners();
@@ -187,13 +167,39 @@ describe('Fluid tests', () => {
       expect(txLog.balanceAfter).to.be.a('bigint');
       expect(txLog.balanceAfter).to.not.equal(BigInt(0));
     });
-    it.skip('Should adjust incoming values based on param mapping', async () => {
-      await fundAccountWithToken(safeAddr, 'fUSDC', 100);
-      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
+
+    it('Should adjust incoming values based on param mapping', async () => {
+      const supplyAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+      const fluidSupplyContractAddress = await fluidSupplyContract.getAddress();
+      await fundAccountWithToken(fluidSupplyContractAddress, 'USDC', supplyAmount);
+
+      const initialUSDCBalance = await USDC.balanceOf(fluidSupplyContractAddress);
+      const initialfUSDCBalance = await fUSDC.balanceOf(fluidSupplyContractAddress);
+
+      const params = {
+        token: FLUID_USDC_ADDRESS,
+        amount: supplyAmount,
+      };
+
+      const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+      const paramsEncoded = abiCoder.encode([FluidSupplyParams], [params]);
+      const halfSupplyAmount = ethers.parseUnits('500', tokenConfig.USDC.decimals);
+      const bytesHalfSupplyAmount = ethers.zeroPadValue(ethers.toBeHex(halfSupplyAmount), 32);
+
+      // We're calling the action contract directly so make custom param mapping easier
+      await fluidSupplyContract.executeAction(paramsEncoded, [0, 1], [bytesHalfSupplyAmount], 42);
+
+      const finalUSDCBalance = await USDC.balanceOf(fluidSupplyContractAddress);
+      const finalfUSDCBalance = await fUSDC.balanceOf(fluidSupplyContractAddress);
+
+      expect(finalUSDCBalance).to.equal(initialUSDCBalance - halfSupplyAmount);
+      expect(finalfUSDCBalance).to.be.greaterThan(initialfUSDCBalance);
     });
+
     it.skip('Should reject invalid token', async () => {
-      await fundAccountWithToken(safeAddr, 'fUSDC', 100);
-      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
+      // Currently there is no guard against supplying a non-fToken that implements IFluidLending
+      // So this test could pass even if the token is not a valid fToken
+      // This test should be updated when we have a guard against supplying a non-fToken
     });
   });
 
