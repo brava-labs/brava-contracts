@@ -296,9 +296,37 @@ describe('Fluid tests', () => {
       expect(txLog.balanceAfter).to.be.a('bigint');
       expect(txLog.balanceAfter).to.not.equal(BigInt(0));
     });
-    it.skip('Should adjust incoming values based on param mapping', async () => {
-      await fundAccountWithToken(safeAddr, 'fUSDC', 100);
-      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
+    it('Should adjust incoming values based on param mapping', async () => {
+      const withdrawAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+      const fluidWithdrawContractAddress = await fluidWithdrawContract.getAddress();
+      await fundAccountWithToken(fluidWithdrawContractAddress, 'fUSDC', withdrawAmount);
+
+      const initialUSDCBalance = await USDC.balanceOf(fluidWithdrawContractAddress);
+      const initialfUSDCBalance = await fUSDC.balanceOf(fluidWithdrawContractAddress);
+
+      const params = {
+        token: FLUID_USDC_ADDRESS,
+        amount: withdrawAmount,
+      };
+
+      const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+      const paramsEncoded = abiCoder.encode([FluidSupplyParams], [params]);
+      const halfWithdrawAmount = ethers.parseUnits('500', tokenConfig.USDC.decimals);
+      const bytesHalfWithdrawAmount = ethers.zeroPadValue(ethers.toBeHex(halfWithdrawAmount), 32);
+
+      // We're calling the action contract directly so make custom param mapping easier
+      await fluidWithdrawContract.executeAction(
+        paramsEncoded,
+        [0, 1],
+        [bytesHalfWithdrawAmount],
+        42
+      );
+
+      const finalUSDCBalance = await USDC.balanceOf(fluidWithdrawContractAddress);
+      const finalfUSDCBalance = await fUSDC.balanceOf(fluidWithdrawContractAddress);
+
+      expect(finalfUSDCBalance).to.be.lessThan(initialfUSDCBalance);
+      expect(finalUSDCBalance).to.be.equal(initialUSDCBalance + halfWithdrawAmount);
     });
 
     it.skip('Should use the exit function to withdraw', async () => {
