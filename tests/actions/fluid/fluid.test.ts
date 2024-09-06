@@ -341,7 +341,7 @@ describe('Fluid tests', () => {
       await fluidWithdrawContract.exit(FLUID_USDT_ADDRESS);
       expect(await fUSDT.balanceOf(fluidWithdrawContractAddress)).to.be.equal(BigInt(0));
     });
-    it.skip('Should withdraw the maximum amount of fUSDC', async () => {
+    it('Should withdraw the maximum amount of fUSDC', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
       const withdrawAmount = ethers.MaxUint256;
       const fluidWithdrawAction = new FluidWithdrawAction(
