@@ -48,4 +48,9 @@ export const tokenConfig = {
     whale: '0xfa04D62d625f67a1bD750746C06a7064ee1BC005',
     decimals: 6,
   },
+  yUSDC: {
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    whale: '0xfa04D62d625f67a1bD750746C06a7064ee1BC005',
+    decimals: 6,
+  },
 };

@@ -55,11 +55,12 @@ contract YearnWithdraw is ActionBase {
     ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
         IYearnVault vault = IYearnVault(_inputData.yToken);
 
-        address underlyingToken = vault.token();
+        address underlyingToken = vault.asset();
 
         uint256 yBalanceBefore = address(vault).getBalance(address(this));
         uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
-        vault.withdraw(_inputData.yAmount, address(this));
+        // TODO: Check the final parameter, it's a maxLoss value and this doesn't seem safe.
+        vault.withdraw(_inputData.yAmount, address(this), address(this), type(uint256).max);
         uint256 yBalanceAfter = address(vault).getBalance(address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
