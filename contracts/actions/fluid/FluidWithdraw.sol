@@ -42,8 +42,8 @@ contract FluidWithdraw is ActionBase {
 
     function exit(address _fToken) public {
         IFluidLending fToken = IFluidLending(_fToken);
-        Params memory inputData = Params({fToken: _fToken, fAmount: address(fToken).getBalance(address(this))});
-        _fluidWithdraw(inputData, type(uint16).max);
+        uint256 maxWithdrawAmount = fToken.maxWithdraw(address(this));
+        fToken.withdraw(maxWithdrawAmount, address(this), address(this));
     }
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
