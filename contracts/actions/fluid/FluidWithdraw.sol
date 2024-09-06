@@ -41,7 +41,7 @@ contract FluidWithdraw is ActionBase {
     }
 
     function exit(address _fToken) public {
-        IFluidLending fToken = IFToken(_fToken);
+        IFluidLending fToken = IFluidLending(_fToken);
         Params memory inputData = Params({fToken: _fToken, fAmount: address(fToken).getBalance(address(this))});
         _fluidWithdraw(inputData, type(uint16).max);
     }
