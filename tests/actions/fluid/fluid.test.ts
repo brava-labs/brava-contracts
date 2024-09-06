@@ -329,9 +329,17 @@ describe('Fluid tests', () => {
       expect(finalUSDCBalance).to.be.equal(initialUSDCBalance + halfWithdrawAmount);
     });
 
-    it.skip('Should use the exit function to withdraw', async () => {
-      await fundAccountWithToken(safeAddr, 'fUSDC', 100);
+    it('Should use the exit function to withdraw', async () => {
+      const fluidWithdrawContractAddress = await fluidWithdrawContract.getAddress();
+      await fundAccountWithToken(fluidWithdrawContractAddress, 'fUSDC', 100);
+      await fundAccountWithToken(fluidWithdrawContractAddress, 'fUSDT', 100);
       const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
+
+      await fluidWithdrawContract.exit(FLUID_USDC_ADDRESS);
+      expect(await fUSDC.balanceOf(fluidWithdrawContractAddress)).to.be.equal(BigInt(0));
+
+      await fluidWithdrawContract.exit(FLUID_USDT_ADDRESS);
+      expect(await fUSDT.balanceOf(fluidWithdrawContractAddress)).to.be.equal(BigInt(0));
     });
     it.skip('Should withdraw the maximum amount of fUSDC', async () => {
       await fundAccountWithToken(safeAddr, 'fUSDC', 100);
