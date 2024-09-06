@@ -40,6 +40,12 @@ contract FluidWithdraw is ActionBase {
         return uint8(ActionType.WITHDRAW_ACTION);
     }
 
+    function exit(address _fToken) public {
+        IFluidLending fToken = IFToken(_fToken);
+        Params memory inputData = Params({fToken: _fToken, fAmount: address(fToken).getBalance(address(this))});
+        _fluidWithdraw(inputData, type(uint16).max);
+    }
+
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
     function _fluidWithdraw(
