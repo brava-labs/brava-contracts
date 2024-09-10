@@ -92,12 +92,13 @@ contract BuyCover is ActionBase {
         } else {
             coverId = coverBroker.buyCover(params, poolAllocationRequests);
         }
-        
+
         coverNft.safeTransferFrom(address(this), _inputData.owner, coverId);
 
-        logData = abi.encode(_inputData, coverId);
-
-        logger.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, _inputData.poolId, _inputData.period, _inputData.amount));
+        logger.logActionEvent(
+            "BuyCover",
+            _encodeBuyCover(_strategyId, _inputData.poolId, _inputData.period, _inputData.amount, coverId)
+        );
     }
 
     function _assetIdToTokenAddress(uint256 _assetId) private pure returns (address) {
@@ -112,8 +113,14 @@ contract BuyCover is ActionBase {
         }
     }
 
-    function _encodeBuyCover(uint16 _strategyId, bytes4 _poolId, uint32 _period, uint256 _amount) private pure returns (bytes memory) {
-        return abi.encode(_strategyId, _poolId, _period, _amount);
+    function _encodeBuyCover(
+        uint16 _strategyId,
+        bytes4 _poolId,
+        uint32 _period,
+        uint256 _amount,
+        uint256 _coverId
+    ) private pure returns (bytes memory) {
+        return abi.encode(_strategyId, _poolId, _period, _amount, _coverId);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
