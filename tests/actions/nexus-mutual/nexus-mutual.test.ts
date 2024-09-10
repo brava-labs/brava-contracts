@@ -1,4 +1,4 @@
-import { executeSafeTransaction } from 'athena-sdk';
+import { executeSafeTransaction, BuyCoverAction, IPoolAllocationRequest } from 'athena-sdk';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { BuyCover, IERC20 } from '../../../typechain-types';
@@ -6,9 +6,7 @@ import { tokenConfig } from '../../constants';
 import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken } from '../../utils-stable';
 
-// AI generated test, this doesn't work yet
-
-describe.skip('BuyCover tests', () => {
+describe('BuyCover tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let buyCover: BuyCover;
@@ -41,13 +39,28 @@ describe.skip('BuyCover tests', () => {
     snapshotId = await network.provider.send('evm_snapshot');
   });
 
-  // Skip this until it's implemented properly
-  it.skip('should buy cover from Nexus Mutual', async () => {
+  // TODO: Change from manually encoding to using the SDK
+  it('should buy cover from Nexus Mutual using ETH', async () => {
     const fundAmount = 1000; // 1000 DAI
-    await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
+    // await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
+    await signer.sendTransaction({
+      to: safeAddr,
+      value: ethers.parseEther('1.0'),
+    });
 
-    const initialDaiBalance = await DAI.balanceOf(safeAddr);
-    expect(initialDaiBalance).to.equal(ethers.parseUnits(fundAmount.toString(), 18));
+    // We should be able to use the SDK to do this, but there seems to be a param mismatch
+    // const testPayload = new BuyCoverAction(
+    //   safeAddr,
+    //   '150',
+    //   '0',
+    //   '20000000000000000000',
+    //   '1',
+    //   '0',
+    //   '0',
+    //   []
+    // );
+    // const testPayloadEncoded = testPayload.encodeArgsForExecuteActionCall();
+    // log('testPayloadEncoded', testPayloadEncoded);
 
     const abiCoder = new ethers.AbiCoder();
 
@@ -56,7 +69,6 @@ describe.skip('BuyCover tests', () => {
       skip: false,
       coverAmountInAsset: BigInt('500196398981878329'),
     };
-
     const poolAllocationRequestsEncoded = [
       abiCoder.encode(
         ['tuple(uint40 poolId, bool skip, uint256 coverAmountInAsset)'],
@@ -65,7 +77,7 @@ describe.skip('BuyCover tests', () => {
     ];
 
     const params = {
-      owner: safeAddr,
+      owner: await signer.getAddress(),
       productId: 150,
       coverAsset: 0,
       amount: BigInt('500000000000000000'),
@@ -73,37 +85,46 @@ describe.skip('BuyCover tests', () => {
       maxPremiumInAsset: BigInt('1646125793032964'),
       paymentAsset: 0,
       poolAllocationRequests: poolAllocationRequestsEncoded,
+      poolId: ethers.id('0').slice(0, 10),
     };
-
     const paramsEncoded = abiCoder.encode(
       [
-        'tuple(address owner, uint256 productId, uint256 coverAsset, uint256 amount, uint256 period, uint256 maxPremiumInAsset, uint256 paymentAsset, bytes[] poolAllocationRequests)',
+        'tuple(address owner, uint24 productId, uint8 coverAsset, uint96 amount, uint32 period, uint256 maxPremiumInAsset, uint8 paymentAsset, bytes[] poolAllocationRequests, bytes4 poolId)',
       ],
       [params]
     );
 
-    const buyCoverAddress = await buyCover.getAddress();
     const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
       paramsEncoded,
-      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0],
       [],
-      0,
+      1,
     ]);
 
-    // Approve DAI spending
-    await DAI.connect(signer).approve(safeAddr, params.amount);
+    log('encodedFunctionCall', encodedFunctionCall);
 
-    // Execute buy cover
-    await executeSafeTransaction(safeAddr, buyCoverAddress, 0, encodedFunctionCall, 1, signer);
+    const txResponse = await executeSafeTransaction(
+      safeAddr,
+      await buyCover.getAddress(),
+      0,
+      encodedFunctionCall,
+      1,
+      signer
+    );
 
-    // Check balances after buying cover
-    const finalDaiBalance = await DAI.balanceOf(safeAddr);
+    const txReceipt = await txResponse.wait();
+    log('Transaction receipt', txReceipt);
 
-    expect(finalDaiBalance).to.be.lt(initialDaiBalance);
+    // check ether balance of safe
+    const safeBalance = await ethers.provider.getBalance(safeAddr);
+    log(`Safe balance: ${ethers.formatEther(safeBalance)}`);
 
-    // TODO: Add more specific checks, such as verifying the cover was actually purchased
-    // This might involve interacting with Nexus Mutual contracts to check cover status
+    // Add checks in here.
+    // How's best to check the cover was bought?
+    // Check we have the NFT, check the logs? check the nexus contracts?
   });
-});
 
-export {};
+  it.skip('should buy cover from Nexus Mutual using a stablecoin', async () => {});
+
+  it.skip('should have the NFT in the safe', async () => {});
+});
