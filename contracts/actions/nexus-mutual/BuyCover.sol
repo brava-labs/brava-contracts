@@ -18,7 +18,7 @@ contract BuyCover is ActionBase {
     /// @param coverAsset - The asset to be covered
     /// @param amount - The amount to be covered
     /// @param period - The period of the cover
-    /// @param maxPremiumInAsset - The maximum premium in asset 
+    /// @param maxPremiumInAsset - The maximum premium in asset
     /// @param paymentAsset - The asset to be used for payment
     /// @param poolAllocationRequests - The pool allocation requests
     /// @param poolId - The Athena pool id for which the cover is bought
@@ -52,8 +52,7 @@ contract BuyCover is ActionBase {
 
         inputData.owner = _parseParamAddr(inputData.owner, _paramMapping[0], _returnValues);
 
-        (uint256 coverId, bytes memory logData) = _buyCover(inputData, _strategyId);
-        logger.logActionEvent("BuyCover", logData);
+        uint256 coverId = _buyCover(inputData, _strategyId);
         return bytes32(coverId);
     }
 
@@ -64,7 +63,7 @@ contract BuyCover is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _buyCover(Params memory _inputData, uint16 _strategyId) private returns (uint256 coverId, bytes memory logData) {
+    function _buyCover(Params memory _inputData, uint16 _strategyId) private returns (uint256 coverId) {
         BuyCoverParams memory params = BuyCoverParams({
             coverId: 0,
             owner: address(this), // TODO should this be owner EOA wallet of safe?
@@ -79,7 +78,9 @@ contract BuyCover is ActionBase {
             ipfsData: ""
         });
 
-        PoolAllocationRequest[] memory poolAllocationRequests = new PoolAllocationRequest[](_inputData.poolAllocationRequests.length);
+        PoolAllocationRequest[] memory poolAllocationRequests = new PoolAllocationRequest[](
+            _inputData.poolAllocationRequests.length
+        );
         for (uint256 i = 0; i < _inputData.poolAllocationRequests.length; i++) {
             poolAllocationRequests[i] = abi.decode(_inputData.poolAllocationRequests[i], (PoolAllocationRequest));
         }
