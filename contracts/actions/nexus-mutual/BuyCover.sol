@@ -14,26 +14,14 @@ contract BuyCover is ActionBase {
     using SafeUIntCast for uint256;
 
     /// @param owner -  The owner of the cover
-    /// @param productId - The cover product id
-    /// @param coverAsset - The asset to be covered
-    /// @param amount - The amount to be covered
-    /// @param period - The period of the cover
-    /// @param maxPremiumInAsset - The maximum premium in asset
-    /// @param paymentAsset - The asset to be used for payment
+    /// @param buyCoverParams - The params for the buyCover function
     /// @param poolAllocationRequests - The pool allocation requests
-    /// @param poolId - The Athena pool id for which the cover is bought
     /// @dev poolAllocationRequests are passed in an encoded form, because of their dynamic length
     ///      and the fact that we're just passing them through from the cover router
     struct Params {
         address owner;
-        uint24 productId;
-        uint8 coverAsset;
-        uint96 amount;
-        uint32 period;
-        uint256 maxPremiumInAsset;
-        uint8 paymentAsset;
+        bytes buyCoverParams;
         bytes[] poolAllocationRequests;
-        bytes4 poolId;
     }
 
     ICoverBroker public constant coverBroker = ICoverBroker(0x0000cbD7a26f72Ff222bf5f136901D224b08BE4E);
@@ -64,19 +52,7 @@ contract BuyCover is ActionBase {
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
     function _buyCover(Params memory _inputData, uint16 _strategyId) private returns (uint256 coverId) {
-        BuyCoverParams memory params = BuyCoverParams({
-            coverId: 0,
-            owner: address(this), // TODO should this be owner EOA wallet of safe?
-            productId: _inputData.productId,
-            coverAsset: _inputData.coverAsset,
-            amount: _inputData.amount,
-            period: _inputData.period,
-            maxPremiumInAsset: _inputData.maxPremiumInAsset,
-            paymentAsset: _inputData.paymentAsset,
-            commissionRatio: 0,
-            commissionDestination: address(0),
-            ipfsData: ""
-        });
+        BuyCoverParams memory params = abi.decode(_inputData.buyCoverParams, (BuyCoverParams));
 
         PoolAllocationRequest[] memory poolAllocationRequests = new PoolAllocationRequest[](
             _inputData.poolAllocationRequests.length
@@ -85,21 +61,16 @@ contract BuyCover is ActionBase {
             poolAllocationRequests[i] = abi.decode(_inputData.poolAllocationRequests[i], (PoolAllocationRequest));
         }
 
-        address paymentAsset = _assetIdToTokenAddress(_inputData.paymentAsset);
-        paymentAsset.approveToken(address(coverBroker), _inputData.maxPremiumInAsset);
+        address paymentAsset = _assetIdToTokenAddress(params.paymentAsset);
+        paymentAsset.approveToken(address(coverBroker), params.maxPremiumInAsset);
 
-        if (_inputData.paymentAsset == 0) {
-            coverId = coverBroker.buyCover{value: _inputData.maxPremiumInAsset}(params, poolAllocationRequests);
+        if (params.paymentAsset == 0) {
+            coverId = coverBroker.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
         } else {
             coverId = coverBroker.buyCover(params, poolAllocationRequests);
         }
 
-        coverNft.safeTransferFrom(address(this), _inputData.owner, coverId);
-
-        logger.logActionEvent(
-            "BuyCover",
-            _encodeBuyCover(_strategyId, _inputData.poolId, _inputData.period, _inputData.amount, coverId)
-        );
+        logger.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, params.period, params.amount, coverId));
     }
 
     function _assetIdToTokenAddress(uint256 _assetId) private pure returns (address) {
@@ -116,12 +87,11 @@ contract BuyCover is ActionBase {
 
     function _encodeBuyCover(
         uint16 _strategyId,
-        bytes4 _poolId,
         uint32 _period,
         uint256 _amount,
         uint256 _coverId
     ) private pure returns (bytes memory) {
-        return abi.encode(_strategyId, _poolId, _period, _amount, _coverId);
+        return abi.encode(_strategyId, _period, _amount, _coverId);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
