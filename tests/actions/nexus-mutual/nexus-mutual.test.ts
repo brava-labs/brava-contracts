@@ -2,7 +2,7 @@ import { executeSafeTransaction, BuyCoverAction, IPoolAllocationRequest } from '
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { BuyCover, IERC20 } from '../../../typechain-types';
-import { tokenConfig } from '../../constants';
+import { tokenConfig, NEXUS_MUTUAL_NFT_ADDRESS } from '../../constants';
 import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken } from '../../utils-stable';
 import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
@@ -45,46 +45,48 @@ describe.only('BuyCover tests', () => {
       coverOwnerAddress
     );
 
-    if (response.result) {
-      const { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
-
-      const abiCoder = new ethers.AbiCoder();
-      const buyCoverParamsEncoded = abiCoder.encode(
-        [NexusMutualBuyCoverParamTypes],
-        [buyCoverParams]
+    if (!response.result) {
+      throw new Error(
+        `Failed to prepare Nexus Mutual cover purchase: ${
+          response.error?.message || 'Unknown error'
+        }`
       );
-      const poolAllocationRequestsEncoded = poolAllocationRequests.map((request) =>
-        abiCoder.encode([NexusMutualPoolAllocationRequestTypes], [request])
-      );
-
-      const encodedParamsCombined = abiCoder.encode(
-        [BuyCoverInputTypes],
-        [
-          {
-            owner: coverOwnerAddress,
-            buyCoverParams: buyCoverParamsEncoded,
-            poolAllocationRequests: poolAllocationRequestsEncoded,
-          },
-        ]
-      );
-
-      const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
-        encodedParamsCombined,
-        [0],
-        [],
-        1,
-      ]);
-
-      return {
-        encodedFunctionCall,
-        buyCoverParams,
-        poolAllocationRequests,
-      };
-    } else if (response.error) {
-      // handle error
-      console.error('Error message: ', response.error.message); // error message
-      console.error('Error data: ', response.error.data); // optional error data
     }
+
+    const { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
+
+    const abiCoder = new ethers.AbiCoder();
+    const buyCoverParamsEncoded = abiCoder.encode(
+      [NexusMutualBuyCoverParamTypes],
+      [buyCoverParams]
+    );
+    const poolAllocationRequestsEncoded = poolAllocationRequests.map((request) =>
+      abiCoder.encode([NexusMutualPoolAllocationRequestTypes], [request])
+    );
+
+    const encodedParamsCombined = abiCoder.encode(
+      [BuyCoverInputTypes],
+      [
+        {
+          owner: coverOwnerAddress,
+          buyCoverParams: buyCoverParamsEncoded,
+          poolAllocationRequests: poolAllocationRequestsEncoded,
+        },
+      ]
+    );
+
+    const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
+      encodedParamsCombined,
+      [0],
+      [],
+      1,
+    ]);
+
+    return {
+      encodedFunctionCall,
+      buyCoverParams,
+      poolAllocationRequests,
+    };
   }
 
   before(async () => {
@@ -121,16 +123,10 @@ describe.only('BuyCover tests', () => {
       value: ethers.parseEther('1.0'),
     });
 
-    const result = await prepareNexusMutualCoverPurchase({
+    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
       productId: 152,
       coverAsset: CoverAsset.ETH,
     });
-
-    if (!result) {
-      throw new Error('Failed to prepare Nexus Mutual cover purchase');
-    }
-
-    const { encodedFunctionCall } = result;
 
     const tx = await executeSafeTransaction(
       safeAddr,
@@ -148,18 +144,12 @@ describe.only('BuyCover tests', () => {
     const fundAmount = 1000; // 1000 DAI
     await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
 
-    const result = await prepareNexusMutualCoverPurchase({
+    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
       productId: 152,
       amountToInsure: '1.0',
       daysToInsure: 28,
       coverAsset: CoverAsset.DAI,
     });
-
-    if (!result) {
-      throw new Error('Failed to prepare Nexus Mutual cover purchase');
-    }
-
-    const { encodedFunctionCall } = result;
 
     const tx = await executeSafeTransaction(
       safeAddr,
