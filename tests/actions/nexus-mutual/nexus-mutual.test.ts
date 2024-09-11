@@ -5,13 +5,87 @@ import { BuyCover, IERC20 } from '../../../typechain-types';
 import { tokenConfig } from '../../constants';
 import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken } from '../../utils-stable';
+import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
+import {
+  NexusMutualBuyCoverParamTypes,
+  NexusMutualPoolAllocationRequestTypes,
+  BuyCoverInputTypes,
+} from '../../params';
 
-describe('BuyCover tests', () => {
+describe.only('BuyCover tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let buyCover: BuyCover;
   let DAI: IERC20;
   let snapshotId: string;
+
+  async function prepareNexusMutualCoverPurchase(
+    options: {
+      productId?: number;
+      amountToInsure?: string;
+      daysToInsure?: number;
+      coverAsset?: CoverAsset;
+      coverOwnerAddress?: string;
+    } = {}
+  ) {
+    // set some defaults
+    const {
+      productId = 152, // this pool allows all payment types
+      amountToInsure = '1.0',
+      daysToInsure = 28,
+      coverAsset = CoverAsset.DAI,
+      coverOwnerAddress = safeAddr,
+    } = options;
+
+    const response = await nexusSdk.getQuoteAndBuyCoverInputs(
+      productId,
+      ethers.parseEther(amountToInsure).toString(),
+      daysToInsure,
+      coverAsset,
+      coverOwnerAddress
+    );
+
+    if (response.result) {
+      const { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
+
+      const abiCoder = new ethers.AbiCoder();
+      const buyCoverParamsEncoded = abiCoder.encode(
+        [NexusMutualBuyCoverParamTypes],
+        [buyCoverParams]
+      );
+      const poolAllocationRequestsEncoded = poolAllocationRequests.map((request) =>
+        abiCoder.encode([NexusMutualPoolAllocationRequestTypes], [request])
+      );
+
+      const encodedParamsCombined = abiCoder.encode(
+        [BuyCoverInputTypes],
+        [
+          {
+            owner: coverOwnerAddress,
+            buyCoverParams: buyCoverParamsEncoded,
+            poolAllocationRequests: poolAllocationRequestsEncoded,
+          },
+        ]
+      );
+
+      const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
+        encodedParamsCombined,
+        [0],
+        [],
+        1,
+      ]);
+
+      return {
+        encodedFunctionCall,
+        buyCoverParams,
+        poolAllocationRequests,
+      };
+    } else if (response.error) {
+      // handle error
+      console.error('Error message: ', response.error.message); // error message
+      console.error('Error data: ', response.error.data); // optional error data
+    }
+  }
 
   before(async () => {
     [signer] = await ethers.getSigners();
@@ -42,68 +116,23 @@ describe('BuyCover tests', () => {
   // TODO: Change from manually encoding to using the SDK
   it('should buy cover from Nexus Mutual using ETH', async () => {
     const fundAmount = 1000; // 1000 DAI
-    // await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
     await signer.sendTransaction({
       to: safeAddr,
       value: ethers.parseEther('1.0'),
     });
 
-    // We should be able to use the SDK to do this, but there seems to be a param mismatch
-    // const testPayload = new BuyCoverAction(
-    //   safeAddr,
-    //   '150',
-    //   '0',
-    //   '20000000000000000000',
-    //   '1',
-    //   '0',
-    //   '0',
-    //   []
-    // );
-    // const testPayloadEncoded = testPayload.encodeArgsForExecuteActionCall();
-    // log('testPayloadEncoded', testPayloadEncoded);
+    const result = await prepareNexusMutualCoverPurchase({
+      productId: 152,
+      coverAsset: CoverAsset.ETH,
+    });
 
-    const abiCoder = new ethers.AbiCoder();
+    if (!result) {
+      throw new Error('Failed to prepare Nexus Mutual cover purchase');
+    }
 
-    const poolAllocationRequest = {
-      poolId: 23,
-      skip: false,
-      coverAmountInAsset: BigInt('500196398981878329'),
-    };
-    const poolAllocationRequestsEncoded = [
-      abiCoder.encode(
-        ['tuple(uint40 poolId, bool skip, uint256 coverAmountInAsset)'],
-        [poolAllocationRequest]
-      ),
-    ];
+    const { encodedFunctionCall } = result;
 
-    const params = {
-      owner: await signer.getAddress(),
-      productId: 150,
-      coverAsset: 0,
-      amount: BigInt('500000000000000000'),
-      period: 2592000,
-      maxPremiumInAsset: BigInt('1646125793032964'),
-      paymentAsset: 0,
-      poolAllocationRequests: poolAllocationRequestsEncoded,
-      poolId: ethers.id('0').slice(0, 10),
-    };
-    const paramsEncoded = abiCoder.encode(
-      [
-        'tuple(address owner, uint24 productId, uint8 coverAsset, uint96 amount, uint32 period, uint256 maxPremiumInAsset, uint8 paymentAsset, bytes[] poolAllocationRequests, bytes4 poolId)',
-      ],
-      [params]
-    );
-
-    const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
-      paramsEncoded,
-      [0],
-      [],
-      1,
-    ]);
-
-    log('encodedFunctionCall', encodedFunctionCall);
-
-    const txResponse = await executeSafeTransaction(
+    const tx = await executeSafeTransaction(
       safeAddr,
       await buyCover.getAddress(),
       0,
@@ -111,20 +140,39 @@ describe('BuyCover tests', () => {
       1,
       signer
     );
+    await tx.wait();
 
-    const txReceipt = await txResponse.wait();
-    log('Transaction receipt', txReceipt);
-
-    // check ether balance of safe
-    const safeBalance = await ethers.provider.getBalance(safeAddr);
-    log(`Safe balance: ${ethers.formatEther(safeBalance)}`);
-
-    // Add checks in here.
-    // How's best to check the cover was bought?
-    // Check we have the NFT, check the logs? check the nexus contracts?
+    // check the coverage here
   });
+  it('should buy cover from Nexus Mutual using a stablecoin', async () => {
+    const fundAmount = 1000; // 1000 DAI
+    await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
 
-  it.skip('should buy cover from Nexus Mutual using a stablecoin', async () => {});
+    const result = await prepareNexusMutualCoverPurchase({
+      productId: 152,
+      amountToInsure: '1.0',
+      daysToInsure: 28,
+      coverAsset: CoverAsset.DAI,
+    });
+
+    if (!result) {
+      throw new Error('Failed to prepare Nexus Mutual cover purchase');
+    }
+
+    const { encodedFunctionCall } = result;
+
+    const tx = await executeSafeTransaction(
+      safeAddr,
+      await buyCover.getAddress(),
+      0,
+      encodedFunctionCall,
+      1,
+      signer
+    );
+    await tx.wait();
+
+    // check the coverage here
+  });
 
   it.skip('should have the NFT in the safe', async () => {});
 });
