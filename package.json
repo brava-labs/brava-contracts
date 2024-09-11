@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/amorphicxyz/athena-contracts#readme",
   "devDependencies": {
+    "@nexusmutual/sdk": "^0.4.13",
     "@nomicfoundation/hardhat-ledger": "^1.0.3",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@tenderly/hardhat-tenderly": "^2.2.2",
