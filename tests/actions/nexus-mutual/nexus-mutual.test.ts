@@ -164,5 +164,30 @@ describe.only('BuyCover tests', () => {
     // check the coverage here
   });
 
-  it.skip('should have the NFT in the safe', async () => {});
+  it('should have the NFT in the safe', async () => {
+    const fundAmount = 1000; // 1000 DAI
+    await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
+
+    const nft = await ethers.getContractAt('IERC721', NEXUS_MUTUAL_NFT_ADDRESS);
+    expect(await nft.balanceOf(safeAddr)).to.equal(0);
+
+    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
+      productId: 152,
+      amountToInsure: '1.0',
+      daysToInsure: 28,
+      coverAsset: CoverAsset.DAI,
+    });
+
+    const tx = await executeSafeTransaction(
+      safeAddr,
+      await buyCover.getAddress(),
+      0,
+      encodedFunctionCall,
+      1,
+      signer
+    );
+    await tx.wait();
+
+    expect(await nft.balanceOf(safeAddr)).to.equal(1);
+  });
 });
