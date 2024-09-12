@@ -1,7 +1,7 @@
 import { executeSafeTransaction, BuyCoverAction, IPoolAllocationRequest } from 'athena-sdk';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
-import { BuyCover, IERC20 } from '../../../typechain-types';
+import { BuyCover } from '../../../typechain-types';
 import { tokenConfig, NEXUS_MUTUAL_NFT_ADDRESS } from '../../constants';
 import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken } from '../../utils-stable';
@@ -11,14 +11,15 @@ import {
   NexusMutualPoolAllocationRequestTypes,
   BuyCoverInputTypes,
 } from '../../params';
+import { Log } from 'ethers';
 
-describe.only('BuyCover tests', () => {
+describe('BuyCover tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let buyCover: BuyCover;
-  let DAI: IERC20;
   let snapshotId: string;
 
+  // TODO: Change from manually encoding to using the SDK
   async function prepareNexusMutualCoverPurchase(
     options: {
       productId?: number;
@@ -98,10 +99,9 @@ describe.only('BuyCover tests', () => {
     buyCover = await deploy(
       'BuyCover',
       signer,
-      baseSetup.contractRegistry.getAddress(),
-      baseSetup.logger.getAddress()
+      await baseSetup.contractRegistry.getAddress(),
+      await baseSetup.logger.getAddress()
     );
-    DAI = await ethers.getContractAt('IERC20', tokenConfig.DAI.address);
   });
 
   beforeEach(async () => {
@@ -115,9 +115,7 @@ describe.only('BuyCover tests', () => {
     snapshotId = await network.provider.send('evm_snapshot');
   });
 
-  // TODO: Change from manually encoding to using the SDK
   it('should buy cover from Nexus Mutual using ETH', async () => {
-    const fundAmount = 1000; // 1000 DAI
     await signer.sendTransaction({
       to: safeAddr,
       value: ethers.parseEther('1.0'),
@@ -189,5 +187,62 @@ describe.only('BuyCover tests', () => {
     await tx.wait();
 
     expect(await nft.balanceOf(safeAddr)).to.equal(1);
+  });
+
+  it('should have the correct data in the NFT', async () => {
+    const fundAmount = 1000; // 1000 DAI
+    await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
+
+    const nft = await ethers.getContractAt('IERC721', NEXUS_MUTUAL_NFT_ADDRESS);
+    expect(await nft.balanceOf(safeAddr)).to.equal(0);
+
+    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
+      productId: 152,
+      amountToInsure: '1.0',
+      daysToInsure: 28,
+      coverAsset: CoverAsset.DAI,
+    });
+
+    const tx = await executeSafeTransaction(
+      safeAddr,
+      await buyCover.getAddress(),
+      0,
+      encodedFunctionCall,
+      1,
+      signer
+    );
+
+    const receipt = await tx.wait();
+
+    expect(await nft.balanceOf(safeAddr)).to.equal(1);
+
+    // filter relevant logs
+    const relevantLogs = receipt.logs.filter(
+      (log: any) => log.address.toLowerCase() === NEXUS_MUTUAL_NFT_ADDRESS.toLowerCase()
+    );
+
+    // decode logs to get NFT token ID
+    const decodedLogs = nft.interface.parseLog(relevantLogs[0]);
+
+    if (!decodedLogs) {
+      throw new Error('No NFT contract logs found');
+    }
+    const tokenID = decodedLogs.args[2];
+
+    // get the NFT metadata
+    const metadata = await nft.tokenURI(tokenID);
+
+    // get the NFT metadata from the URI
+    const metadataResponse = await fetch(metadata);
+    const metadataJson = await metadataResponse.json();
+
+    // expect the name and description to be correct
+    expect(metadataJson.name).to.equal('Nexus Mutual: Cover NFT');
+    // We can't check the description without correctly pasing the amount (and expiry?)
+    // expect(metadataJson.description).to.equal(
+    //   'This NFT represents a cover purchase made for: fx Protocol + Curve + Convex \n' +
+    //     '-Amount Covered: 1.07 DAI' +
+    //     ' -Expiry Date: Oct 10 2024'
+    // );
   });
 });
