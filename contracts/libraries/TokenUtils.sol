@@ -6,7 +6,6 @@ import {IWETH} from "../interfaces/IWETH.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IERC20Permit} from "../interfaces/IERC20Permit.sol";
 import {SafeERC20} from "./SafeERC20.sol";
-import "hardhat/console.sol";
 
 library TokenUtils {
     using SafeERC20 for IERC20;
