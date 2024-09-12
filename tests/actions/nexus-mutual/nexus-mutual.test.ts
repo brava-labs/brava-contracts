@@ -97,7 +97,7 @@ describe('BuyCover tests', () => {
     log('Safe Address', safeAddr);
 
     buyCover = await deploy(
-      'BuyCover',
+      'NexusBuyCover',
       signer,
       await baseSetup.contractRegistry.getAddress(),
       await baseSetup.logger.getAddress()
