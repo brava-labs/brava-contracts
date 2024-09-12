@@ -7,12 +7,10 @@ on:
       - 'contracts/actions/**'
 
 jobs:
-
   action-test:
     runs-on: ubuntu-latest
 
     steps:
-
       - uses: actions/checkout@v4
 
       - uses: ./.github/actions/env-setup
@@ -33,13 +31,22 @@ jobs:
         run: |
           changed_files="${{ steps.changed-files.outputs.all_changed_files }}"
 
+          # Use an associative array to track which subdirectories we've seen
+          declare -A seen_subdirs
+
           for file in $changed_files; do
             if [[ $file == contracts/actions/* ]]; then
               # Extract the subdirectory
               subdir=$(echo $file | sed 's|contracts/actions/||' | cut -d'/' -f1)
               
-              # Run tests for the corresponding subdirectory
-              echo "Running tests for $subdir"
-              npx hardhat test tests/actions/$subdir
+              # Check if we've already seen this subdirectory
+              if [[ ! ${seen_subdirs[$subdir]} ]]; then
+                # Mark this subdirectory as seen
+                seen_subdirs[$subdir]=1
+                
+                # Run tests for the corresponding subdirectory
+                echo "Running tests for $subdir"
+                npx hardhat test tests/actions/$subdir/*.test.ts
+              fi
             fi
           done

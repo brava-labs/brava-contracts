@@ -4,7 +4,7 @@ import { ethers, expect, Signer } from '../..';
 import { BuyCover, IERC20 } from '../../../typechain-types';
 import { tokenConfig } from '../../constants';
 import { deploy, getBaseSetup, log } from '../../utils';
-import { fundAccountWithStablecoin } from '../../utils-stable';
+import { fundAccountWithToken } from '../../utils-stable';
 
 // AI generated test, this doesn't work yet
 
@@ -44,7 +44,7 @@ describe.skip('BuyCover tests', () => {
   // Skip this until it's implemented properly
   it.skip('should buy cover from Nexus Mutual', async () => {
     const fundAmount = 1000; // 1000 DAI
-    await fundAccountWithStablecoin(safeAddr, 'DAI', fundAmount);
+    await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
 
     const initialDaiBalance = await DAI.balanceOf(safeAddr);
     expect(initialDaiBalance).to.equal(ethers.parseUnits(fundAmount.toString(), 18));
@@ -106,5 +106,4 @@ describe.skip('BuyCover tests', () => {
   });
 });
 
-export { };
-
+export {};
