@@ -1,5 +1,5 @@
 import { ethers, network } from 'hardhat';
-import { Signer, BaseContract } from 'ethers';
+import { Signer, BaseContract, Log, TransactionResponse, TransactionReceipt } from 'ethers';
 import * as constants from './constants';
 // import * as safe from './utils-safe';
 import { ISafe } from '../typechain-types/interfaces/safe/ISafe';
@@ -15,6 +15,95 @@ export function log(...args: unknown[]): void {
 
 export function formatAmount(amount: bigint, decimals: number): string {
   return (amount / BigInt(10 ** decimals)).toString();
+}
+
+async function processLoggerInput(
+  input: TransactionResponse | TransactionReceipt | Log[]
+): Promise<readonly Log[]> {
+  if (Array.isArray(input)) {
+    return input; // It's already Log[]
+  } else if ('wait' in input) {
+    const receipt = await input.wait();
+    return receipt?.logs ?? []; // It's TransactionResponse
+  } else if ('logs' in input) {
+    return input.logs; // It's TransactionReceipt
+  }
+  throw new Error('Invalid input type');
+}
+
+/// takes a hash and returns the event name if it matches one of the known events
+/// we need to do this because in events an indexed string is only emitted as a hash
+function matchHashToEvent(hash: string): string | null {
+  const knownEvents = ['BalanceUpdate', 'BuyCover'];
+  return knownEvents.find((event) => ethers.keccak256(ethers.toUtf8Bytes(event)) === hash) ?? hash;
+}
+
+export interface BalanceUpdateLog {
+  eventName: string | null;
+  safeAddress: string;
+  strategyId: number;
+  poolId: string;
+  balanceBefore: bigint;
+  balanceAfter: bigint;
+}
+export interface BuyCoverLog {
+  eventName: string | null;
+  safeAddress: string;
+  strategyId: number;
+  poolId: string;
+  coverId: string;
+}
+
+// give me a transaction response, a transaction receipt, or an array of logs
+// I don't care which, just point me at the logger and I'll decode the logs for you
+export async function decodeLoggerLog(
+  input: TransactionResponse | TransactionReceipt | Log[],
+  loggerAddress: string
+): Promise<(BalanceUpdateLog | BuyCoverLog)[]> {
+  const logs = await processLoggerInput(input);
+  const abiCoder = new ethers.AbiCoder();
+  const logger = await ethers.getContractAt('Logger', loggerAddress);
+
+  const relevantLogs = logs.filter(
+    (log: any) => log.address.toLowerCase() === loggerAddress.toLowerCase()
+  );
+
+  return relevantLogs.map((log: any) => {
+    const decodedLog = logger.interface.parseLog(log)!;
+    const eventName = matchHashToEvent(decodedLog.args[1].hash);
+
+    const baseLog = {
+      eventName,
+      safeAddress: decodedLog.args[0],
+    };
+
+    if (eventName === 'BalanceUpdate') {
+      const decodedBytes = abiCoder.decode(
+        ['uint16', 'bytes4', 'uint256', 'uint256'],
+        decodedLog.args[2]
+      );
+      return {
+        ...baseLog,
+        strategyId: decodedBytes[0],
+        poolId: decodedBytes[1].toString(),
+        balanceBefore: decodedBytes[2],
+        balanceAfter: decodedBytes[3],
+      } as BalanceUpdateLog;
+    } else if (eventName === 'BuyCover') {
+      const decodedBytes = abiCoder.decode(
+        ['uint16', 'bytes4', 'uint32', 'uint256'],
+        decodedLog.args[2]
+      );
+      return {
+        ...baseLog,
+        strategyId: decodedBytes[0],
+        poolId: decodedBytes[1].toString(),
+        coverId: decodedBytes[2].toString(),
+      } as BuyCoverLog;
+    } else {
+      throw new Error(`Unknown event type: ${eventName}`);
+    }
+  });
 }
 
 export async function deploy<T extends BaseContract>(

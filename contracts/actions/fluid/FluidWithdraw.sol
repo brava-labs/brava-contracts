@@ -3,7 +3,7 @@ pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
 import {TokenUtils} from "../../libraries/TokenUtils.sol";
-import {IFToken} from "../../interfaces/fluid/IFToken.sol";
+import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
 import {ActionUtils} from "../../libraries/ActionUtils.sol";
 
 /// @title Burns fTokens and receive underlying tokens in return
@@ -31,8 +31,7 @@ contract FluidWithdraw is ActionBase {
 
         inputData.fAmount = _parseParamUint(inputData.fAmount, _paramMapping[1], _returnValues);
 
-        (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData, _strategyId);
-        logger.logActionEvent("FluidWithdraw", logData);
+        uint256 amountReceived = _fluidWithdraw(inputData, _strategyId);
         return (bytes32(amountReceived));
     }
 
@@ -42,9 +41,9 @@ contract FluidWithdraw is ActionBase {
     }
 
     function exit(address _fToken) public {
-        IFToken fToken = IFToken(_fToken);
-        Params memory inputData = Params({fToken: _fToken, fAmount: address(fToken).getBalance(address(this))});
-        _fluidWithdraw(inputData, type(uint16).max);
+        IFluidLending fToken = IFluidLending(_fToken);
+        uint256 maxWithdrawAmount = fToken.maxWithdraw(address(this));
+        fToken.withdraw(maxWithdrawAmount, address(this), address(this));
     }
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
@@ -52,8 +51,8 @@ contract FluidWithdraw is ActionBase {
     function _fluidWithdraw(
         Params memory _inputData,
         uint16 _strategyId
-    ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
-        IFToken fToken = IFToken(_inputData.fToken);
+    ) private returns (uint256 tokenAmountReceived) {
+        IFluidLending fToken = IFluidLending(_inputData.fToken);
 
         address underlyingToken = fToken.asset();
 
@@ -63,8 +62,6 @@ contract FluidWithdraw is ActionBase {
         uint256 fBalanceAfter = address(fToken).getBalance(address(this));
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
-
-        logData = abi.encode(_inputData, tokenAmountReceived);
 
         logger.logActionEvent(
             "BalanceUpdate",

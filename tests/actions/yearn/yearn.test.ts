@@ -4,7 +4,7 @@ import { Signer, ethers, expect } from '../..';
 import { IERC20, YearnSupply } from '../../../typechain-types';
 import { YEARN_REGISTRY_ADDRESS, tokenConfig } from '../../constants';
 import { deploy, getBaseSetup, log } from '../../utils';
-import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
+import { fundAccountWithToken, getStables } from '../../utils-stable';
 
 // AI generated test, this doesn't work yet
 
@@ -44,7 +44,7 @@ describe('YearnSupply tests', () => {
   // Skip this until it's implemented properly
   it.skip('should supply USDC to Yearn vault', async () => {
     const fundAmount = 1000; // 1000 USDC
-    await fundAccountWithStablecoin(safeAddr, 'USDC', fundAmount);
+    await fundAccountWithToken(safeAddr, 'USDC', fundAmount);
 
     const initialUsdcBalance = await USDC.balanceOf(safeAddr);
     expect(initialUsdcBalance).to.equal(ethers.parseUnits(fundAmount.toString(), 6));
@@ -98,5 +98,4 @@ describe('YearnSupply tests', () => {
   });
 });
 
-export { };
-
+export {};
