@@ -43,10 +43,7 @@ describe('Fee Take tests', () => {
     snapshotId = await network.provider.send('evm_snapshot');
   });
 
-  it.skip('Should execute take fee', async () => {
-  });
-
+  it.skip('Should execute take fee', async () => {});
 });
 
-export { };
-
+export {};

@@ -79,7 +79,10 @@ interface IModuleManager {
      * @return array Array of modules.
      * @return next Start of the next page.
      */
-    function getModulesPaginated(address start, uint256 pageSize) external view returns (address[] memory array, address next);
+    function getModulesPaginated(
+        address start,
+        uint256 pageSize
+    ) external view returns (address[] memory array, address next);
 
     /**
      * @dev Set a module guard that checks transactions initiated by the module before execution

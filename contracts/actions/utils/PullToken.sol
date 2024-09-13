@@ -31,7 +31,7 @@ contract PullToken is ActionBase {
 
         inputData.tokenAddr = _parseParamAddr(inputData.tokenAddr, _paramMapping[0], _returnValues);
         inputData.from = _parseParamAddr(inputData.from, _paramMapping[1], _returnValues);
-        inputData.amount = _parseParamUint(inputData.amount, _paramMapping[2],  _returnValues);
+        inputData.amount = _parseParamUint(inputData.amount, _paramMapping[2], _returnValues);
 
         inputData.amount = _pullToken(inputData.tokenAddr, inputData.from, inputData.amount);
 

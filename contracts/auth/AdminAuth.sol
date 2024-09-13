@@ -34,11 +34,7 @@ abstract contract AdminAuth {
     }
 
     /// @notice withdraw stuck funds
-    function withdrawStuckFunds(
-        address _token,
-        address _receiver,
-        uint256 _amount
-    ) public onlyOwner {
+    function withdrawStuckFunds(address _token, address _receiver, uint256 _amount) public onlyOwner {
         if (_token == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
             payable(_receiver).transfer(_amount);
         } else {

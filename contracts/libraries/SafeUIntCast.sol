@@ -2,9 +2,7 @@
 
 pragma solidity =0.8.24;
 
-
 library SafeUIntCast {
-
     /// @notice Convers a uint256 to uint128, reverts if the value is out of range
     /// @param value The uint256 value to be converted
     /// @return The converted uint128 value
