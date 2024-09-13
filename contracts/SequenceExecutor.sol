@@ -2,8 +2,8 @@
 
 pragma solidity =0.8.24;
 
-import "./auth/AdminAuth.sol";
-import "./interfaces/IContractRegistry.sol";
+import {AdminAuth} from "./auth/AdminAuth.sol";
+import {IContractRegistry} from "./interfaces/IContractRegistry.sol";
 
 /**
  * @title Entry point into executing recipes/checking triggers directly and as part of a strategy
@@ -40,13 +40,15 @@ contract RecipeExecutor is AdminAuth {
         uint8[][] paramMapping;
     }
 
-    IContractRegistry public immutable contractRegistry;
+    IContractRegistry public immutable CONTRACT_REGISTRY;
+
+    error NoActionAddressGiven();
 
     /// @dev Function sig of ActionBase.executeAction()
     bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint8[],bytes32[])"));
 
     constructor(address _adminVault, address _contractRegistry) AdminAuth(_adminVault) {
-        contractRegistry = IContractRegistry(_contractRegistry);
+        CONTRACT_REGISTRY = IContractRegistry(_contractRegistry);
     }
 
     /// @notice Called directly through user wallet to execute a sequence
@@ -76,7 +78,7 @@ contract RecipeExecutor is AdminAuth {
         uint256 _index,
         bytes32[] memory _returnValues
     ) internal returns (bytes32 response) {
-        address actionAddr = contractRegistry.getAddr(_currSequence.actionIds[_index]);
+        address actionAddr = CONTRACT_REGISTRY.getAddr(_currSequence.actionIds[_index]);
 
         response = delegateCallAndReturnBytes32(
             actionAddr,
@@ -90,9 +92,11 @@ contract RecipeExecutor is AdminAuth {
     }
 
     function delegateCallAndReturnBytes32(address _target, bytes memory _data) internal returns (bytes32 response) {
-        require(_target != address(0));
-
+        if (_target == address(0)) {
+            revert NoActionAddressGiven();
+        }
         // call contract in current context
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             let succeeded := delegatecall(sub(gas(), 5000), _target, add(_data, 0x20), mload(_data), 0, 32)
 
