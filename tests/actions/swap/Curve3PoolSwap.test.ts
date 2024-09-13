@@ -2,7 +2,12 @@ import { executeSafeTransaction } from 'athena-sdk';
 import { BigNumberish } from 'ethers';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
-import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../../tests/constants';
+import {
+  CURVE_3POOL_ADDRESS,
+  CURVE_3POOL_INDICES,
+  tokenConfig,
+  actionTypes,
+} from '../../../tests/constants';
 import { Curve3PoolSwap, IERC20 } from '../../../typechain-types';
 import { Curve3PoolSwapParams } from '../../params';
 import { deploy, getBaseSetup, log } from '../../utils';
@@ -193,6 +198,10 @@ describe('Curve3PoolSwap tests', () => {
       expect(await USDT.decimals()).to.equal(tokenConfig.USDT.decimals);
       expect(await DAI.symbol()).to.equal('DAI');
       expect(await DAI.decimals()).to.equal(tokenConfig.DAI.decimals);
+    });
+    it('Should have swap action type', async () => {
+      const actionType = await curve3PoolSwap.actionType();
+      expect(actionType).to.equal(actionTypes.SWAP_ACTION);
     });
   });
   describe('Edge cases', () => {

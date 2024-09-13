@@ -53,3 +53,13 @@ export const tokenConfig = {
     decimals: 6,
   },
 };
+
+export const actionTypes = {
+  DEPOSIT_ACTION: 0,
+  WITHDRAW_ACTION: 1,
+  SWAP_ACTION: 2,
+  COVER_ACTION: 3,
+  FEE_ACTION: 4,
+  TRANSFER_ACTION: 5,
+  CUSTOM_ACTION: 6,
+};

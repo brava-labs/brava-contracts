@@ -2,7 +2,7 @@ import { executeSafeTransaction, BuyCoverAction, IPoolAllocationRequest } from '
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { BuyCover } from '../../../typechain-types';
-import { tokenConfig, NEXUS_MUTUAL_NFT_ADDRESS } from '../../constants';
+import { tokenConfig, NEXUS_MUTUAL_NFT_ADDRESS, actionTypes } from '../../constants';
 import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken } from '../../utils-stable';
 import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
@@ -244,5 +244,9 @@ describe('BuyCover tests', () => {
     //     '-Amount Covered: 1.07 DAI' +
     //     ' -Expiry Date: Oct 10 2024'
     // );
+  });
+  it('Should have cover action type', async () => {
+    const actionType = await buyCover.actionType();
+    expect(actionType).to.equal(actionTypes.COVER_ACTION);
   });
 });

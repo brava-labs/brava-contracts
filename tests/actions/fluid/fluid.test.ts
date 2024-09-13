@@ -15,7 +15,7 @@ import {
 } from '../../../typechain-types';
 import { deploy, getBaseSetup, log, decodeLoggerLog, BalanceUpdateLog } from '../../utils';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
-import { tokenConfig } from '../../../tests/constants';
+import { tokenConfig, actionTypes } from '../../../tests/constants';
 import { FluidSupplyParams } from '../../params';
 import { BytesLike } from 'ethers';
 
@@ -196,6 +196,10 @@ describe('Fluid tests', () => {
       expect(finalfUSDCBalance).to.be.greaterThan(initialfUSDCBalance);
     });
 
+    it('Should have deposit action type', async () => {
+      const actionType = await fluidSupplyContract.actionType();
+      expect(actionType).to.equal(actionTypes.DEPOSIT_ACTION);
+    });
     it.skip('Should reject invalid token', async () => {
       // Currently there is no guard against supplying a non-fToken that implements IFluidLending
       // So this test could pass even if the token is not a valid fToken
@@ -357,6 +361,10 @@ describe('Fluid tests', () => {
         1,
         signer
       );
+    });
+    it('Should have withdraw action type', async () => {
+      const actionType = await fluidWithdrawContract.actionType();
+      expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
     });
     it.skip('Should reject invalid token', async () => {
       // Currently there is no guard against supplying a non-fToken that implements IFluidLending
