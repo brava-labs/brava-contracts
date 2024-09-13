@@ -5,8 +5,6 @@ pragma solidity =0.8.24;
 /// @title Stores all the important contract addresses used throughout the system.
 /// @notice Contract addresses can be changed by the owner with a timelock.
 interface IContractRegistry {
-
-    
     /// @notice Given an contract id returns the registered address
     /// @dev Id is keccak256 of the contract name
     /// @param _id Id of contract

@@ -40,7 +40,7 @@ contract ContractRegistry is AdminAuth {
     mapping(bytes4 => uint256) public pendingWaitTimes;
 
     constructor(address _adminVault) AdminAuth(_adminVault) {}
-    
+
     /// @notice Given an contract id returns the registered address
     /// @dev Id is keccak256 of the contract name
     /// @param _id Id of contract

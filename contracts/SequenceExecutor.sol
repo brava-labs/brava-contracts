@@ -28,7 +28,6 @@ import "./interfaces/IContractRegistry.sol";
  *
  */
 contract RecipeExecutor is AdminAuth {
-
     /// @dev List of actions grouped as a sequence
     /// @param name Name of the sequence useful for logging what sequence is executing
     /// @param callData Array of calldata inputs to each action
@@ -44,8 +43,7 @@ contract RecipeExecutor is AdminAuth {
     IContractRegistry public immutable contractRegistry;
 
     /// @dev Function sig of ActionBase.executeAction()
-    bytes4 public constant EXECUTE_ACTION_SELECTOR =
-        bytes4(keccak256("executeAction(bytes,uint8[],bytes32[])"));
+    bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint8[],bytes32[])"));
 
     constructor(address _adminVault, address _contractRegistry) AdminAuth(_adminVault) {
         contractRegistry = IContractRegistry(_contractRegistry);

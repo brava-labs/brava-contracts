@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import { TokenUtils } from "../../libraries/TokenUtils.sol";
-import { ActionBase } from "../ActionBase.sol";
+import {TokenUtils} from "../../libraries/TokenUtils.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title Helper action to send a token to the specified address
 // TODO tests
 contract SendToken is ActionBase {
-
     using TokenUtils for address;
 
     /// @param tokenAddr Address of token, use 0xEeee... for eth
@@ -27,7 +26,7 @@ contract SendToken is ActionBase {
         uint8[] memory _paramMapping,
         bytes32[] memory _returnValues,
         uint16 /*_strategyId*/
-    ) public virtual payable override returns (bytes32) {
+    ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
 
         inputData.tokenAddr = _parseParamAddr(inputData.tokenAddr, _paramMapping[0], _returnValues);
@@ -40,13 +39,11 @@ contract SendToken is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function actionType() public virtual override pure returns (uint8) {
+    function actionType() public pure virtual override returns (uint8) {
         return uint8(ActionType.TRANSFER_ACTION);
     }
 
-
     //////////////////////////// ACTION LOGIC ////////////////////////////
-    
 
     /// @notice Sends a token to the specified addr, works with Eth also
     /// @dev If amount is type(uint).max it will send whole user's wallet balance

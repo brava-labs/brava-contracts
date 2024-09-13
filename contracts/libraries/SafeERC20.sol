@@ -5,9 +5,8 @@
 
 pragma solidity =0.8.24;
 
-import { IERC20 } from "../interfaces/IERC20.sol";
-import { Address } from "./Address.sol";
-
+import {IERC20} from "../interfaces/IERC20.sol";
+import {Address} from "./Address.sol";
 
 library SafeERC20 {
     using Address for address;

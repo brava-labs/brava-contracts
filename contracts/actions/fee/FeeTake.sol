@@ -2,8 +2,8 @@
 
 pragma solidity =0.8.24;
 
-import { ActionBase } from "../ActionBase.sol";
-import { TokenUtils } from "../../libraries/TokenUtils.sol";
+import {ActionBase} from "../ActionBase.sol";
+import {TokenUtils} from "../../libraries/TokenUtils.sol";
 
 /// @title Helper action to send a token to the specified address
 contract FeeTake is ActionBase {

@@ -11,10 +11,8 @@ import {ISafe} from "../interfaces/safe/ISafe.sol";
 // utilize ContractRegistry for all actions (?)
 // do we go with fixed version or ^0.8.0
 
-
 /// @title Implements Action interface and common helpers for passing inputs
 abstract contract ActionBase {
-
     IContractRegistry public immutable registry;
 
     Logger public immutable logger;
@@ -80,11 +78,11 @@ abstract contract ActionBase {
         bytes32[] memory _returnValues
     ) internal view returns (address) {
         if (isReplaceable(_mapType)) {
-                /// @dev The last two values are specially reserved for proxy addr and owner addr
-                if (_mapType == WALLET_ADDRESS_PARAM_MAPPING) return address(this); // wallet address
-                if (_mapType == OWNER_ADDRESS_PARAM_MAPPING) return fetchOwnersOrWallet(); // owner if 1/1 wallet or the wallet itself
-                return address(bytes20((_returnValues[getReturnIndex(_mapType)])));
-            }
+            /// @dev The last two values are specially reserved for proxy addr and owner addr
+            if (_mapType == WALLET_ADDRESS_PARAM_MAPPING) return address(this); // wallet address
+            if (_mapType == OWNER_ADDRESS_PARAM_MAPPING) return fetchOwnersOrWallet(); // owner if 1/1 wallet or the wallet itself
+            return address(bytes20((_returnValues[getReturnIndex(_mapType)])));
+        }
         return _param;
     }
 
@@ -119,5 +117,4 @@ abstract contract ActionBase {
         address[] memory owners = ISafe(address(this)).getOwners();
         return owners.length == 1 ? owners[0] : address(this);
     }
-
 }
