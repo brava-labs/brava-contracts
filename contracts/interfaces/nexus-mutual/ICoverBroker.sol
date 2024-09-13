@@ -26,5 +26,5 @@ interface ICoverBroker {
     function buyCover(
         BuyCoverParams calldata params,
         PoolAllocationRequest[] calldata poolAllocationRequests
-    ) external payable returns (uint coverId);
+    ) external payable returns (uint256 coverId);
 }

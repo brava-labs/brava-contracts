@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import "../interfaces/IContractRegistry.sol";
+import {IContractRegistry} from "../interfaces/IContractRegistry.sol";
 import {Logger} from "../Logger.sol";
 import {ISafe} from "../interfaces/safe/ISafe.sol";
 
@@ -13,9 +13,9 @@ import {ISafe} from "../interfaces/safe/ISafe.sol";
 
 /// @title Implements Action interface and common helpers for passing inputs
 abstract contract ActionBase {
-    IContractRegistry public immutable registry;
+    IContractRegistry public immutable REGISTRY;
 
-    Logger public immutable logger;
+    Logger public immutable LOGGER;
 
     /// @dev If the input value should not be replaced
     uint8 public constant NO_PARAM_MAPPING = 0;
@@ -34,8 +34,8 @@ abstract contract ActionBase {
     }
 
     constructor(address _registry, address _logger) {
-        registry = IContractRegistry(_registry);
-        logger = Logger(_logger);
+        REGISTRY = IContractRegistry(_registry);
+        LOGGER = Logger(_logger);
     }
 
     /// @notice Parses inputs and runs the implemented action through a user wallet
@@ -61,9 +61,13 @@ abstract contract ActionBase {
     /// @param _param The original input value
     /// @param _mapType Indicated the type of the input in paramMapping
     /// @param _returnValues Array of subscription data we can replace the input value with
-    function _parseParamUint(uint _param, uint8 _mapType, bytes32[] memory _returnValues) internal pure returns (uint) {
+    function _parseParamUint(
+        uint256 _param,
+        uint8 _mapType,
+        bytes32[] memory _returnValues
+    ) internal pure returns (uint256) {
         if (isReplaceable(_mapType)) {
-            _param = uint(_returnValues[getReturnIndex(_mapType)]);
+            _param = uint256(_returnValues[getReturnIndex(_mapType)]);
         }
         return _param;
     }

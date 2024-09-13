@@ -9,7 +9,7 @@ import {TokenUtils} from "../../libraries/TokenUtils.sol";
 contract Curve3PoolSwap is ActionBase {
     using TokenUtils for address;
 
-    ICurve3Pool public immutable pool;
+    ICurve3Pool public immutable POOL;
 
     error InvalidTokenIndices();
     error CannotSwapSameToken();
@@ -29,7 +29,7 @@ contract Curve3PoolSwap is ActionBase {
     }
 
     constructor(address _registry, address _logger, address _poolAddress) ActionBase(_registry, _logger) {
-        pool = ICurve3Pool(_poolAddress);
+        POOL = ICurve3Pool(_poolAddress);
     }
 
     function executeAction(
@@ -42,7 +42,7 @@ contract Curve3PoolSwap is ActionBase {
         params.amountIn = _parseParamUint(params.amountIn, _paramMapping[0], _returnValues);
 
         (uint256 amountOut, bytes memory logData) = _curve3PoolSwap(params, _strategyId);
-        logger.logActionEvent("Curve3PoolSwap", logData);
+        LOGGER.logActionEvent("Curve3PoolSwap", logData);
         return bytes32(amountOut);
     }
 
@@ -70,14 +70,14 @@ contract Curve3PoolSwap is ActionBase {
             revert MinimumAmountOutMustBeGreaterThanZero();
         }
 
-        address tokenIn = pool.coins(uint256(uint128(_params.fromToken)));
-        address tokenOut = pool.coins(uint256(uint128(_params.toToken)));
+        address tokenIn = POOL.coins(uint256(uint128(_params.fromToken)));
+        address tokenOut = POOL.coins(uint256(uint128(_params.toToken)));
 
-        tokenIn.approveToken(address(pool), _params.amountIn);
+        tokenIn.approveToken(address(POOL), _params.amountIn);
 
         uint256 balanceBefore = IERC20(tokenOut).balanceOf(address(this));
 
-        pool.exchange(_params.fromToken, _params.toToken, _params.amountIn, _params.minAmountOut);
+        POOL.exchange(_params.fromToken, _params.toToken, _params.amountIn, _params.minAmountOut);
 
         uint256 balanceAfter = IERC20(tokenOut).balanceOf(address(this));
         amountOut = balanceAfter - balanceBefore;

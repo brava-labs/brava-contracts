@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/* solhint-disable func-name-mixedcase, var-name-mixedcase */
 interface ICurve3Pool {
     // Events
     event TokenExchange(

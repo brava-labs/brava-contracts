@@ -50,7 +50,7 @@ contract SendToken is ActionBase {
     /// @param _tokenAddr Address of token, use 0xEeee... for eth
     /// @param _to Where the tokens are sent
     /// @param _amount Amount of tokens, can be type(uint).max
-    function _sendToken(address _tokenAddr, address _to, uint _amount) internal returns (uint) {
+    function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal returns (uint256) {
         _amount = _tokenAddr.withdrawTokens(_to, _amount);
 
         return _amount;

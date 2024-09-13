@@ -13,24 +13,24 @@ abstract contract AdminAuth {
     error SenderNotOwner();
     error SenderNotAdmin();
 
-    AdminVault public immutable adminVault;
+    AdminVault public immutable ADMIN_VAULT;
 
     modifier onlyOwner() {
-        if (adminVault.owner() != msg.sender) {
+        if (ADMIN_VAULT.owner() != msg.sender) {
             revert SenderNotOwner();
         }
         _;
     }
 
     modifier onlyAdmin() {
-        if (adminVault.admin() != msg.sender) {
+        if (ADMIN_VAULT.admin() != msg.sender) {
             revert SenderNotAdmin();
         }
         _;
     }
 
     constructor(address _adminVault) {
-        adminVault = AdminVault(_adminVault);
+        ADMIN_VAULT = AdminVault(_adminVault);
     }
 
     /// @notice withdraw stuck funds

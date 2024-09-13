@@ -70,7 +70,7 @@ contract BuyCover is ActionBase {
             coverId = coverBroker.buyCover(params, poolAllocationRequests);
         }
 
-        logger.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, params.period, params.amount, coverId));
+        LOGGER.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, params.period, params.amount, coverId));
     }
 
     function _assetIdToTokenAddress(uint256 _assetId) private pure returns (address) {
