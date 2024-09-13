@@ -31,7 +31,7 @@ contract FeeTake is ActionBase {
 
         _takeFee(inputData);
 
-        logger.logActionEvent("FeeTake", abi.encode(inputData));
+        LOGGER.logActionEvent("FeeTake", abi.encode(inputData));
         return bytes32(inputData.amount);
     }
 

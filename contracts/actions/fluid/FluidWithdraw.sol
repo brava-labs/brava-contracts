@@ -63,7 +63,7 @@ contract FluidWithdraw is ActionBase {
         uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
         tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
 
-        logger.logActionEvent(
+        LOGGER.logActionEvent(
             "BalanceUpdate",
             ActionUtils._encodeBalanceUpdate(
                 _strategyId,

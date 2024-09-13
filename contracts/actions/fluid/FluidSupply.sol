@@ -54,7 +54,7 @@ contract FluidSupply is ActionBase {
         fTokenAmount = fBalanceAfter - fBalanceBefore;
         assert(fTokenAmount == returnValue);
 
-        logger.logActionEvent(
+        LOGGER.logActionEvent(
             "BalanceUpdate",
             ActionUtils._encodeBalanceUpdate(
                 _strategyId,

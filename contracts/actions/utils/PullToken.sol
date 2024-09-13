@@ -50,7 +50,7 @@ contract PullToken is ActionBase {
     /// @param _tokenAddr Address of token
     /// @param _from From where the tokens are pulled
     /// @param _amount Amount of tokens, can be type(uint).max
-    function _pullToken(address _tokenAddr, address _from, uint _amount) internal returns (uint amountPulled) {
+    function _pullToken(address _tokenAddr, address _from, uint256 _amount) internal returns (uint256 amountPulled) {
         amountPulled = _tokenAddr.pullTokens(_from, _amount);
     }
 

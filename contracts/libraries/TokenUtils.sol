@@ -13,6 +13,8 @@ library TokenUtils {
     address public constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address public constant ETH_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
+    error EthSendFail();
+
     /// @dev Only approves the amount if allowance is lower than amount, does not decrease allowance
     function approveToken(address _tokenAddr, address _to, uint256 _amount) internal {
         if (_tokenAddr == ETH_ADDR) return;
@@ -71,7 +73,9 @@ library TokenUtils {
                 IERC20(_token).safeTransfer(_to, _amount);
             } else {
                 (bool success, ) = _to.call{value: _amount}("");
-                require(success, "Eth send fail");
+                if (!success) {
+                    revert EthSendFail();
+                }
             }
         }
 
