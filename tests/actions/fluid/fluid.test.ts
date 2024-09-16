@@ -131,6 +131,29 @@ describe('Fluid tests', () => {
       expect(finalUSDTBalance).to.equal(initialUSDTBalance - supplyAmount);
       expect(finalfTokenBalance).to.be.greaterThan(initialFluidBalance);
     });
+    it('Should deposit max', async () => {
+      const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDT.decimals);
+      await fundAccountWithToken(safeAddr, 'USDT', 2000);
+
+      expect(await USDT.balanceOf(safeAddr)).to.equal(supplyAmount);
+
+      const supplyTxPayload = new FluidSupplyAction(
+        FLUID_USDT_ADDRESS,
+        ethers.MaxUint256.toString()
+      ).encodeArgsForExecuteActionCall(42);
+
+      await executeSafeTransaction(
+        safeAddr,
+        await fluidSupplyContract.getAddress(),
+        0,
+        supplyTxPayload,
+        1,
+        signer
+      );
+
+      expect(await USDT.balanceOf(safeAddr)).to.equal(0);
+      expect(await fUSDT.balanceOf(safeAddr)).to.be.greaterThan(0);
+    });
     it('Should emit the correct log on deposit', async () => {
       const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
       await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
