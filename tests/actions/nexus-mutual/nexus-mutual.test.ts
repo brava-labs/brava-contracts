@@ -78,8 +78,6 @@ describe('BuyCover tests', () => {
 
     const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
       encodedParamsCombined,
-      [0],
-      [],
       1,
     ]);
 

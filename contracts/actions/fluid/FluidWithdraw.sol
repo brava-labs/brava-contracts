@@ -23,13 +23,9 @@ contract FluidWithdraw is ActionBase {
     /// @inheritdoc ActionBase
     function executeAction(
         bytes memory _callData,
-        uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues,
         uint16 _strategyId
     ) public payable virtual override returns (bytes32) {
         Params memory inputData = _parseInputs(_callData);
-
-        inputData.fAmount = _parseParamUint(inputData.fAmount, _paramMapping[1], _returnValues);
 
         uint256 amountReceived = _fluidWithdraw(inputData, _strategyId);
         return (bytes32(amountReceived));
