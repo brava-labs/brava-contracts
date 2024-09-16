@@ -1,4 +1,4 @@
-import { executeSafeTransaction, BuyCoverAction, IPoolAllocationRequest } from 'athena-sdk';
+import { executeSafeTransaction, BuyCoverAction } from 'athena-sdk';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { BuyCover } from '../../../typechain-types';
@@ -122,7 +122,7 @@ describe('BuyCover tests', () => {
     });
 
     const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
-      productId: 152,
+      productId: 231,
       coverAsset: CoverAsset.ETH,
     });
 
@@ -132,7 +132,10 @@ describe('BuyCover tests', () => {
       0,
       encodedFunctionCall,
       1,
-      signer
+      signer,
+      {
+        safeTxGas: 2000000,
+      }
     );
     await tx.wait();
 
@@ -143,7 +146,7 @@ describe('BuyCover tests', () => {
     await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
 
     const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
-      productId: 152,
+      productId: 231,
       amountToInsure: '1.0',
       daysToInsure: 28,
       coverAsset: CoverAsset.DAI,
@@ -155,7 +158,10 @@ describe('BuyCover tests', () => {
       0,
       encodedFunctionCall,
       1,
-      signer
+      signer,
+      {
+        safeTxGas: 2000000,
+      }
     );
     await tx.wait();
 
@@ -170,7 +176,7 @@ describe('BuyCover tests', () => {
     expect(await nft.balanceOf(safeAddr)).to.equal(0);
 
     const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
-      productId: 152,
+      productId: 231,
       amountToInsure: '1.0',
       daysToInsure: 28,
       coverAsset: CoverAsset.DAI,
@@ -182,7 +188,10 @@ describe('BuyCover tests', () => {
       0,
       encodedFunctionCall,
       1,
-      signer
+      signer,
+      {
+        safeTxGas: 2000000,
+      }
     );
     await tx.wait();
 
@@ -197,7 +206,7 @@ describe('BuyCover tests', () => {
     expect(await nft.balanceOf(safeAddr)).to.equal(0);
 
     const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
-      productId: 152,
+      productId: 231,
       amountToInsure: '1.0',
       daysToInsure: 28,
       coverAsset: CoverAsset.DAI,
@@ -209,7 +218,10 @@ describe('BuyCover tests', () => {
       0,
       encodedFunctionCall,
       1,
-      signer
+      signer,
+      {
+        safeTxGas: 2000000,
+      }
     );
 
     const receipt = await tx.wait();
