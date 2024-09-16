@@ -32,7 +32,7 @@ contract YearnWithdraw is ActionBase {
         inputData.yAmount = _parseParamUint(inputData.yAmount, _paramMapping[1], _returnValues);
 
         (uint256 amountReceived, bytes memory logData) = _yearnWithdraw(inputData, _strategyId);
-        logger.logActionEvent("YearnWithdraw", logData);
+        LOGGER.logActionEvent("YearnWithdraw", logData);
         return (bytes32(amountReceived));
     }
 
@@ -66,7 +66,7 @@ contract YearnWithdraw is ActionBase {
 
         logData = abi.encode(_inputData, tokenAmountReceived);
 
-        logger.logActionEvent(
+        LOGGER.logActionEvent(
             "BalanceUpdate",
             ActionUtils._encodeBalanceUpdate(
                 _strategyId,

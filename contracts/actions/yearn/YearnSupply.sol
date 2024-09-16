@@ -19,7 +19,7 @@ contract YearnSupply is ActionBase {
         uint256 amount;
     }
 
-    IYearnRegistry public constant yearnRegistry = IYearnRegistry(address(0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804));
+    IYearnRegistry public constant YEARN_REGISTRY = IYearnRegistry(address(0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804));
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
 
@@ -35,7 +35,7 @@ contract YearnSupply is ActionBase {
         inputData.amount = _parseParamUint(inputData.amount, _paramMapping[1], _returnValues);
 
         (uint256 yAmountReceived, bytes memory logData) = _yearnSupply(inputData, _strategyId);
-        logger.logActionEvent("YearnSupply", logData);
+        LOGGER.logActionEvent("YearnSupply", logData);
         return bytes32(yAmountReceived);
     }
 
@@ -50,7 +50,7 @@ contract YearnSupply is ActionBase {
         Params memory _inputData,
         uint16 _strategyId
     ) private returns (uint256 yTokenAmount, bytes memory logData) {
-        IYearnVault vault = IYearnVault(yearnRegistry.latestVault(_inputData.token));
+        IYearnVault vault = IYearnVault(YEARN_REGISTRY.latestVault(_inputData.token));
 
         _inputData.token.approveToken(address(vault), _inputData.amount);
 
@@ -61,7 +61,7 @@ contract YearnSupply is ActionBase {
 
         logData = abi.encode(_inputData, yTokenAmount);
 
-        logger.logActionEvent(
+        LOGGER.logActionEvent(
             "BalanceUpdate",
             ActionUtils._encodeBalanceUpdate(
                 _strategyId,

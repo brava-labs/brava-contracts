@@ -24,8 +24,10 @@ contract BuyCover is ActionBase {
         bytes[] poolAllocationRequests;
     }
 
-    ICoverBroker public constant coverBroker = ICoverBroker(0x0000cbD7a26f72Ff222bf5f136901D224b08BE4E);
-    IERC721 public constant coverNft = IERC721(0xcafeaCa76be547F14D0220482667B42D8E7Bc3eb);
+    ICoverBroker public constant COVER_BROKER = ICoverBroker(0x0000cbD7a26f72Ff222bf5f136901D224b08BE4E);
+    IERC721 public constant COVER_NFT = IERC721(0xcafeaCa76be547F14D0220482667B42D8E7Bc3eb);
+
+    error InvalidAssetID();
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
 
@@ -62,15 +64,15 @@ contract BuyCover is ActionBase {
         }
 
         address paymentAsset = _assetIdToTokenAddress(params.paymentAsset);
-        paymentAsset.approveToken(address(coverBroker), params.maxPremiumInAsset);
+        paymentAsset.approveToken(address(COVER_BROKER), params.maxPremiumInAsset);
 
         if (params.paymentAsset == 0) {
-            coverId = coverBroker.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
+            coverId = COVER_BROKER.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
         } else {
-            coverId = coverBroker.buyCover(params, poolAllocationRequests);
+            coverId = COVER_BROKER.buyCover(params, poolAllocationRequests);
         }
 
-        logger.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, params.period, params.amount, coverId));
+        LOGGER.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, params.period, params.amount, coverId));
     }
 
     function _assetIdToTokenAddress(uint256 _assetId) private pure returns (address) {
@@ -81,7 +83,7 @@ contract BuyCover is ActionBase {
         } else if (_assetId == 6) {
             return TokenAddressesMainnet.USDC;
         } else {
-            revert("Invalid assetId");
+            revert InvalidAssetID();
         }
     }
 

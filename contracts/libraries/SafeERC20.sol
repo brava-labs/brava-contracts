@@ -11,6 +11,8 @@ import {Address} from "./Address.sol";
 library SafeERC20 {
     using Address for address;
 
+    error SafeERC20FailedOperation(address token);
+
     /**
      * @dev Transfer `value` amount of `token` from the calling contract to `to`. If `token` returns no value,
      * non-reverting calls are assumed to be successful.
@@ -53,7 +55,10 @@ library SafeERC20 {
         // the target address contains contract code and also asserts for success in the low-level call.
 
         bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
-        require(returndata.length == 0 || abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
+
+        if (returndata.length != 0 && !abi.decode(returndata, (bool))) {
+            revert SafeERC20FailedOperation(address(token));
+        }
     }
 
     /**
@@ -69,6 +74,7 @@ library SafeERC20 {
         // we're implementing it ourselves. We cannot use {Address-functionCall} here since this should return false
         // and not revert is the subcall reverts.
 
+        // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returndata) = address(token).call(data);
         return success && (returndata.length == 0 || abi.decode(returndata, (bool))) && address(token).code.length > 0;
     }
