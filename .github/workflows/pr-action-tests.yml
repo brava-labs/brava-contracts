@@ -35,7 +35,7 @@ jobs:
           declare -A seen_subdirs
 
           for file in $changed_files; do
-            if [[ $file == contracts/actions/* && $file != contracts/actions/actionBase.sol ]]; then
+            if [[ $file == contracts/actions/* && $file != contracts/actions/ActionBase.sol ]]; then
               # Extract the subdirectory
               subdir=$(echo $file | sed 's|contracts/actions/||' | cut -d'/' -f1)
               
