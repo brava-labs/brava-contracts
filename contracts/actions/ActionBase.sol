@@ -3,7 +3,6 @@ pragma solidity =0.8.24;
 
 import {IContractRegistry} from "../interfaces/IContractRegistry.sol";
 import {Logger} from "../Logger.sol";
-import {ISafe} from "../interfaces/safe/ISafe.sol";
 
 // TODOs for each actions
 // private parsing function for each action
