@@ -14,6 +14,9 @@ describe('YearnSupply tests', () => {
   let yearnSupply: YearnSupply;
   let USDC: IERC20;
   let snapshotId: string;
+  let yearnRegistry: any; // Replace 'any' with the correct interface if available
+  let usdcVaultAddress: string;
+  let yUSDC: any; // Replace 'any' with the correct interface if available
 
   before(async () => {
     [signer] = await ethers.getSigners();
@@ -28,6 +31,10 @@ describe('YearnSupply tests', () => {
       baseSetup.logger.getAddress()
     );
     ({ USDC } = await getStables());
+
+    yearnRegistry = await ethers.getContractAt('IVaultRegistry', YEARN_REGISTRY_ADDRESS);
+    usdcVaultAddress = await yearnRegistry.latestVault(tokenConfig.USDC.address);
+    yUSDC = await ethers.getContractAt('IYearnVault', usdcVaultAddress);
   });
 
   beforeEach(async () => {
@@ -66,10 +73,6 @@ describe('YearnSupply tests', () => {
       }
     );
 
-    // Get Yearn vault address for USDC
-    const yearnRegistry = await ethers.getContractAt('IVaultRegistry', YEARN_REGISTRY_ADDRESS);
-    const vaultAddress = await yearnRegistry.latestVault(tokenConfig.USDC.address);
-    const yUSDC = await ethers.getContractAt('IYearnVault', vaultAddress);
     const yUsdcBalance = await yUSDC.balanceOf(safeAddr);
     log('yUsdcBalance', yUsdcBalance);
 
@@ -78,6 +81,7 @@ describe('YearnSupply tests', () => {
     expect(yUsdcBalance).to.be.gt(0);
     expect(finalUsdcBalance).to.equal(initialUsdcBalance - BigInt(fundAmount));
   });
+
   it('should supply max USDC to Yearn vault', async () => {
     const fundAmount = 1000; // 1000 USDC
     await fundAccountWithToken(safeAddr, 'USDC', fundAmount);
@@ -103,10 +107,6 @@ describe('YearnSupply tests', () => {
       }
     );
 
-    // Get Yearn vault address for USDC
-    const yearnRegistry = await ethers.getContractAt('IVaultRegistry', YEARN_REGISTRY_ADDRESS);
-    const vaultAddress = await yearnRegistry.latestVault(tokenConfig.USDC.address);
-    const yUSDC = await ethers.getContractAt('IYearnVault', vaultAddress);
     const yUsdcBalance = await yUSDC.balanceOf(safeAddr);
     log('yUsdcBalance', yUsdcBalance);
 
