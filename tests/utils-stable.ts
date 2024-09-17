@@ -41,6 +41,12 @@ async function fundAccountWithToken(
   const whaleSigner = await ethers.getSigner(token.whale);
   const tokenContract = await ethers.getContractAt('IERC20', token.address, whaleSigner);
 
+  const provider = await ethers.getDefaultProvider();
+  const whaleBalance = await provider.getBalance(token.whale);
+  if (whaleBalance < parsedAmount) {
+    throw new Error(`Whale does not have enough ETH to do a transfer`);
+  }
+
   await tokenContract.transfer(recipient, parsedAmount.toString());
 
   await hre.network.provider.request({
