@@ -52,6 +52,11 @@ export const tokenConfig = {
     whale: '0xfa04D62d625f67a1bD750746C06a7064ee1BC005',
     decimals: 6,
   },
+  yUSDC: {
+    address: '0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE',
+    whale: '0xC4080c19DE69c2362d01B20F071D4046364A0226',
+    decimals: 6,
+  },
 };
 
 export const actionTypes = {
