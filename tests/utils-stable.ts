@@ -41,7 +41,7 @@ async function fundAccountWithToken(
   const whaleSigner = await ethers.getSigner(token.whale);
   const tokenContract = await ethers.getContractAt('IERC20', token.address, whaleSigner);
 
-  const provider = await ethers.getDefaultProvider();
+  const provider = await ethers.provider;
   const whaleBalance = await provider.getBalance(token.whale);
   // It's not accurate but lets assume that a whale should have 1 Eth
   // This mainly prevents problems when using a non-eth holding contract as a whale

@@ -16,7 +16,6 @@ import {
 import { deploy, getBaseSetup, log, decodeLoggerLog, BalanceUpdateLog } from '../../utils';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
 import { tokenConfig, actionTypes } from '../../../tests/constants';
-import { FluidSupplyParams } from '../../params';
 import { BytesLike } from 'ethers';
 
 describe('Fluid tests', () => {
