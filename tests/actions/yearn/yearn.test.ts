@@ -67,8 +67,6 @@ describe('YearnSupply tests', () => {
     const yearnSupplyAddress = await yearnSupply.getAddress();
     const encodedFunctionCall = yearnSupply.interface.encodeFunctionData('executeAction', [
       paramsEncoded,
-      [0, 0, 0, 0],
-      [],
       0,
     ]);
 
