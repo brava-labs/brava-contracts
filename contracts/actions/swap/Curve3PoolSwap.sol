@@ -34,12 +34,9 @@ contract Curve3PoolSwap is ActionBase {
 
     function executeAction(
         bytes memory _callData,
-        uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues,
         uint16 _strategyId
     ) public payable virtual override returns (bytes32) {
         Params memory params = _parseInputs(_callData);
-        params.amountIn = _parseParamUint(params.amountIn, _paramMapping[0], _returnValues);
 
         (uint256 amountOut, bytes memory logData) = _curve3PoolSwap(params, _strategyId);
         LOGGER.logActionEvent("Curve3PoolSwap", logData);

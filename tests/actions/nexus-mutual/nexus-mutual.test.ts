@@ -54,7 +54,16 @@ describe('BuyCover tests', () => {
       );
     }
 
-    const { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
+    let { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
+
+    /// THE NEXUS SDK SOMETIMES RETURNS A PREMIUM THAT IS TOO LOW
+    /// THIS IS A HACK TO MAKE IT HIGHER JUST FOR OUR TESTS
+    /// This only seems necessary when we aren't using ETH as the cover asset
+    if (coverAsset !== CoverAsset.ETH) {
+      buyCoverParams.maxPremiumInAsset = (
+        BigInt(buyCoverParams.maxPremiumInAsset) * BigInt(2)
+      ).toString();
+    }
 
     const abiCoder = new ethers.AbiCoder();
     const buyCoverParamsEncoded = abiCoder.encode(
@@ -78,8 +87,6 @@ describe('BuyCover tests', () => {
 
     const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
       encodedParamsCombined,
-      [0],
-      [],
       1,
     ]);
 
