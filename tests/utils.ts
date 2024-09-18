@@ -1,11 +1,22 @@
 import { ethers, network } from 'hardhat';
-import { Signer, BaseContract, Log, TransactionResponse, TransactionReceipt } from 'ethers';
+import {
+  Signer,
+  BaseContract,
+  Log,
+  TransactionResponse,
+  TransactionReceipt,
+  BytesLike,
+} from 'ethers';
 import * as constants from './constants';
-// import * as safe from './utils-safe';
-import { ISafe } from '../typechain-types/interfaces/safe/ISafe';
-import { deploySafe } from 'athena-sdk';
+import { tokenConfig } from './constants';
+import { actionDefaults, ActionArgs } from './actions';
+import { deploySafe, executeSafeTransaction } from 'athena-sdk';
+import * as athenaSDK from 'athena-sdk';
+import { Logger, AdminVault, ContractRegistry, ISafe } from '../typechain-types';
+import { BalanceUpdateLog, BuyCoverLog } from './logs';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
+export const USE_ATHENA_SDK = process.env.USE_ATHENA_SDK === 'true';
 
 export function log(...args: unknown[]): void {
   if (isLoggingEnabled) {
@@ -38,22 +49,6 @@ function matchHashToEvent(hash: string): string | null {
   return knownEvents.find((event) => ethers.keccak256(ethers.toUtf8Bytes(event)) === hash) ?? hash;
 }
 
-export interface BalanceUpdateLog {
-  eventName: string | null;
-  safeAddress: string;
-  strategyId: number;
-  poolId: string;
-  balanceBefore: bigint;
-  balanceAfter: bigint;
-}
-export interface BuyCoverLog {
-  eventName: string | null;
-  safeAddress: string;
-  strategyId: number;
-  poolId: string;
-  coverId: string;
-}
-
 // give me a transaction response, a transaction receipt, or an array of logs
 // I don't care which, just point me at the logger and I'll decode the logs for you
 export async function decodeLoggerLog(
@@ -79,7 +74,7 @@ export async function decodeLoggerLog(
 
     if (eventName === 'BalanceUpdate') {
       const decodedBytes = abiCoder.decode(
-        ['uint16', 'bytes4', 'uint256', 'uint256'],
+        ['uint16', 'bytes4', 'uint256', 'uint256', 'uint256'],
         decodedLog.args[2]
       );
       return {
@@ -88,6 +83,7 @@ export async function decodeLoggerLog(
         poolId: decodedBytes[1].toString(),
         balanceBefore: decodedBytes[2],
         balanceAfter: decodedBytes[3],
+        feeInTokens: decodedBytes[4],
       } as BalanceUpdateLog;
     } else if (eventName === 'BuyCover') {
       const decodedBytes = abiCoder.decode(
@@ -119,39 +115,35 @@ export async function deploy<T extends BaseContract>(
   };
   const factory = await ethers.getContractFactory(contractName, signer);
   const contract = (await factory.deploy(...args, gasOverrides)) as T;
-  await contract.waitForDeployment();
   log(`${contractName} deployed at:`, await contract.getAddress());
-  return contract;
+  deployedContracts[contractName] = { address: await contract.getAddress(), contract };
+  return contract.waitForDeployment() as Promise<T>;
 }
 
-export async function deployBaseSetup(signer?: Signer): Promise<{
-  logger: BaseContract;
-  adminVault: BaseContract;
-  contractRegistry: BaseContract;
-  safeAddr: string;
-}> {
+export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSetup> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
-  const logger = await deploy('Logger', deploySigner);
-  const adminVault = await deploy(
+  const logger = await deploy<Logger>('Logger', deploySigner);
+  const adminVault = await deploy<AdminVault>(
     'AdminVault',
     deploySigner,
     constants.OWNER_ADDRESS,
     constants.ADMIN_ADDRESS
   );
-  const contractRegistry = await deploy(
+  const contractRegistry = await deploy<ContractRegistry>(
     'ContractRegistry',
     deploySigner,
     await adminVault.getAddress()
   );
-  const safeAddr = await deploySafe(deploySigner);
-  log('Safe deployed at:', safeAddr);
-  return { logger, adminVault, contractRegistry, safeAddr };
+  const safeAddress = await deploySafe(deploySigner);
+  const safe = await ethers.getContractAt('ISafe', safeAddress);
+  log('Safe deployed at:', safeAddress);
+  return { logger, adminVault, contractRegistry, safe, signer: deploySigner };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
 let baseSetupSnapshotId: string | null = null;
 
-export async function getBaseSetup(signer?: Signer): Promise<ReturnType<typeof deployBaseSetup>> {
+export async function getBaseSetup(signer?: Signer): Promise<typeof globalSetup> {
   if (baseSetupCache && baseSetupSnapshotId) {
     log('Reverting to snapshot');
     await network.provider.send('evm_revert', [baseSetupSnapshotId]);
@@ -161,7 +153,195 @@ export async function getBaseSetup(signer?: Signer): Promise<ReturnType<typeof d
 
   log('Deploying base setup');
   const setup = await deployBaseSetup(signer);
+  if (!setup) {
+    throw new Error('Base setup deployment failed');
+  }
   baseSetupCache = setup;
   baseSetupSnapshotId = await network.provider.send('evm_snapshot', []);
+  setGlobalSetup(setup);
   return setup;
+}
+
+// Given 2 transaction receipts, a fee percentage (in basis points) and the balance
+// I will calculate the expected fee for you
+export async function calculateExpectedFee(
+  tx1: TransactionReceipt,
+  tx2: TransactionReceipt,
+  feePercentage: number,
+  balance: bigint
+): Promise<bigint> {
+  const timestamp1 = (await tx1.getBlock()).timestamp;
+  const timestamp2 = (await tx2.getBlock()).timestamp;
+  const timeDifference =
+    timestamp2 > timestamp1 ? timestamp2 - timestamp1 : timestamp1 - timestamp2;
+  const annualFee = (balance * BigInt(feePercentage)) / BigInt(10000);
+  const fee = (annualFee * BigInt(timeDifference)) / BigInt(31536000);
+  return fee;
+}
+
+// Global setup for the tests
+// This is used to store the contracts and signer for the tests
+let globalSetup:
+  | {
+      logger: Logger;
+      adminVault: AdminVault;
+      contractRegistry: ContractRegistry;
+      safe: ISafe;
+      signer: Signer;
+    }
+  | undefined;
+
+export function setGlobalSetup(params: {
+  logger: Logger;
+  adminVault: AdminVault;
+  contractRegistry: ContractRegistry;
+  safe: ISafe;
+  signer: Signer;
+}) {
+  globalSetup = params;
+}
+
+export function getGlobalSetup(): {
+  logger: Logger;
+  adminVault: AdminVault;
+  contractRegistry: ContractRegistry;
+  safe: ISafe;
+  signer: Signer;
+} {
+  if (!globalSetup) {
+    throw new Error('Global setup not set');
+  }
+  return globalSetup;
+}
+
+interface DeployedContract {
+  address: string;
+  contract: BaseContract;
+}
+const deployedContracts: Record<string, DeployedContract> = {};
+
+export function getDeployedContract(name: string): DeployedContract | undefined {
+  return deployedContracts[name];
+}
+
+// Helper function to execute an action
+// This function will use default values for any parameters not specified
+// It will also use the global setup to get the safe address and signer
+// It will also get the deployed contract for the action type
+// It is also possible to specify using the SDK or manual encoding
+export async function executeAction(args: ActionArgs) {
+  // Load defaults for the action type
+  const defaults = actionDefaults[args.type] || {};
+  // overwrite defaults with any given args
+  const {
+    protocol = defaults.protocol,
+    safeAddress = (await getGlobalSetup()).safe.getAddress(),
+    value = defaults.value,
+    safeOperation = defaults.safeOperation,
+    signer = (await getGlobalSetup()).signer,
+    token = defaults.token,
+    amount = defaults.amount,
+    feePercentage = defaults.feePercentage,
+    minAmount = defaults.minAmount,
+    useSDK = defaults.useSDK,
+    minSharesReceived = defaults.minSharesReceived,
+    maxSharesBurned = defaults.maxSharesBurned,
+  } = args;
+
+  // Check for required parameters
+  if (!signer || value === undefined || safeOperation === undefined) {
+    throw new Error('Missing required parameters for executeAction');
+  }
+
+  // get the deployed contract for the action type
+  const actionContract = getDeployedContract(args.type);
+
+  if (!actionContract) {
+    throw new Error(`Contract ${args.type} not deployed`);
+  }
+
+  if (!token) {
+    throw new Error('Missing token in executeAction');
+  }
+  // check we have a valid token and return the corresponding vault address
+  let vaultAddress: string | undefined;
+  const tokenData = tokenConfig[token];
+  if ('vaults' in tokenData) {
+    vaultAddress = tokenData.vaults[protocol as keyof typeof tokenData.vaults];
+  }
+  if (!vaultAddress) {
+    throw new Error(`Invalid token or missing vaults for ${token}`);
+  }
+
+  // check if all encoding parameters are set
+  if (
+    (!amount && amount !== '0') ||
+    (!feePercentage && feePercentage !== 0) ||
+    (!minAmount && minAmount !== '0')
+  ) {
+    console.log('amount', amount);
+    console.log('feePercentage', feePercentage);
+    console.log('minAmount', minAmount);
+    throw new Error('Missing encoding parameters in executeAction');
+  }
+  let payload: string | BytesLike;
+  if (useSDK) {
+    // We're using the SDK, encode it
+    const ActionClass = args.type + 'Action';
+    if (
+      typeof athenaSDK[ActionClass as keyof typeof athenaSDK] === 'function' &&
+      'prototype' in athenaSDK[ActionClass as keyof typeof athenaSDK]
+    ) {
+      const ActionConstructor = athenaSDK[ActionClass as keyof typeof athenaSDK] as new (
+        token: string,
+        amount: string
+      ) => any;
+
+      const action = new ActionConstructor(vaultAddress, amount.toString());
+      payload = action.encodeArgsForExecuteActionCall(0);
+    } else {
+      throw new Error(`Action ${ActionClass} is not a constructor in Athena SDK`);
+    }
+  } else {
+    // We're not using the SDK, encode it manually
+    const encodingConfig = defaults.encoding;
+    if (!encodingConfig) {
+      throw new Error(`Missing encoding configuration for action type: ${args.type}`);
+    }
+
+    const encodingValues = encodingConfig.encodingVariables.map((variable) => {
+      switch (variable) {
+        case 'vaultAddress':
+          return vaultAddress;
+        case 'amount':
+          return amount;
+        case 'feePercentage':
+          return feePercentage;
+        case 'minSharesReceived':
+          return minSharesReceived;
+        case 'maxSharesBurned':
+          return maxSharesBurned;
+        default:
+          throw new Error(`Unknown encoding variable: ${variable}`);
+      }
+    });
+
+    const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
+      encodingConfig.inputParams,
+      encodingValues
+    );
+
+    // encode the action
+    payload = actionContract.contract.interface.encodeFunctionData('executeAction', [encoded, 42]);
+  }
+
+  // execute the action
+  return executeSafeTransaction(
+    await Promise.resolve(safeAddress),
+    actionContract.address,
+    value,
+    payload,
+    safeOperation,
+    signer
+  );
 }

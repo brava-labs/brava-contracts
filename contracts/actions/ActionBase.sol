@@ -41,8 +41,7 @@ abstract contract ActionBase {
     /// @dev Is called by the RecipeExecutor chaining actions together
     /// @param _callData Array of input values each value encoded as bytes
     /// @param _strategyId The index of the strategy the action is related to
-    /// @return Returns a bytes32 value through user wallet, each actions implements what that value is
-    function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual returns (bytes32);
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual;
 
     /// @notice Returns the type of action we are implementing
     function actionType() public pure virtual returns (uint8);

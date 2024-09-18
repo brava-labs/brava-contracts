@@ -21,15 +21,10 @@ contract SendToken is ActionBase {
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
 
     /// @inheritdoc ActionBase
-    function executeAction(
-        bytes memory _callData,
-        uint16 /*_strategyId*/
-    ) public payable virtual override returns (bytes32) {
+    function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable virtual override {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.amount = _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
-
-        return bytes32(inputData.amount);
+        _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
     }
 
     /// @inheritdoc ActionBase
@@ -44,10 +39,8 @@ contract SendToken is ActionBase {
     /// @param _tokenAddr Address of token, use 0xEeee... for eth
     /// @param _to Where the tokens are sent
     /// @param _amount Amount of tokens, can be type(uint).max
-    function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal returns (uint256) {
-        _amount = _tokenAddr.withdrawTokens(_to, _amount);
-
-        return _amount;
+    function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal {
+        _tokenAddr.withdrawTokens(_to, _amount);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory params) {

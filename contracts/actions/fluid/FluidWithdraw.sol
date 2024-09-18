@@ -5,30 +5,61 @@ import {ActionBase} from "../ActionBase.sol";
 import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
 import {ActionUtils} from "../../libraries/ActionUtils.sol";
+import {AdminAuth} from "../../auth/AdminAuth.sol";
 
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
-contract FluidWithdraw is ActionBase {
+contract FluidWithdraw is ActionBase, AdminAuth {
     using TokenUtils for address;
 
-    /// @param fToken - address of yToken to withdraw
-    /// @param fAmount - amount of yToken to withdraw
+    // TODO: Implement unified error reporting for all actions.
+    error FluidWithdraw__ZeroAmount();
+    error FluidWithdraw__InvalidAddress();
+
+    /// @param fToken - address of fToken vault contract
+    /// @param amount - amount of underlying token to withdraw
+    /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param maxSharesBurned - maximum amount of fTokens to burn
     struct Params {
         address fToken;
-        uint256 fAmount;
+        uint256 withdrawRequest;
+        uint256 feeBasis;
+        uint256 maxSharesBurned;
     }
 
-    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
+    constructor(
+        address _registry,
+        address _logger,
+        address _adminVault
+    ) ActionBase(_registry, _logger) AdminAuth(_adminVault) {
+        if (_registry == address(0) || _logger == address(0) || _adminVault == address(0)) {
+            revert FluidWithdraw__InvalidAddress();
+        }
+    }
 
     /// @inheritdoc ActionBase
-    function executeAction(
-        bytes memory _callData,
-        uint16 _strategyId
-    ) public payable virtual override returns (bytes32) {
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
+        // parse input data
         Params memory inputData = _parseInputs(_callData);
 
-        uint256 amountReceived = _fluidWithdraw(inputData, _strategyId);
-        return (bytes32(amountReceived));
+        // verify input data
+        ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
+        // TODO: Verify the fToken is a whitelisted contract
+
+        // execute logic
+        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidWithdraw(inputData);
+
+        // log event
+        LOGGER.logActionEvent(
+            "BalanceUpdate",
+            ActionUtils._encodeBalanceUpdate(
+                _strategyId,
+                ActionUtils._poolIdFromAddress(inputData.fToken),
+                fBalanceBefore,
+                fBalanceAfter,
+                feeInTokens
+            )
+        );
     }
 
     /// @inheritdoc ActionBase
@@ -44,30 +75,33 @@ contract FluidWithdraw is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
+    /// Calcualte and take fees, then withdraw the underlying token
     function _fluidWithdraw(
-        Params memory _inputData,
-        uint16 _strategyId
-    ) private returns (uint256 tokenAmountReceived) {
+        Params memory _inputData
+    ) private returns (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) {
         IFluidLending fToken = IFluidLending(_inputData.fToken);
 
-        address underlyingToken = fToken.asset();
+        fBalanceBefore = fToken.balanceOf(address(this));
 
-        uint256 fBalanceBefore = address(fToken).getBalance(address(this));
-        uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
-        fToken.withdraw(_inputData.fAmount, address(this), address(this));
-        uint256 fBalanceAfter = address(fToken).getBalance(address(this));
-        uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
-        tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
+        // Take any fees before doing any further actions
+        // TODO: Do we need this value? Should we emit it?
+        feeInTokens = _takeFee(address(fToken), _inputData.feeBasis);
 
-        LOGGER.logActionEvent(
-            "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
-                _strategyId,
-                ActionUtils._poolIdFromAddress(_inputData.fToken),
-                fBalanceBefore,
-                fBalanceAfter
-            )
-        );
+        // If withdraw request is zero this was only a fee take, so we can skip the rest
+        if (_inputData.withdrawRequest != 0) {
+            // If withdraw exceeds balance, withdraw max
+            uint256 maxWithdrawAmount = fToken.maxWithdraw(address(this));
+            uint256 amountToWithdraw = _inputData.withdrawRequest > maxWithdrawAmount
+                ? maxWithdrawAmount
+                : _inputData.withdrawRequest;
+
+            // If our max is zero, we messed up.
+            if (amountToWithdraw == 0) {
+                revert FluidWithdraw__ZeroAmount();
+            }
+            fToken.withdraw(amountToWithdraw, address(this), address(this), _inputData.maxSharesBurned);
+        }
+        fBalanceAfter = fToken.balanceOf(address(this));
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

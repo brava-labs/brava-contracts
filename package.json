@@ -7,6 +7,7 @@
     "hardhat-run": "hardhat run",
     "test": "hardhat test",
     "test:logging": "ENABLE_LOGGING=true hardhat test",
+    "test:sdk": "USE_ATHENA_SDK=true hardhat test",
     "coverage": "hardhat coverage",
     "lint": "hardhat check"
   },

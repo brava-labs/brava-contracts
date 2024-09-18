@@ -32,25 +32,17 @@ contract Curve3PoolSwap is ActionBase {
         POOL = ICurve3Pool(_poolAddress);
     }
 
-    function executeAction(
-        bytes memory _callData,
-        uint16 _strategyId
-    ) public payable virtual override returns (bytes32) {
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
         Params memory params = _parseInputs(_callData);
 
-        (uint256 amountOut, bytes memory logData) = _curve3PoolSwap(params, _strategyId);
-        LOGGER.logActionEvent("Curve3PoolSwap", logData);
-        return bytes32(amountOut);
+        _curve3PoolSwap(params, _strategyId);
     }
 
     function actionType() public pure virtual override returns (uint8) {
         return uint8(ActionType.SWAP_ACTION);
     }
 
-    function _curve3PoolSwap(
-        Params memory _params,
-        uint16 /*_strategyId*/
-    ) internal returns (uint256 amountOut, bytes memory logData) {
+    function _curve3PoolSwap(Params memory _params, uint16 /*_strategyId*/) internal {
         if (!(_params.fromToken >= 0 && _params.fromToken < 3 && _params.toToken >= 0 && _params.toToken < 3)) {
             revert InvalidTokenIndices();
         }
@@ -77,9 +69,9 @@ contract Curve3PoolSwap is ActionBase {
         POOL.exchange(_params.fromToken, _params.toToken, _params.amountIn, _params.minAmountOut);
 
         uint256 balanceAfter = IERC20(tokenOut).balanceOf(address(this));
-        amountOut = balanceAfter - balanceBefore;
+        uint256 amountOut = balanceAfter - balanceBefore;
 
-        logData = abi.encode(_params, amountOut);
+        LOGGER.logActionEvent("Curve3PoolSwap", abi.encode(_params, amountOut));
     }
 
     function _parseInputs(bytes memory _callData) internal pure returns (Params memory params) {

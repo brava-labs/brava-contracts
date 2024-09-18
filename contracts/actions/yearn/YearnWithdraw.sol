@@ -5,31 +5,56 @@ import {ActionBase} from "../ActionBase.sol";
 import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
 import {ActionUtils} from "../../libraries/ActionUtils.sol";
+import {AdminAuth} from "../../auth/AdminAuth.sol";
 
 /// @title Burns yTokens and receive underlying tokens in return
 /// @dev yTokens need to be approved for user's wallet to pull them (yToken address)
-contract YearnWithdraw is ActionBase {
+contract YearnWithdraw is ActionBase, AdminAuth {
     using TokenUtils for address;
 
-    /// @param yToken - address of yToken to withdraw (same as yVault address)
-    /// @param yAmount - amount of yToken to withdraw
+    // TODO: Implement unified error reporting for all actions.
+    error YearnWithdraw__MaxSharesBurnedExceeded();
+
+    /// @param yToken - address of yToken vault contract
+    /// @param amount - amount of underlying token to withdraw
+    /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param maxSharesBurned - maximum amount of yTokens to burn
     struct Params {
         address yToken;
-        uint256 yAmount;
+        uint256 withdrawRequest;
+        uint256 feeBasis;
+        uint256 maxSharesBurned;
     }
 
-    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
+    constructor(
+        address _registry,
+        address _logger,
+        address _adminVault
+    ) ActionBase(_registry, _logger) AdminAuth(_adminVault) {}
 
     /// @inheritdoc ActionBase
-    function executeAction(
-        bytes memory _callData,
-        uint16 _strategyId
-    ) public payable virtual override returns (bytes32) {
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
+        // parse input data
         Params memory inputData = _parseInputs(_callData);
 
-        (uint256 amountReceived, bytes memory logData) = _yearnWithdraw(inputData, _strategyId);
-        LOGGER.logActionEvent("YearnWithdraw", logData);
-        return (bytes32(amountReceived));
+        // verify input data
+        ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
+        // TODO: Verify the yToken is a whitelisted contract
+
+        // execute logic
+        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnWithdraw(inputData);
+
+        // log event
+        LOGGER.logActionEvent(
+            "BalanceUpdate",
+            ActionUtils._encodeBalanceUpdate(
+                _strategyId,
+                ActionUtils._poolIdFromAddress(inputData.yToken),
+                yBalanceBefore,
+                yBalanceAfter,
+                feeInTokens
+            )
+        );
     }
 
     /// @inheritdoc ActionBase
@@ -38,38 +63,39 @@ contract YearnWithdraw is ActionBase {
     }
 
     function exit(address _yToken) public {
-        Params memory inputData = Params({yToken: _yToken, yAmount: type(uint256).max});
-        _yearnWithdraw(inputData, type(uint16).max);
+        IYearnVault yToken = IYearnVault(_yToken);
+        yToken.withdraw();
     }
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
+    /// Calculate and take fees, then withdraw the underlying token
     function _yearnWithdraw(
-        Params memory _inputData,
-        uint16 _strategyId
-    ) private returns (uint256 tokenAmountReceived, bytes memory logData) {
-        IYearnVault vault = IYearnVault(_inputData.yToken);
+        Params memory _inputData
+    ) private returns (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) {
+        IYearnVault yToken = IYearnVault(_inputData.yToken);
 
-        address underlyingToken = vault.token();
+        // Take any fees before doing any further actions
+        feeInTokens = _takeFee(address(yToken), _inputData.feeBasis);
 
-        uint256 yBalanceBefore = address(vault).getBalance(address(this));
-        uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
-        vault.withdraw(_inputData.yAmount, address(this));
-        uint256 yBalanceAfter = address(vault).getBalance(address(this));
-        uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
-        tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
+        yBalanceBefore = yToken.balanceOf(address(this));
 
-        logData = abi.encode(_inputData, tokenAmountReceived);
-
-        LOGGER.logActionEvent(
-            "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
-                _strategyId,
-                ActionUtils._poolIdFromAddress(address(vault)),
-                yBalanceBefore,
-                yBalanceAfter
-            )
-        );
+        // If withdraw request is zero this was only a fee take, so we can skip the rest
+        if (_inputData.withdrawRequest != 0) {
+            // If withdraw exceeds balance, withdraw max
+            uint256 pricePerShare = yToken.pricePerShare();
+            uint256 maxWithdrawAmount = yBalanceBefore * pricePerShare;
+            if (_inputData.withdrawRequest > maxWithdrawAmount) {
+                if (yToken.withdraw() > _inputData.maxSharesBurned) {
+                    revert YearnWithdraw__MaxSharesBurnedExceeded();
+                }
+            } else {
+                if (yToken.withdraw(_inputData.withdrawRequest, address(this)) > _inputData.maxSharesBurned) {
+                    revert YearnWithdraw__MaxSharesBurnedExceeded();
+                }
+            }
+        }
+        yBalanceAfter = yToken.balanceOf(address(this));
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

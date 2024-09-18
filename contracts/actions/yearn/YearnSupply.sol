@@ -4,35 +4,57 @@ pragma solidity =0.8.24;
 import {ActionBase} from "../ActionBase.sol";
 import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
-import {IVaultRegistry} from "../../interfaces/yearn/IVaultRegistry.sol";
 import {ActionUtils} from "../../libraries/ActionUtils.sol";
+import {AdminAuth} from "../../auth/AdminAuth.sol";
 
 /// @title Supplies tokens to Yearn vault
 /// @dev tokens need to be approved for user's wallet to pull them (token address)
-contract YearnSupply is ActionBase {
+contract YearnSupply is ActionBase, AdminAuth {
     using TokenUtils for address;
 
-    /// @param token - address of token to supply
-    /// @param amount - amount of token to supply
+    // TODO: Implement unified error reporting for all actions.
+    error YearnSupply__InsufficientSharesReceived(uint256 sharesReceived, uint256 minSharesReceived);
+
+    /// @param yToken - address of yToken vault contract
+    /// @param amount - amount of underlying token to supply
+    /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param minSharesReceived - minimum amount of shares to receive
     struct Params {
-        address token;
+        address yToken;
         uint256 amount;
+        uint256 feeBasis;
+        uint256 minSharesReceived;
     }
 
-    IVaultRegistry public constant YEARN_REGISTRY = IVaultRegistry(address(0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804));
-
-    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
+    constructor(
+        address _registry,
+        address _logger,
+        address _adminVault
+    ) ActionBase(_registry, _logger) AdminAuth(_adminVault) {}
 
     /// @inheritdoc ActionBase
-    function executeAction(
-        bytes memory _callData,
-        uint16 _strategyId
-    ) public payable virtual override returns (bytes32) {
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
+        // parse input data
         Params memory inputData = _parseInputs(_callData);
 
-        (uint256 yAmountReceived, bytes memory logData) = _yearnSupply(inputData, _strategyId);
-        LOGGER.logActionEvent("YearnSupply", logData);
-        return bytes32(yAmountReceived);
+        // verify input data
+        ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
+        // TODO: Verify the yToken is a whitelisted contract
+
+        // execute logic
+        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnSupply(inputData);
+
+        // log event
+        LOGGER.logActionEvent(
+            "BalanceUpdate",
+            ActionUtils._encodeBalanceUpdate(
+                _strategyId,
+                ActionUtils._poolIdFromAddress(inputData.yToken),
+                yBalanceBefore,
+                yBalanceAfter,
+                feeInTokens
+            )
+        );
     }
 
     /// @inheritdoc ActionBase
@@ -42,32 +64,35 @@ contract YearnSupply is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _yearnSupply(
-        Params memory _inputData,
-        uint16 _strategyId
-    ) private returns (uint256 yTokenAmount, bytes memory logData) {
-        IYearnVault vault = IYearnVault(YEARN_REGISTRY.latestVault(_inputData.token));
+    function _yearnSupply(Params memory _inputData) private returns (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) {
+        IYearnVault yToken = IYearnVault(_inputData.yToken);
 
-        if (_inputData.amount == type(uint256).max) {
-            _inputData.amount = _inputData.token.getBalance(address(this));
+        // Check fee status
+        if (yBalanceBefore == 0) {
+            // Balance is zero, initialize fee timestamp for future fee calculations
+            ADMIN_VAULT.initializeFeeTimestamp(address(yToken));
+        } else {
+            // Balance is non-zero, take fees before depositing
+            feeInTokens = _takeFee(address(yToken), _inputData.feeBasis);
         }
 
-        _inputData.token.approveToken(address(vault), _inputData.amount);
+        yBalanceBefore = address(yToken).getBalance(address(this));
 
-        uint256 yBalanceBefore = address(vault).getBalance(address(this));
-        uint256 shares = vault.deposit(_inputData.amount, address(this));
+        // Deposit tokens
+        if (_inputData.amount != 0) {
+            address underlyingToken = yToken.token();
+            if (_inputData.amount == type(uint256).max) {
+                _inputData.amount = underlyingToken.getBalance(address(this));
+            }
+            underlyingToken.approveToken(address(yToken), _inputData.amount);
 
-        logData = abi.encode(_inputData, yTokenAmount);
+            uint256 shares = yToken.deposit(_inputData.amount);
+            if (shares < _inputData.minSharesReceived) {
+                revert YearnSupply__InsufficientSharesReceived(shares, _inputData.minSharesReceived);
+            }
+        }
 
-        LOGGER.logActionEvent(
-            "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
-                _strategyId,
-                ActionUtils._poolIdFromAddress(address(vault)),
-                yBalanceBefore,
-                shares
-            )
-        );
+        yBalanceAfter = address(yToken).getBalance(address(this));
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
