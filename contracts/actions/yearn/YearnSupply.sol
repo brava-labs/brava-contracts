@@ -4,7 +4,7 @@ pragma solidity =0.8.24;
 import {ActionBase} from "../ActionBase.sol";
 import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
-import {IYearnRegistry} from "../../interfaces/yearn/IYearnRegistry.sol";
+import {IVaultRegistry} from "../../interfaces/yearn/IVaultRegistry.sol";
 import {ActionUtils} from "../../libraries/ActionUtils.sol";
 
 /// @title Supplies tokens to Yearn vault
@@ -19,7 +19,7 @@ contract YearnSupply is ActionBase {
         uint256 amount;
     }
 
-    IYearnRegistry public constant YEARN_REGISTRY = IYearnRegistry(address(0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804));
+    IVaultRegistry public constant YEARN_REGISTRY = IVaultRegistry(address(0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804));
 
     constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
 
@@ -48,12 +48,14 @@ contract YearnSupply is ActionBase {
     ) private returns (uint256 yTokenAmount, bytes memory logData) {
         IYearnVault vault = IYearnVault(YEARN_REGISTRY.latestVault(_inputData.token));
 
+        if (_inputData.amount == type(uint256).max) {
+            _inputData.amount = _inputData.token.getBalance(address(this));
+        }
+
         _inputData.token.approveToken(address(vault), _inputData.amount);
 
         uint256 yBalanceBefore = address(vault).getBalance(address(this));
-        vault.deposit(_inputData.amount, address(this));
-        uint256 yBalanceAfter = address(vault).getBalance(address(this));
-        yTokenAmount = yBalanceAfter - yBalanceBefore;
+        uint256 shares = vault.deposit(_inputData.amount, address(this));
 
         logData = abi.encode(_inputData, yTokenAmount);
 
@@ -63,7 +65,7 @@ contract YearnSupply is ActionBase {
                 _strategyId,
                 ActionUtils._poolIdFromAddress(address(vault)),
                 yBalanceBefore,
-                yBalanceAfter
+                shares
             )
         );
     }

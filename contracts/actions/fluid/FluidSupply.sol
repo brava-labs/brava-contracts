@@ -42,6 +42,9 @@ contract FluidSupply is ActionBase {
         IFluidLending fToken = IFluidLending(address(_inputData.token));
 
         address stableToken = fToken.asset();
+        if(_inputData.amount == type(uint256).max) {
+            _inputData.amount = stableToken.getBalance(address(this));
+        }
         stableToken.approveToken(address(fToken), _inputData.amount);
 
         uint256 fBalanceBefore = address(fToken).getBalance(address(this));

@@ -1,4 +1,4 @@
-import { executeSafeTransaction } from 'athena-sdk';
+import { executeSafeTransaction, YearnSupplyAction } from 'athena-sdk';
 import { network } from 'hardhat';
 import { Signer, ethers, expect } from '../..';
 import { IERC20, YearnSupply } from '../../../typechain-types';
@@ -14,6 +14,9 @@ describe('YearnSupply tests', () => {
   let yearnSupply: YearnSupply;
   let USDC: IERC20;
   let snapshotId: string;
+  let yearnRegistry: any; // Replace 'any' with the correct interface if available
+  let usdcVaultAddress: string;
+  let yUSDC: any; // Replace 'any' with the correct interface if available
 
   before(async () => {
     [signer] = await ethers.getSigners();
@@ -28,6 +31,10 @@ describe('YearnSupply tests', () => {
       baseSetup.logger.getAddress()
     );
     ({ USDC } = await getStables());
+
+    yearnRegistry = await ethers.getContractAt('IVaultRegistry', YEARN_REGISTRY_ADDRESS);
+    usdcVaultAddress = await yearnRegistry.latestVault(tokenConfig.USDC.address);
+    yUSDC = await ethers.getContractAt('IYearnVault', usdcVaultAddress);
   });
 
   beforeEach(async () => {
@@ -41,58 +48,72 @@ describe('YearnSupply tests', () => {
     snapshotId = await network.provider.send('evm_snapshot');
   });
 
-  // Skip this until it's implemented properly
-  it.skip('should supply USDC to Yearn vault', async () => {
+  it('should supply USDC to Yearn vault', async () => {
     const fundAmount = 1000; // 1000 USDC
     await fundAccountWithToken(safeAddr, 'USDC', fundAmount);
 
     const initialUsdcBalance = await USDC.balanceOf(safeAddr);
     expect(initialUsdcBalance).to.equal(ethers.parseUnits(fundAmount.toString(), 6));
 
-    // Prepare supply parameters
-    const supplyAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals); // 100 USDC
-    const params = {
-      token: tokenConfig.USDC.address,
-      amount: supplyAmount,
-      from: safeAddr,
-      to: safeAddr,
-    };
+    const yearnSupplyAction = new YearnSupplyAction(
+      tokenConfig.USDC.address,
+      fundAmount.toString()
+    );
+    const encodedFunctionCall = yearnSupplyAction.encodeArgsForExecuteActionCall(0);
 
-    const abiCoder = new ethers.AbiCoder();
-    const paramsEncoded = abiCoder.encode(
-      ['tuple(address token, uint256 amount, address from, address to)'],
-      [params]
+    await executeSafeTransaction(
+      safeAddr,
+      await yearnSupply.getAddress(),
+      0,
+      encodedFunctionCall,
+      1,
+      signer,
+      {
+        safeTxGas: 2000000,
+      }
     );
 
-    const yearnSupplyAddress = await yearnSupply.getAddress();
-    const encodedFunctionCall = yearnSupply.interface.encodeFunctionData('executeAction', [
-      paramsEncoded,
-      0,
-    ]);
+    const yUsdcBalance = await yUSDC.balanceOf(safeAddr);
+    log('yUsdcBalance', yUsdcBalance);
 
-    // Approve USDC spending
-    await USDC.connect(signer).approve(safeAddr, supplyAmount);
-
-    // fund safe with eth
-    await signer.sendTransaction({
-      to: safeAddr,
-      value: ethers.parseUnits('100', 18),
-    });
-
-    // Execute supply
-    await executeSafeTransaction(safeAddr, yearnSupplyAddress, 0, encodedFunctionCall, 0, signer);
-
-    // Check balances after supply
     const finalUsdcBalance = await USDC.balanceOf(safeAddr);
-    expect(finalUsdcBalance).to.be.lt(initialUsdcBalance);
 
-    // Get Yearn vault address for USDC
-    const yearnRegistry = await ethers.getContractAt('IYearnRegistry', YEARN_REGISTRY_ADDRESS);
-    const vaultAddress = await yearnRegistry.latestVault(tokenConfig.USDC.address);
-    const yUSDC = await ethers.getContractAt('IERC20', vaultAddress);
+    expect(yUsdcBalance).to.be.gt(0);
+    expect(finalUsdcBalance).to.equal(initialUsdcBalance - BigInt(fundAmount));
+  });
+
+  it('should supply max USDC to Yearn vault', async () => {
+    const fundAmount = 1000; // 1000 USDC
+    await fundAccountWithToken(safeAddr, 'USDC', fundAmount);
+
+    const initialUsdcBalance = await USDC.balanceOf(safeAddr);
+    expect(initialUsdcBalance).to.equal(ethers.parseUnits(fundAmount.toString(), 6));
+
+    const yearnSupplyAction = new YearnSupplyAction(
+      tokenConfig.USDC.address,
+      ethers.MaxUint256.toString()
+    );
+    const encodedFunctionCall = yearnSupplyAction.encodeArgsForExecuteActionCall(0);
+
+    await executeSafeTransaction(
+      safeAddr,
+      await yearnSupply.getAddress(),
+      0,
+      encodedFunctionCall,
+      1,
+      signer,
+      {
+        safeTxGas: 2000000,
+      }
+    );
 
     const yUsdcBalance = await yUSDC.balanceOf(safeAddr);
+    log('yUsdcBalance', yUsdcBalance);
+
+    const finalUsdcBalance = await USDC.balanceOf(safeAddr);
+
     expect(yUsdcBalance).to.be.gt(0);
+    expect(finalUsdcBalance).to.equal(0);
   });
 });
 
