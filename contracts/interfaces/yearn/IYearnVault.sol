@@ -167,5 +167,6 @@ interface IYearnVault {
     function managementFee() external view returns (uint256);
     function performanceFee() external view returns (uint256);
     function nonces(address arg0) external view returns (uint256);
+    //solhint-disable-next-line func-name-mixedcase
     function DOMAIN_SEPARATOR() external view returns (bytes32);
 }
