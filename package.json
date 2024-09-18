@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@nomiclabs/hardhat-solhint": "^4.0.0",
-    "athena-sdk": "github:amorphicxyz/athena-sdk#main",
+    "athena-sdk": "github:amorphicxyz/athena-sdk#DEL-54",
     "dotenv": "^16.4.5",
     "ethers": "6.13.2"
   }
