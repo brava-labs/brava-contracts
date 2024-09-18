@@ -43,8 +43,16 @@ async function fundAccountWithToken(
 
   const provider = await ethers.getDefaultProvider();
   const whaleBalance = await provider.getBalance(token.whale);
-  if (whaleBalance < parsedAmount) {
+  // It's not accurate but lets assume that a whale should have 1 Eth
+  // This mainly prevents problems when using a non-eth holding contract as a whale
+  if (whaleBalance < ethers.parseEther('1')) {
     throw new Error(`Whale does not have enough ETH to do a transfer`);
+  }
+
+  // Check the whale has enough tokens to do a transfer
+  const whaleTokenBalance = await tokenContract.balanceOf(token.whale);
+  if (whaleTokenBalance < parsedAmount) {
+    throw new Error(`Whale does not have enough ${tokenSymbol} to do a transfer`);
   }
 
   await tokenContract.transfer(recipient, parsedAmount.toString());
