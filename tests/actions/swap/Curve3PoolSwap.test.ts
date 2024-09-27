@@ -2,16 +2,13 @@ import { executeSafeTransaction } from 'athena-sdk';
 import { BigNumberish } from 'ethers';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
-import {
-  CURVE_3POOL_ADDRESS,
-  CURVE_3POOL_INDICES,
-  tokenConfig,
-  actionTypes,
-} from '../../../tests/constants';
+import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../constants';
 import { Curve3PoolSwap, IERC20 } from '../../../typechain-types';
 import { Curve3PoolSwapParams } from '../../params';
 import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken, getStables } from '../../utils-stable';
+import { actionTypes } from '../../actions';
+
 interface SwapParams {
   fromToken: number;
   toToken: number;
@@ -105,7 +102,10 @@ describe('Curve3PoolSwap tests', () => {
     // Deploy base setup
     [signer] = await ethers.getSigners();
     const baseSetup = await getBaseSetup();
-    safeAddr = baseSetup.safeAddr;
+    if (!baseSetup) {
+      throw new Error('Base setup not deployed');
+    }
+    safeAddr = await baseSetup.safe.getAddress();
 
     // Deploy contracts specific to these tests
     curve3PoolSwap = await deploy(

@@ -2,7 +2,7 @@ import { executeSafeTransaction, BuyCoverAction } from 'athena-sdk';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { BuyCover } from '../../../typechain-types';
-import { tokenConfig, NEXUS_MUTUAL_NFT_ADDRESS, actionTypes } from '../../constants';
+import { NEXUS_MUTUAL_NFT_ADDRESS } from '../../constants';
 import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken } from '../../utils-stable';
 import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
@@ -11,7 +11,7 @@ import {
   NexusMutualPoolAllocationRequestTypes,
   BuyCoverInputTypes,
 } from '../../params';
-import { Log } from 'ethers';
+import { actionTypes } from '../../actions';
 
 describe('BuyCover tests', () => {
   let signer: Signer;
@@ -100,7 +100,10 @@ describe('BuyCover tests', () => {
   before(async () => {
     [signer] = await ethers.getSigners();
     const baseSetup = await getBaseSetup();
-    safeAddr = baseSetup.safeAddr;
+    if (!baseSetup) {
+      throw new Error('Base setup not deployed');
+    }
+    safeAddr = await baseSetup.safe.getAddress();
     log('Safe Address', safeAddr);
 
     buyCover = await deploy(

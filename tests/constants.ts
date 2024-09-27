@@ -26,11 +26,18 @@ export const tokenConfig = {
     address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 6,
+    vaults: {
+      fluid: '0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33',
+      yearn: '0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE',
+    },
   },
   USDT: {
     address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 6,
+    vaults: {
+      fluid: '0x5c20b550819128074fd538edf79791733ccedd18',
+    },
   },
   DAI: {
     address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
@@ -57,14 +64,4 @@ export const tokenConfig = {
     whale: '0xC4080c19DE69c2362d01B20F071D4046364A0226',
     decimals: 6,
   },
-};
-
-export const actionTypes = {
-  DEPOSIT_ACTION: 0,
-  WITHDRAW_ACTION: 1,
-  SWAP_ACTION: 2,
-  COVER_ACTION: 3,
-  FEE_ACTION: 4,
-  TRANSFER_ACTION: 5,
-  CUSTOM_ACTION: 6,
 };

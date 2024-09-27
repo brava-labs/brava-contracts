@@ -35,11 +35,10 @@ contract BuyCover is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint16 _strategyId
-    ) public payable virtual override returns (bytes32) {
+    ) public payable virtual override {
         Params memory inputData = _parseInputs(_callData);
 
-        uint256 coverId = _buyCover(inputData, _strategyId);
-        return bytes32(coverId);
+        _buyCover(inputData, _strategyId);
     }
 
     /// @inheritdoc ActionBase
@@ -49,7 +48,7 @@ contract BuyCover is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _buyCover(Params memory _inputData, uint16 _strategyId) private returns (uint256 coverId) {
+    function _buyCover(Params memory _inputData, uint16 _strategyId) private {
         BuyCoverParams memory params = abi.decode(_inputData.buyCoverParams, (BuyCoverParams));
 
         PoolAllocationRequest[] memory poolAllocationRequests = new PoolAllocationRequest[](
@@ -62,6 +61,7 @@ contract BuyCover is ActionBase {
         address paymentAsset = _assetIdToTokenAddress(params.paymentAsset);
         paymentAsset.approveToken(address(COVER_BROKER), params.maxPremiumInAsset);
 
+        uint256 coverId;
         if (params.paymentAsset == 0) {
             coverId = COVER_BROKER.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
         } else {

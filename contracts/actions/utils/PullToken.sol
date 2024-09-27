@@ -24,12 +24,10 @@ contract PullToken is ActionBase {
     function executeAction(
         bytes memory _callData,
         uint16 /*_strategyId*/
-    ) public payable virtual override returns (bytes32) {
+    ) public payable virtual override {
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.amount = _pullToken(inputData.tokenAddr, inputData.from, inputData.amount);
-
-        return bytes32(inputData.amount);
+        _pullToken(inputData.tokenAddr, inputData.from, inputData.amount);
     }
 
     /// @inheritdoc ActionBase
@@ -44,8 +42,8 @@ contract PullToken is ActionBase {
     /// @param _tokenAddr Address of token
     /// @param _from From where the tokens are pulled
     /// @param _amount Amount of tokens, can be type(uint).max
-    function _pullToken(address _tokenAddr, address _from, uint256 _amount) internal returns (uint256 amountPulled) {
-        amountPulled = _tokenAddr.pullTokens(_from, _amount);
+    function _pullToken(address _tokenAddr, address _from, uint256 _amount) internal {
+        _tokenAddr.pullTokens(_from, _amount);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory params) {

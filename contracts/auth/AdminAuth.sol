@@ -12,8 +12,11 @@ abstract contract AdminAuth {
 
     error SenderNotOwner();
     error SenderNotAdmin();
+    error FeeTimestampNotInitialized();
 
     AdminVault public immutable ADMIN_VAULT;
+    uint256 public immutable FEE_BASIS_POINTS;
+    uint256 public immutable FEE_PERIOD;
 
     modifier onlyOwner() {
         if (ADMIN_VAULT.owner() != msg.sender) {
@@ -31,6 +34,8 @@ abstract contract AdminAuth {
 
     constructor(address _adminVault) {
         ADMIN_VAULT = AdminVault(_adminVault);
+        FEE_BASIS_POINTS = 10000;
+        FEE_PERIOD = 365 days;
     }
 
     /// @notice withdraw stuck funds
@@ -40,5 +45,41 @@ abstract contract AdminAuth {
         } else {
             IERC20(_token).safeTransfer(_receiver, _amount);
         }
+    }
+
+    /// @notice If necessary, takes the fee due from the vault and performs required updates
+    function _takeFee(address _vault, uint256 _feePercentage) internal returns (uint256) {
+        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_vault);
+        uint256 currentTimestamp = block.timestamp;
+        if (lastFeeTimestamp == 0) {
+            // Ensure the fee timestamp is initialized
+            revert FeeTimestampNotInitialized();
+        } else if (lastFeeTimestamp == currentTimestamp) {
+            // Don't take fees twice in the same block
+            return 0;
+        } else {
+            IERC20 vault = IERC20(_vault);
+            uint256 balance = vault.balanceOf(address(this));
+            uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
+            vault.safeTransfer(ADMIN_VAULT.feeRecipient(), fee);
+            ADMIN_VAULT.updateFeeTimestamp(_vault);
+            return fee;
+        }
+    }
+
+    /// @notice Calculates the fee due from the vault based on the balance and fee percentage
+    function _calculateFee(
+        uint256 _totalDeposit,
+        uint256 _feePercentage,
+        uint256 _lastFeeTimestamp,
+        uint256 _currentTimestamp
+    ) internal view returns (uint256) {
+        uint256 secondsPassed = _currentTimestamp - _lastFeeTimestamp;
+
+        // Calculate fee based on seconds passed, this is accurate enough
+        // for the long term nature of the investements being dealt with here
+        uint256 annualFee = (_totalDeposit * _feePercentage) / FEE_BASIS_POINTS;
+        uint256 feeForPeriod = (annualFee * secondsPassed) / FEE_PERIOD;
+        return feeForPeriod;
     }
 }
