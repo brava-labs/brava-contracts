@@ -84,7 +84,6 @@ contract FluidWithdraw is ActionBase, AdminAuth {
         fBalanceBefore = fToken.balanceOf(address(this));
 
         // Take any fees before doing any further actions
-        // TODO: Do we need this value? Should we emit it?
         feeInTokens = _takeFee(address(fToken), _inputData.feeBasis);
 
         // If withdraw request is zero this was only a fee take, so we can skip the rest

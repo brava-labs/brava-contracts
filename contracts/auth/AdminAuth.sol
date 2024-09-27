@@ -58,7 +58,6 @@ abstract contract AdminAuth {
             // Don't take fees twice in the same block
             return 0;
         } else {
-            // TODO: Should we use a generic ERC4626 vault instead of generic ERC20?
             IERC20 vault = IERC20(_vault);
             uint256 balance = vault.balanceOf(address(this));
             uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
