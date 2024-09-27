@@ -19,6 +19,7 @@ jobs:
           tenderly-virtual-mainnet-rpc: ${{ secrets.TENDERLY_VIRTUAL_MAINNET_RPC }}
           tenderly-project: ${{ secrets.TENDERLY_PROJECT }}
           tenderly-username: ${{ secrets.TENDERLY_USERNAME }}
+          tenderly-api-key: ${{ secrets.TENDERLY_API_KEY }}
           alchemy-api-key: ${{ secrets.ALCHEMY_API_KEY }}
           owner-addr: ${{ secrets.OWNER_ADDR }}
           admin-addr: ${{ secrets.ADMIN_ADDR }}
