@@ -60,7 +60,8 @@ contract ContractRegistry is AdminAuth {
     /// @param _id Id of contract
     /// @param _contractAddr Address of the contract
     /// @param _waitPeriod Amount of time to wait before a contract address can be changed
-    function addNewContract(bytes4 _id, address _contractAddr, uint256 _waitPeriod) public onlyOwner {
+    // TODO: Permissions temporarially disabled, add them when AccessManaged is implemented
+    function addNewContract(bytes4 _id, address _contractAddr, uint256 _waitPeriod) public {
         if (entries[_id].exists) {
             revert EntryAlreadyExistsError(_id);
         }
@@ -80,7 +81,8 @@ contract ContractRegistry is AdminAuth {
     /// @notice Reverts to the previous address immediately
     /// @dev In case the new version has a fault, a quick way to fallback to the old contract
     /// @param _id Id of contract
-    function revertToPreviousAddress(bytes4 _id) public onlyOwner {
+    // TODO: Permissions temporarially disabled, add them when AccessManaged is implemented
+    function revertToPreviousAddress(bytes4 _id) public {
         if (!(entries[_id].exists)) {
             revert EntryNonExistentError(_id);
         }
@@ -98,7 +100,8 @@ contract ContractRegistry is AdminAuth {
     /// @dev Can override a change that is currently in progress
     /// @param _id Id of contract
     /// @param _newContractAddr Address of the new contract
-    function startContractChange(bytes4 _id, address _newContractAddr) public onlyOwner {
+    // TODO: Permissions temporarially disabled, add them when AccessManaged is implemented
+    function startContractChange(bytes4 _id, address _newContractAddr) public {
         if (!entries[_id].exists) {
             revert EntryNonExistentError(_id);
         }
@@ -116,7 +119,8 @@ contract ContractRegistry is AdminAuth {
 
     /// @notice Changes new contract address, correct time must have passed
     /// @param _id Id of contract
-    function approveContractChange(bytes4 _id) public onlyOwner {
+    // TODO: Permissions temporarially disabled, add them when AccessManaged is implemented
+    function approveContractChange(bytes4 _id) public {
         if (!entries[_id].exists) {
             revert EntryNonExistentError(_id);
         }
@@ -141,7 +145,8 @@ contract ContractRegistry is AdminAuth {
 
     /// @notice Cancel pending change
     /// @param _id Id of contract
-    function cancelContractChange(bytes4 _id) public onlyOwner {
+    // TODO: Permissions temporarially disabled, add them when AccessManaged is implemented
+    function cancelContractChange(bytes4 _id) public {
         if (!entries[_id].exists) {
             revert EntryNonExistentError(_id);
         }
@@ -161,7 +166,8 @@ contract ContractRegistry is AdminAuth {
     /// @notice Starts the change for waitPeriod
     /// @param _id Id of contract
     /// @param _newWaitPeriod New wait time
-    function startWaitPeriodChange(bytes4 _id, uint256 _newWaitPeriod) public onlyOwner {
+    // TODO: Permissions temporarially disabled, add them when AccessManaged is implemented
+    function startWaitPeriodChange(bytes4 _id, uint256 _newWaitPeriod) public {
         if (!entries[_id].exists) {
             revert EntryNonExistentError(_id);
         }
@@ -179,7 +185,8 @@ contract ContractRegistry is AdminAuth {
 
     /// @notice Changes new wait period, correct time must have passed
     /// @param _id Id of contract
-    function approveWaitPeriodChange(bytes4 _id) public onlyOwner {
+    // TODO: Permissions temporarially disabled, add them when AccessManaged is implemented
+    function approveWaitPeriodChange(bytes4 _id) public {
         if (!entries[_id].exists) {
             revert EntryNonExistentError(_id);
         }
@@ -204,7 +211,8 @@ contract ContractRegistry is AdminAuth {
 
     /// @notice Cancel wait period change
     /// @param _id Id of contract
-    function cancelWaitPeriodChange(bytes4 _id) public onlyOwner {
+    // TODO: Permissions temporarially disabled, add them when AccessManaged is implemented
+    function cancelWaitPeriodChange(bytes4 _id) public {
         if (!entries[_id].exists) {
             revert EntryNonExistentError(_id);
         }

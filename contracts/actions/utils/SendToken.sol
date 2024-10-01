@@ -18,7 +18,7 @@ contract SendToken is ActionBase {
         uint256 amount;
     }
 
-    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
+    constructor(address _adminVault, address _registry, address _logger) ActionBase(_adminVault, _registry, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable virtual override {

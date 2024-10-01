@@ -2,18 +2,16 @@
 
 pragma solidity =0.8.24;
 
-/// @title A stateful contract that holds and can change owner/admin
-contract AdminVault {
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+
+/// @title A stateful contract that holds some global variables, and permission management.
+contract AdminVault is AccessControl {
     error SenderNotAdmin();
     error SenderNotOwner();
-    error FeeTimestampNotInitialized();
-    error FeeTimestampAlreadyInitialized();
     error FeePercentageOutOfRange();
     error InvalidRange();
     error InvalidRecipient();
 
-    address public owner;
-    address public admin;
     uint256 public minFeeBasis;
     uint256 public maxFeeBasis;
     address public feeRecipient;
@@ -22,53 +20,21 @@ contract AdminVault {
 
     /// TODO: Should we add events for all the setters?
 
-    constructor(address _owner, address _admin) {
-        owner = _owner;
-        admin = _admin;
+    constructor(address _initialOwner) AccessControl() {
 
         // putting some default values here
         // TODO: these should be added to the deployment script later
         minFeeBasis = 0;
         maxFeeBasis = 10000; // 100%
-        feeRecipient = _owner;
+        feeRecipient = _initialOwner;
     }
 
-    /// @notice Only owner is able to change owner
-    /// @param _owner Address of new owner
-    function changeOwner(address _owner) external {
-        if (owner != msg.sender) {
-            revert SenderNotOwner();
-        }
-        owner = _owner;
-    }
-
-    /// @notice Owner or admin is able to set new admin
-    /// @param _admin Address of multisig that becomes new admin
-    function changeAdmin(address _admin) external {
-        if (msg.sender == owner) {
-            admin = _admin;
-        } else if (msg.sender == admin) {
-            admin = _admin;
-        } else {
-            revert SenderNotAdmin();
-        }
-    }
-
-    function setFeeRange(uint256 _min, uint256 _max) external {
-        if (msg.sender != owner && msg.sender != admin) {
-            revert SenderNotAdmin();
-        }
-        if (_min > _max) {
-            revert InvalidRange();
-        }
+    function setFeeRange(uint256 _min, uint256 _max) external onlyRole(DEFAULT_ADMIN_ROLE) {
         minFeeBasis = _min;
         maxFeeBasis = _max;
     }
 
     function setFeeRecipient(address _recipient) external {
-        if (msg.sender != owner) {
-            revert SenderNotOwner();
-        }
         if (_recipient == address(0)) {
             revert InvalidRecipient();
         }

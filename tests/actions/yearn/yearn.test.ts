@@ -52,16 +52,16 @@ describe('Yearn tests', () => {
     yearnSupplyContract = await deploy(
       'YearnSupply',
       signer,
+      await adminVault.getAddress(),
       await baseSetup.contractRegistry.getAddress(),
-      loggerAddress,
-      await adminVault.getAddress()
+      loggerAddress
     );
     yearnWithdrawContract = await deploy(
       'YearnWithdraw',
       signer,
+      await adminVault.getAddress(),
       await baseSetup.contractRegistry.getAddress(),
-      loggerAddress,
-      await adminVault.getAddress()
+      loggerAddress
     );
     yUSDC = await ethers.getContractAt('IYearnVault', YEARN_USDC_ADDRESS);
   });

@@ -2,18 +2,16 @@
 pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
-import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
-import {ActionUtils} from "../../libraries/ActionUtils.sol";
-import {AdminAuth} from "../../auth/AdminAuth.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title Supplies tokens to Fluid vault
-contract FluidSupply is ActionBase, AdminAuth {
-    using TokenUtils for address;
+contract FluidSupply is ActionBase {
+    using SafeERC20 for IERC20;
 
     // TODO: Implement unified error reporting for all actions.
     error FluidSupply__ZeroAmount();
-    error FluidSupply__InvalidAddress();
 
     /// @param fToken - address of fToken vault contract
     /// @param amount - amount of underlying token to withdraw
@@ -26,15 +24,7 @@ contract FluidSupply is ActionBase, AdminAuth {
         uint256 minSharesReceived;
     }
 
-    constructor(
-        address _registry,
-        address _logger,
-        address _adminVault
-    ) ActionBase(_registry, _logger) AdminAuth(_adminVault) {
-        if (_registry == address(0) || _logger == address(0) || _adminVault == address(0)) {
-            revert FluidSupply__InvalidAddress();
-        }
-    }
+    constructor(address _adminVault, address _registry, address _logger) ActionBase(_adminVault, _registry, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
@@ -51,9 +41,9 @@ contract FluidSupply is ActionBase, AdminAuth {
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
+            _encodeBalanceUpdate(
                 _strategyId,
-                ActionUtils._poolIdFromAddress(inputData.fToken),
+                _poolIdFromAddress(inputData.fToken),
                 fBalanceBefore,
                 fBalanceAfter,
                 feeInTokens
@@ -71,35 +61,35 @@ contract FluidSupply is ActionBase, AdminAuth {
     function _fluidSupply(
         Params memory _inputData
     ) private returns (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) {
-        IFluidLending fToken = IFluidLending(address(_inputData.fToken));
-        fBalanceBefore = address(fToken).getBalance(address(this));
+        IFluidLending fToken = IFluidLending(_inputData.fToken);
+        fBalanceBefore = fToken.balanceOf(address(this));
 
         // Check fee status
         if (fBalanceBefore == 0) {
             // Balance is zero, initialize fee timestamp for future fee calculations
-            ADMIN_VAULT.initializeFeeTimestamp(address(fToken));
+            ADMIN_VAULT.initializeFeeTimestamp(_inputData.fToken);
         } else {
             // Balance is non-zero, take fees before depositing
-            feeInTokens = _takeFee(address(fToken), _inputData.feeBasis);
+            feeInTokens = _takeFee(_inputData.fToken, _inputData.feeBasis);
         }
 
         // Deposit tokens
         if (_inputData.amount != 0) {
-            address stableToken = fToken.asset();
+            IERC20 stableToken = IERC20(fToken.asset());
             uint256 amountToDeposit = _inputData.amount == type(uint256).max
-                ? stableToken.getBalance(address(this))
+                ? stableToken.balanceOf(address(this))
                 : _inputData.amount;
 
             // If our max is zero, we messed up.
             if (amountToDeposit == 0) {
                 revert FluidSupply__ZeroAmount();
             }
-            stableToken.approveToken(address(fToken), amountToDeposit);
+            stableToken.safeIncreaseAllowance(_inputData.fToken, amountToDeposit);
 
             fToken.deposit(_inputData.amount, address(this), _inputData.minSharesReceived);
         }
 
-        fBalanceAfter = address(fToken).getBalance(address(this));
+        fBalanceAfter = fToken.balanceOf(address(this));
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

@@ -2,19 +2,13 @@
 pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
-import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
-import {ActionUtils} from "../../libraries/ActionUtils.sol";
-import {AdminAuth} from "../../auth/AdminAuth.sol";
 
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
-contract FluidWithdraw is ActionBase, AdminAuth {
-    using TokenUtils for address;
-
+contract FluidWithdraw is ActionBase {
     // TODO: Implement unified error reporting for all actions.
     error FluidWithdraw__ZeroAmount();
-    error FluidWithdraw__InvalidAddress();
 
     /// @param fToken - address of fToken vault contract
     /// @param amount - amount of underlying token to withdraw
@@ -27,15 +21,7 @@ contract FluidWithdraw is ActionBase, AdminAuth {
         uint256 maxSharesBurned;
     }
 
-    constructor(
-        address _registry,
-        address _logger,
-        address _adminVault
-    ) ActionBase(_registry, _logger) AdminAuth(_adminVault) {
-        if (_registry == address(0) || _logger == address(0) || _adminVault == address(0)) {
-            revert FluidWithdraw__InvalidAddress();
-        }
-    }
+    constructor(address _adminVault, address _registry, address _logger) ActionBase(_adminVault, _registry, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
@@ -52,9 +38,9 @@ contract FluidWithdraw is ActionBase, AdminAuth {
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
+            _encodeBalanceUpdate(
                 _strategyId,
-                ActionUtils._poolIdFromAddress(inputData.fToken),
+                _poolIdFromAddress(inputData.fToken),
                 fBalanceBefore,
                 fBalanceAfter,
                 feeInTokens

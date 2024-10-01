@@ -3,14 +3,7 @@ import { expect } from 'chai';
 import { AdminVault, IERC20, IFluidLending, FluidSupply } from '../../typechain-types';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { getUSDC, fundAccountWithToken } from '../utils-stable';
-import {
-  log,
-  deploy,
-  getBaseSetup,
-  getDeployedContract,
-  calculateExpectedFee,
-  executeAction,
-} from '../utils';
+import { log, deploy, getBaseSetup, calculateExpectedFee, executeAction } from '../utils';
 import { tokenConfig } from '../constants';
 
 describe('AdminVault', function () {
@@ -28,7 +21,7 @@ describe('AdminVault', function () {
     before(async () => {
       [admin, owner, alice, bob, carol] = await ethers.getSigners();
 
-      adminVault = await deploy('AdminVault', admin, owner.address, admin.address);
+      adminVault = await deploy('AdminVault', admin);
       // Fetch the USDC token
       USDC = await getUSDC();
 
@@ -49,7 +42,8 @@ describe('AdminVault', function () {
     });
 
     // tests that can be run directly on the contract
-    it('should set owner correctly', async function () {
+    // TODO: Change or remove now we're using AccessControl
+    it.skip('should set owner correctly', async function () {
       await expect(
         adminVault.connect(alice).changeOwner(alice.address)
       ).to.be.revertedWithCustomError(adminVault, 'SenderNotOwner');
@@ -58,7 +52,8 @@ describe('AdminVault', function () {
       expect(await adminVault.owner()).to.equal(alice.address);
     });
 
-    it('should set admin correctly', async function () {
+    // TODO: Change or remove now we're using AccessControl
+    it.skip('should set admin correctly', async function () {
       await expect(
         adminVault.connect(alice).changeAdmin(alice.address)
       ).to.be.revertedWithCustomError(adminVault, 'SenderNotAdmin');
@@ -143,9 +138,9 @@ describe('AdminVault', function () {
       fluidSupplyContract = await deploy(
         'FluidSupply',
         signer,
+        await adminVault.getAddress(),
         await baseSetup.contractRegistry.getAddress(),
-        loggerAddress,
-        await adminVault.getAddress()
+        loggerAddress
       );
       fluidSupplyAddress = await fluidSupplyContract.getAddress();
       fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.fUSDC.address);

@@ -58,16 +58,16 @@ describe('Fluid tests', () => {
     fluidSupplyContract = await deploy(
       'FluidSupply',
       signer,
+      await adminVault.getAddress(),
       await baseSetup.contractRegistry.getAddress(),
-      loggerAddress,
-      await adminVault.getAddress()
+      loggerAddress
     );
     fluidWithdrawContract = await deploy(
       'FluidWithdraw',
       signer,
+      await adminVault.getAddress(),
       await baseSetup.contractRegistry.getAddress(),
-      loggerAddress,
-      await adminVault.getAddress()
+      loggerAddress
     );
     fluidSupplyAddress = await fluidSupplyContract.getAddress();
     fluidWithdrawAddress = await fluidWithdrawContract.getAddress();

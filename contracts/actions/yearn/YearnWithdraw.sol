@@ -2,16 +2,11 @@
 pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
-import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
-import {ActionUtils} from "../../libraries/ActionUtils.sol";
-import {AdminAuth} from "../../auth/AdminAuth.sol";
 
 /// @title Burns yTokens and receive underlying tokens in return
 /// @dev yTokens need to be approved for user's wallet to pull them (yToken address)
-contract YearnWithdraw is ActionBase, AdminAuth {
-    using TokenUtils for address;
-
+contract YearnWithdraw is ActionBase {
     // TODO: Implement unified error reporting for all actions.
     error YearnWithdraw__MaxSharesBurnedExceeded();
 
@@ -26,11 +21,7 @@ contract YearnWithdraw is ActionBase, AdminAuth {
         uint256 maxSharesBurned;
     }
 
-    constructor(
-        address _registry,
-        address _logger,
-        address _adminVault
-    ) ActionBase(_registry, _logger) AdminAuth(_adminVault) {}
+    constructor(address _adminVault, address _registry, address _logger) ActionBase(_adminVault, _registry, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
@@ -47,9 +38,9 @@ contract YearnWithdraw is ActionBase, AdminAuth {
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
+            _encodeBalanceUpdate(
                 _strategyId,
-                ActionUtils._poolIdFromAddress(inputData.yToken),
+                _poolIdFromAddress(inputData.yToken),
                 yBalanceBefore,
                 yBalanceAfter,
                 feeInTokens
