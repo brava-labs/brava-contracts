@@ -2,17 +2,15 @@
 pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
-import {IERC721} from "../../interfaces/IERC721.sol";
-import {TokenUtils} from "../../libraries/TokenUtils.sol";
-import {SafeUIntCast} from "../../libraries/SafeUIntCast.sol";
+import {IERC721Metadata as IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ICoverBroker, BuyCoverParams, PoolAllocationRequest} from "../../interfaces/nexus-mutual/ICoverBroker.sol";
 import {TokenAddressesMainnet} from "../../libraries/TokenAddressesMainnet.sol";
 
 /// @title Buys cover for a specific asset and protocol
 contract BuyCover is ActionBase {
-    using TokenUtils for address;
-    using SafeUIntCast for uint256;
-
+    using SafeERC20 for IERC20;
     /// @param owner -  The owner of the cover
     /// @param buyCoverParams - The params for the buyCover function
     /// @param poolAllocationRequests - The pool allocation requests
@@ -55,8 +53,8 @@ contract BuyCover is ActionBase {
             poolAllocationRequests[i] = abi.decode(_inputData.poolAllocationRequests[i], (PoolAllocationRequest));
         }
 
-        address paymentAsset = _assetIdToTokenAddress(params.paymentAsset);
-        paymentAsset.approveToken(address(COVER_BROKER), params.maxPremiumInAsset);
+        IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
+        paymentAsset.approve(address(COVER_BROKER), params.maxPremiumInAsset);
 
         uint256 coverId;
         if (params.paymentAsset == 0) {

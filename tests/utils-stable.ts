@@ -8,9 +8,9 @@ import { log } from './utils';
 const hre: HardhatRuntimeEnvironment = require('hardhat');
 
 // Stablecoin contract getters
-const getUSDC = () => ethers.getContractAt('IERC20', constants.tokenConfig.USDC.address);
-const getUSDT = () => ethers.getContractAt('IERC20', constants.tokenConfig.USDT.address);
-const getDAI = () => ethers.getContractAt('IERC20', constants.tokenConfig.DAI.address);
+const getUSDC = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.USDC.address);
+const getUSDT = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.USDT.address);
+const getDAI = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.DAI.address);
 const getStables = async () => {
   return { USDC: await getUSDC(), USDT: await getUSDT(), DAI: await getDAI() };
 };

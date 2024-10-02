@@ -126,7 +126,8 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
   const adminVault = await deploy<AdminVault>(
     'AdminVault',
     deploySigner,
-    await deploySigner.getAddress()
+    await deploySigner.getAddress(),
+    0
   );
   const contractRegistry = await deploy<ContractRegistry>(
     'ContractRegistry',
