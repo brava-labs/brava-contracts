@@ -25,7 +25,7 @@ contract YearnSupply is ActionBase {
         uint256 minSharesReceived;
     }
 
-    constructor(address _adminVault, address _registry, address _logger) ActionBase(_adminVault, _registry, _logger) {}
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
@@ -94,5 +94,9 @@ contract YearnSupply is ActionBase {
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
+    }
+
+    function protocolName() internal pure override returns (string memory) {
+        return "Yearn";
     }
 }

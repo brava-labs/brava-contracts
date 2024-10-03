@@ -2,24 +2,26 @@
 
 pragma solidity =0.8.24;
 
-import {AccessControlDefaultAdminRules} from "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
+import "./AccessControlDelayed.sol";
+import "hardhat/console.sol";
 
 /// @title A stateful contract that holds some global variables, and permission management.
-contract AdminVault is AccessControlDefaultAdminRules {
-    error SenderNotAdmin();
-    error SenderNotOwner();
+contract AdminVault is AccessControlDelayed {
     error FeePercentageOutOfRange();
-    error InvalidRange();
     error InvalidRecipient();
-    error ActionNotFound();
-    error ActionAlreadyAdded();
-    error ProtocolNotFound();
+    error PoolNotAllowed();
+    error PoolNotFound();
+    error PoolAlreadyAdded();
+    error ProtocolNotAllowed();
+    error ProtocolHasPools();
     error ProtocolAlreadyAdded();
-    error VaultNotFound();
-    error VaultAlreadyAdded();
-    error SenderNotAction();
-
+    error ProtocolNotFound();
+    error DepositDisabled();
+    error InvalidPoolData();
+    error InvalidPoolAddress();
     bytes32 public constant ACTION_ADMIN_ROLE = keccak256("ACTION_ADMIN_ROLE");
+    bytes32 public constant ACTION_ROLE = keccak256("ACTION_ROLE");
+    bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
 
     uint256 public minFeeBasis;
     uint256 public maxFeeBasis;
@@ -27,39 +29,23 @@ contract AdminVault is AccessControlDefaultAdminRules {
     // mapping of when a particular safe had fees taken from a particular vault
     mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
 
-    // as each protocol may have multiple action contracts, we need to relate them to eachother
-    // this ensures when we add a vault, it is added to all the action contracts of the protocol
-    /// @dev This is not gas efficient to set and maintain, it's all about the user operations.
-    struct Protocol {
-        string name; // name of the protocol
-        bool enabled; // allows us to disable a protocol without removing it from the registry
-        address[] actionContracts; // action addresses that are allowed to be used with this protocol
-        address[] vaults; // vault addresses that are allowed to be used with this protocol
-    }
-    Protocol[] public protocols; // protocolId => protocol
-    mapping(string => uint256) public protocolNameToId; // protocol name => protocolId
-    mapping(address => uint256) public actionToProtocolId; // action address => protocolId
+    // struct Pool {
+    //     address poolAddress;
+    //     bool depositEnabled;
+    //     mapping(address => uint256) lastFeeTimestamp;
+    // }
 
-    // All that was admin to maintain this mapping, this is what is frequently by action contracts.
-    mapping(address => mapping(address => bool)) public allowedVault; // action address => vault address => is allowed
+    // mapping of protocols to their pools, this restricts actions to pools only in their protocol
+    // but doesn't restrict us from adding a pool to multiple protocols if necessary
+    mapping(string => mapping(bytes4 => address)) public protocolPools; // Protocol => poolId => pool address
 
     /// TODO: Should we add events for all the setters?
-    constructor(address _initialOwner, uint48 _roleDelay) AccessControlDefaultAdminRules(_roleDelay, _initialOwner) {
+    constructor(address _initialOwner, uint256 _delay) AccessControlDelayed(_delay) {
         // putting some default values here
         minFeeBasis = 0;
         maxFeeBasis = 10000; // 100%
         feeRecipient = _initialOwner;
-        _grantRole(ACTION_ADMIN_ROLE, _initialOwner);
-
-        // burn the first protocol so none have the zero index
-        addProtocol("burn");
-    }
-
-    modifier isProtocolName(string memory _name) {
-        if (protocolNameToId[_name] == 0) {
-            revert ProtocolNotFound();
-        }
-        _;
+        _grantRole(DEFAULT_ADMIN_ROLE, _initialOwner);
     }
 
     function setFeeRange(uint256 _min, uint256 _max) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -77,12 +63,6 @@ contract AdminVault is AccessControlDefaultAdminRules {
     // called by an action when a user changes their deposit from zero to non-zero
     // TODO: Add a guard to block attackers from calling this, given access to a mapping they can write to storage of their choice
     function initializeFeeTimestamp(address _vault) external {
-        // check the sender is an action contract
-
-        // TODO: Enable this check once the tests are updated, currenlty nothing is added to the vault
-        // if (actionToProtocolId[msg.sender] == 0) {
-        //     revert SenderNotAction();
-        // }
         lastFeeTimestamp[msg.sender][_vault] = block.timestamp;
     }
 
@@ -92,8 +72,53 @@ contract AdminVault is AccessControlDefaultAdminRules {
         lastFeeTimestamp[msg.sender][_vault] = block.timestamp;
     }
 
-    // View functions
+    // add multiple pools to a protocol
+    function addPools(
+        string calldata _protocolName,
+        bytes4[] calldata _poolIds,
+        address[] calldata _poolAddresses
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_poolIds.length != _poolAddresses.length) {
+            revert InvalidPoolData();
+        }
+        for (uint256 i = 0; i < _poolIds.length; i++) {
+            _addPool(_protocolName, _poolIds[i], _poolAddresses[i]);
+        }
+    }
 
+    /// add a single pool
+    function addPool(
+        string calldata _protocolName,
+        bytes4 _poolId,
+        address _poolAddress
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (!hasRole(POOL_ROLE, _poolAddress)) {
+            revert InvalidPoolAddress();
+        }
+        _addPool(_protocolName, _poolId, _poolAddress);
+    }
+
+    function _addPool(string calldata _protocolName, bytes4 _poolId, address _poolAddress) internal {
+        if (protocolPools[_protocolName][_poolId] != address(0)) {
+            revert PoolAlreadyAdded();
+        }
+        protocolPools[_protocolName][_poolId] = _poolAddress;
+    }
+
+    function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address) {
+        address poolAddress = protocolPools[_protocolName][_poolId];
+        if (poolAddress == address(0) || !hasRole(POOL_ROLE, poolAddress)) {
+            revert PoolNotAllowed();
+        }
+        return poolAddress;
+    }
+
+    function getActionAddress(bytes4 _actionId) external view returns (address) {
+        /// TODO: IMPLEMENT ME
+        return address(0);
+    }
+
+    // View functions
     function getLastFeeTimestamp(address _vault) external view returns (uint256) {
         assert(lastFeeTimestamp[msg.sender][_vault] != 0);
         return lastFeeTimestamp[msg.sender][_vault];
@@ -103,124 +128,5 @@ contract AdminVault is AccessControlDefaultAdminRules {
         if (_feeBasis < minFeeBasis || _feeBasis > maxFeeBasis) {
             revert FeePercentageOutOfRange();
         }
-    }
-
-    function checkVaultAllowed(address _vault) external view returns (bool) {
-        return allowedVault[msg.sender][_vault];
-    }
-
-    function getVaults(address _action) external view returns (address[] memory) {
-        return protocols[actionToProtocolId[_action]].vaults;
-    }
-
-    // Simply implements a protocol name, actions and vaults should be added seperately
-    function addProtocol(string memory _name) public onlyRole(ACTION_ADMIN_ROLE) {
-        if (protocolNameToId[_name] != 0) {
-            revert ProtocolAlreadyAdded();
-        }
-        protocolNameToId[_name] = protocols.length;
-        protocols.push(Protocol(_name, false, new address[](0), new address[](0)));
-    }
-
-    // The action contract should be added to the protocol
-    // any vaults already whitelisted should be added to this new action
-    function addAction(
-        string memory _name,
-        address _action
-    ) external onlyRole(ACTION_ADMIN_ROLE) isProtocolName(_name) {
-        uint256 _protocolId = protocolNameToId[_name];
-        // Check if the action is already added to a protocol
-        if (actionToProtocolId[_action] != 0) {
-            revert ActionAlreadyAdded();
-        }
-        // Add the action to the protocol
-        protocols[_protocolId].actionContracts.push(_action);
-        // update the helper so we can check which protocol this action belongs to
-        actionToProtocolId[_action] = _protocolId;
-        // add the vaults that are allowed to use this action
-        for (uint256 i = 0; i < protocols[_protocolId].vaults.length; i++) {
-            allowedVault[_action][protocols[_protocolId].vaults[i]] = true;
-        }
-    }
-
-    function removeAction(
-        string memory _name,
-        address _action
-    ) external onlyRole(ACTION_ADMIN_ROLE) isProtocolName(_name) {
-        uint256 _protocolId = protocolNameToId[_name];
-        if (actionToProtocolId[_action] == 0) {
-            revert ActionNotFound();
-        }
-        Protocol storage protocol = protocols[_protocolId];
-        // remove the action from the protocol
-        for (uint256 i = 0; i < protocol.actionContracts.length; i++) {
-            if (protocol.actionContracts[i] == _action) {
-                protocol.actionContracts[i] = protocol.actionContracts[protocol.actionContracts.length - 1];
-                protocol.actionContracts.pop();
-                actionToProtocolId[_action] = 0;
-                break;
-            }
-        }
-        // remove the vaults that this action was allowed to use
-        for (uint256 i = 0; i < protocol.vaults.length; i++) {
-            allowedVault[_action][protocol.vaults[i]] = false;
-        }
-        // remove the action from the actionToProtocolId mapping
-        delete actionToProtocolId[_action];
-    }
-
-    function enableProtocol(string memory _protocol) external onlyRole(ACTION_ADMIN_ROLE) isProtocolName(_protocol) {
-        uint256 _protocolId = protocolNameToId[_protocol];
-        protocols[_protocolId].enabled = true;
-    }
-
-    function disableProtocol(string memory _protocol) external onlyRole(ACTION_ADMIN_ROLE) isProtocolName(_protocol) {
-        uint256 _protocolId = protocolNameToId[_protocol];
-        protocols[_protocolId].enabled = false;
-    }
-
-    function addVault(
-        string memory _protocol,
-        address _vault
-    ) external onlyRole(ACTION_ADMIN_ROLE) isProtocolName(_protocol) {
-        uint256 _protocolId = protocolNameToId[_protocol];
-        // check the vault is not already added to this protocol
-        for (uint256 i = 0; i < protocols[_protocolId].vaults.length; i++) {
-            if (protocols[_protocolId].vaults[i] == _vault) {
-                revert VaultAlreadyAdded();
-            }
-        }
-        // add the vault to the protocol
-        protocols[_protocolId].vaults.push(_vault);
-        // for each action contract in the protocol, add the vault to the allowedVault mapping
-        for (uint256 i = 0; i < protocols[_protocolId].actionContracts.length; i++) {
-            allowedVault[protocols[_protocolId].actionContracts[i]][_vault] = true;
-        }
-    }
-
-    function removeVault(
-        string memory _protocol,
-        address _vault
-    ) external onlyRole(ACTION_ADMIN_ROLE) isProtocolName(_protocol) {
-        uint256 _protocolId = protocolNameToId[_protocol];
-        // for each action contract in the protocol, remove the vault from the allowedVault mapping
-        for (uint256 i = 0; i < protocols[_protocolId].actionContracts.length; i++) {
-            allowedVault[protocols[_protocolId].actionContracts[i]][_vault] = false;
-        }
-        // remove the vault from the protocol
-        for (uint256 i = 0; i < protocols[_protocolId].vaults.length; i++) {
-            if (protocols[_protocolId].vaults[i] == _vault) {
-                protocols[_protocolId].vaults[i] = protocols[_protocolId].vaults[
-                    protocols[_protocolId].vaults.length - 1
-                ];
-                protocols[_protocolId].vaults.pop();
-                return;
-            }
-        }
-        revert VaultNotFound();
-    }
-
-    function getActionContracts(uint256 _protocolId) external view returns (address[] memory) {
-        return protocols[_protocolId].actionContracts;
     }
 }

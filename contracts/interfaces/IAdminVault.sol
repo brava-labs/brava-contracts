@@ -24,4 +24,6 @@ interface IAdminVault {
     function updateFeeTimestamp(address _vault) external;
     function getLastFeeTimestamp(address _vault) external view returns (uint256);
     function checkFeeBasis(uint256 _feeBasis) external view;
+    function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address);
+    function getActionAddress(bytes4 _actionId) external view returns (address);
 }

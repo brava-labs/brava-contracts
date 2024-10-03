@@ -64,6 +64,7 @@ describe('Yearn tests', () => {
       loggerAddress
     );
     yUSDC = await ethers.getContractAt('IYearnVault', YEARN_USDC_ADDRESS);
+    await adminVault.grantRole(await adminVault.VAULT_ROLE(), YEARN_USDC_ADDRESS);
   });
 
   beforeEach(async () => {

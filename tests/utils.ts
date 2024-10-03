@@ -129,15 +129,15 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
     await deploySigner.getAddress(),
     0
   );
-  const contractRegistry = await deploy<ContractRegistry>(
-    'ContractRegistry',
-    deploySigner,
-    await adminVault.getAddress()
-  );
+  // const contractRegistry = await deploy<ContractRegistry>(
+  //   'ContractRegistry',
+  //   deploySigner,
+  //   await adminVault.getAddress()
+  // );
   const safeAddress = await deploySafe(deploySigner);
   const safe = await ethers.getContractAt('ISafe', safeAddress);
   log('Safe deployed at:', safeAddress);
-  return { logger, adminVault, contractRegistry, safe, signer: deploySigner };
+  return { logger, adminVault, safe, signer: deploySigner };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
@@ -185,7 +185,6 @@ let globalSetup:
   | {
       logger: Logger;
       adminVault: AdminVault;
-      contractRegistry: ContractRegistry;
       safe: ISafe;
       signer: Signer;
     }
@@ -194,7 +193,6 @@ let globalSetup:
 export function setGlobalSetup(params: {
   logger: Logger;
   adminVault: AdminVault;
-  contractRegistry: ContractRegistry;
   safe: ISafe;
   signer: Signer;
 }) {
@@ -204,7 +202,6 @@ export function setGlobalSetup(params: {
 export function getGlobalSetup(): {
   logger: Logger;
   adminVault: AdminVault;
-  contractRegistry: ContractRegistry;
   safe: ISafe;
   signer: Signer;
 } {
@@ -321,6 +318,10 @@ export async function executeAction(args: ActionArgs) {
           return minSharesReceived;
         case 'maxSharesBurned':
           return maxSharesBurned;
+        case 'poolId':
+          return ethers.keccak256(vaultAddress).slice(0, 10);
+        case 'feeBasis':
+          return feePercentage;
         default:
           throw new Error(`Unknown encoding variable: ${variable}`);
       }

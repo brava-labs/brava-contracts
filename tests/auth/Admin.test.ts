@@ -21,7 +21,14 @@ describe('AdminVault', function () {
     before(async () => {
       [admin, owner, alice, bob, carol] = await ethers.getSigners();
 
-      adminVault = await deploy('AdminVault', admin, await admin.getAddress(), 0);
+      adminVault = await deploy(
+        'AdminVault',
+        admin,
+        [await admin.getAddress()],
+        [await admin.getAddress()],
+        0,
+        await admin.getAddress()
+      );
       // Fetch the USDC token
       USDC = await getUSDC();
 
@@ -97,6 +104,7 @@ describe('AdminVault', function () {
       expect(await adminVault.maxFeeBasis()).to.equal(200);
     });
     it('should initialize fee timestamp correctly', async function () {
+      await adminVault.grantRole(await adminVault.VAULT_ROLE(), alice.address);
       const tx = await adminVault.connect(owner).initializeFeeTimestamp(alice.address);
 
       const receipt = await tx.wait();
@@ -107,6 +115,7 @@ describe('AdminVault', function () {
     });
 
     it('should update fee timestamp correctly', async function () {
+      await adminVault.grantRole(await adminVault.VAULT_ROLE(), alice.address);
       await adminVault.connect(owner).initializeFeeTimestamp(alice.address);
       const tx = await adminVault.connect(owner).updateFeeTimestamp(alice.address);
       const receipt = await tx.wait();
@@ -146,6 +155,7 @@ describe('AdminVault', function () {
       );
       fluidSupplyAddress = await fluidSupplyContract.getAddress();
       fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.fUSDC.address);
+      await adminVault.grantRole(await adminVault.VAULT_ROLE(), await fUSDC.getAddress());
     });
     it('should calculate fee correctly for a given period', async function () {
       const token = 'USDC';

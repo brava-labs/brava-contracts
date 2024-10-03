@@ -5,6 +5,7 @@ import {ActionBase} from "../ActionBase.sol";
 import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "hardhat/console.sol";
 
 /// @title Supplies tokens to Fluid vault
 contract FluidSupply is ActionBase {
@@ -13,18 +14,18 @@ contract FluidSupply is ActionBase {
     // TODO: Implement unified error reporting for all actions.
     error FluidSupply__ZeroAmount();
 
-    /// @param fToken - address of fToken vault contract
+    /// @param poolId - ID of fToken vault contract
     /// @param amount - amount of underlying token to withdraw
     /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param minSharesReceived - minimum amount of shares to receive
     struct Params {
-        address fToken;
+        bytes4 poolId;
+        uint16 feeBasis;
         uint256 amount;
-        uint256 feeBasis;
         uint256 minSharesReceived;
     }
 
-    constructor(address _adminVault, address _registry, address _logger) ActionBase(_adminVault, _registry, _logger) {}
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
@@ -33,21 +34,14 @@ contract FluidSupply is ActionBase {
 
         // verify input data
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-        // TODO: Verify the fToken is a whitelisted contract
-
+        address fToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
         // execute logic
-        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidSupply(inputData);
+        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidSupply(inputData, fToken);
 
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
-            _encodeBalanceUpdate(
-                _strategyId,
-                _poolIdFromAddress(inputData.fToken),
-                fBalanceBefore,
-                fBalanceAfter,
-                feeInTokens
-            )
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
         );
     }
 
@@ -59,18 +53,19 @@ contract FluidSupply is ActionBase {
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
     function _fluidSupply(
-        Params memory _inputData
+        Params memory _inputData,
+        address _fTokenAddress
     ) private returns (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) {
-        IFluidLending fToken = IFluidLending(_inputData.fToken);
+        IFluidLending fToken = IFluidLending(_fTokenAddress);
         fBalanceBefore = fToken.balanceOf(address(this));
 
         // Check fee status
         if (fBalanceBefore == 0) {
             // Balance is zero, initialize fee timestamp for future fee calculations
-            ADMIN_VAULT.initializeFeeTimestamp(_inputData.fToken);
+            ADMIN_VAULT.initializeFeeTimestamp(_fTokenAddress);
         } else {
             // Balance is non-zero, take fees before depositing
-            feeInTokens = _takeFee(_inputData.fToken, _inputData.feeBasis);
+            feeInTokens = _takeFee(_fTokenAddress, _inputData.feeBasis);
         }
 
         // Deposit tokens
@@ -84,7 +79,7 @@ contract FluidSupply is ActionBase {
             if (amountToDeposit == 0) {
                 revert FluidSupply__ZeroAmount();
             }
-            stableToken.safeIncreaseAllowance(_inputData.fToken, amountToDeposit);
+            stableToken.safeIncreaseAllowance(_fTokenAddress, amountToDeposit);
 
             fToken.deposit(_inputData.amount, address(this), _inputData.minSharesReceived);
         }
@@ -94,5 +89,9 @@ contract FluidSupply is ActionBase {
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
+    }
+
+    function protocolName() internal pure override returns (string memory) {
+        return "Fluid";
     }
 }

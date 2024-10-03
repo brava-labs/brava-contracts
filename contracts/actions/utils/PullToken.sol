@@ -18,7 +18,7 @@ contract PullToken is ActionBase {
         uint256 amount;
     }
 
-    constructor(address _adminVault, address _registry, address _logger) ActionBase(_adminVault, _registry, _logger) {}
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable virtual override {
@@ -45,5 +45,9 @@ contract PullToken is ActionBase {
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory params) {
         params = abi.decode(_callData, (Params));
+    }
+
+    function protocolName() internal pure override returns (string memory) {
+        return "Athena";
     }
 }

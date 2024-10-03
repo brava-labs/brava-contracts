@@ -42,7 +42,7 @@ describe('Fluid tests', () => {
 
   before(async () => {
     [signer] = await ethers.getSigners();
-    const baseSetup = await getBaseSetup();
+    const baseSetup = await getBaseSetup(signer);
     if (!baseSetup) {
       throw new Error('Base setup not deployed');
     }
@@ -59,20 +59,34 @@ describe('Fluid tests', () => {
       'FluidSupply',
       signer,
       await adminVault.getAddress(),
-      await baseSetup.contractRegistry.getAddress(),
       loggerAddress
     );
     fluidWithdrawContract = await deploy(
       'FluidWithdraw',
       signer,
       await adminVault.getAddress(),
-      await baseSetup.contractRegistry.getAddress(),
       loggerAddress
     );
     fluidSupplyAddress = await fluidSupplyContract.getAddress();
     fluidWithdrawAddress = await fluidWithdrawContract.getAddress();
     fUSDC = await ethers.getContractAt('IFluidLending', FLUID_USDC_ADDRESS);
     fUSDT = await ethers.getContractAt('IFluidLending', FLUID_USDT_ADDRESS);
+
+    // grant the fUSDC and fUSDT contracts the POOL_ROLE
+    await adminVault.proposeRole(await adminVault.POOL_ROLE(), FLUID_USDC_ADDRESS);
+    await adminVault.proposeRole(await adminVault.POOL_ROLE(), FLUID_USDT_ADDRESS);
+    await adminVault.grantRole(await adminVault.POOL_ROLE(), FLUID_USDC_ADDRESS);
+    await adminVault.grantRole(await adminVault.POOL_ROLE(), FLUID_USDT_ADDRESS);
+    await adminVault.addPools(
+      'Fluid',
+      [ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10)],
+      [FLUID_USDC_ADDRESS]
+    );
+    await adminVault.addPools(
+      'Fluid',
+      [ethers.keccak256(FLUID_USDT_ADDRESS).slice(0, 10)],
+      [FLUID_USDT_ADDRESS]
+    );
   });
 
   beforeEach(async () => {

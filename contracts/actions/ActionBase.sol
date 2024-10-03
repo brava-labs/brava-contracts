@@ -2,7 +2,6 @@
 pragma solidity =0.8.24;
 
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
-import {IContractRegistry} from "../interfaces/IContractRegistry.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -18,7 +17,6 @@ abstract contract ActionBase {
     using SafeERC20 for IERC20;
 
     IAdminVault public immutable ADMIN_VAULT;
-    IContractRegistry public immutable REGISTRY;
     ILogger public immutable LOGGER;
 
     error FeeTimestampNotInitialized();
@@ -36,9 +34,8 @@ abstract contract ActionBase {
         CUSTOM_ACTION
     }
 
-    constructor(address _adminVault, address _registry, address _logger) {
+    constructor(address _adminVault, address _logger) {
         ADMIN_VAULT = IAdminVault(_adminVault);
-        REGISTRY = IContractRegistry(_registry);
         LOGGER = ILogger(_logger);
     }
 
@@ -102,4 +99,6 @@ abstract contract ActionBase {
     ) internal pure returns (bytes memory) {
         return abi.encode(_strategyId, _poolId, _balanceBefore, _balanceAfter, _feeInTokens);
     }
+
+    function protocolName() internal pure virtual returns (string memory);
 }

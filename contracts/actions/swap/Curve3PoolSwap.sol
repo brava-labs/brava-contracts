@@ -30,10 +30,9 @@ contract Curve3PoolSwap is ActionBase {
 
     constructor(
         address _adminVault,
-        address _registry,
         address _logger,
         address _poolAddress
-    ) ActionBase(_adminVault, _registry, _logger) {
+    ) ActionBase(_adminVault, _logger) {
         POOL = ICurve3Pool(_poolAddress);
     }
 
@@ -81,5 +80,9 @@ contract Curve3PoolSwap is ActionBase {
 
     function _parseInputs(bytes memory _callData) internal pure returns (Params memory params) {
         params = abi.decode(_callData, (Params));
+    }
+
+    function protocolName() internal pure override returns (string memory) {
+        return "Curve";
     }
 }

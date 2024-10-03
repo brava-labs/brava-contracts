@@ -29,8 +29,8 @@ export const actionDefaults: Record<string, Partial<ActionArgs> & { encoding?: A
     amount: '0',
     minSharesReceived: '0',
     encoding: {
-      inputParams: ['address', 'uint256', 'uint256', 'uint256'],
-      encodingVariables: ['vaultAddress', 'amount', 'feePercentage', 'minSharesReceived'],
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
   FluidWithdraw: {
