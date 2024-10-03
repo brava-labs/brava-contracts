@@ -20,10 +20,11 @@ contract AdminVault is AccessControlDelayed {
     error InvalidPoolAddress();
     error ActionAlreadyAdded();
     error ActionNotFound();
+    error PoolNotProposed();
+    error ActionNotProposed();
 
-    bytes32 public constant ACTION_ADMIN_ROLE = keccak256("ACTION_ADMIN_ROLE");
-    bytes32 public constant ACTION_ROLE = keccak256("ACTION_ROLE");
-    bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
+    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     uint256 public minFeeBasis;
     uint256 public maxFeeBasis;
@@ -35,8 +36,17 @@ contract AdminVault is AccessControlDelayed {
     // but doesn't restrict us from adding a pool to multiple protocols if necessary
     mapping(string => mapping(bytes4 => address)) public protocolPools; // Protocol => poolId => pool address
 
+    // mapping of proposalId to the timestamp when it was proposed
+    mapping(bytes32 => uint256) public poolProposals;
+    mapping(bytes32 => uint256) public actionProposals;
+
     // mapping of actionId to action address
     mapping(bytes4 => address) public actionAddresses;
+
+    // Security Layout
+    // 1. DEFAULT_ADMIN_ROLE will be disposed of (if granted at all outside testing)
+    // 2. OWNER_ROLE can propose new pools and actions
+    // 3. ADMIN_ROLE can add new pools and actions subject to proposal delay
 
     /// TODO: Should we add events for all the setters?
     constructor(address _initialOwner, uint256 _delay) AccessControlDelayed(_delay) {
@@ -44,7 +54,13 @@ contract AdminVault is AccessControlDelayed {
         minFeeBasis = 0;
         maxFeeBasis = 10000; // 100%
         feeRecipient = _initialOwner;
-        _grantRole(DEFAULT_ADMIN_ROLE, _initialOwner);
+
+        _grantRole(OWNER_ROLE, _initialOwner);
+        _grantRole(ADMIN_ROLE, _initialOwner);
+
+        // Set the role hierarchy
+        _setRoleAdmin(OWNER_ROLE, OWNER_ROLE); // Owner is admin of owner role
+        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE); // Owner is admin of admin role
     }
 
     function setFeeRange(uint256 _min, uint256 _max) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -71,57 +87,69 @@ contract AdminVault is AccessControlDelayed {
         lastFeeTimestamp[msg.sender][_vault] = block.timestamp;
     }
 
-    // add multiple pools to a protocol
-    function addPools(
+    function proposePool(
         string calldata _protocolName,
-        bytes4[] calldata _poolIds,
-        address[] calldata _poolAddresses
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_poolIds.length != _poolAddresses.length) {
-            revert InvalidPoolData();
+        bytes4 _poolId,
+        address _poolAddress
+    ) external onlyRole(OWNER_ROLE) {
+        if (protocolPools[_protocolName][_poolId] != address(0)) {
+            revert PoolAlreadyAdded();
         }
-        for (uint256 i = 0; i < _poolIds.length; i++) {
-            _addPool(_protocolName, _poolIds[i], _poolAddresses[i]);
-        }
+        // add the proposal to a waiting list using a hash of the data
+        bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, _poolId, _poolAddress));
+        poolProposals[proposalId] = block.timestamp + delay;
     }
 
-    /// add a single pool
     function addPool(
         string calldata _protocolName,
         bytes4 _poolId,
         address _poolAddress
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _addPool(_protocolName, _poolId, _poolAddress);
-    }
-
-    function _addPool(string calldata _protocolName, bytes4 _poolId, address _poolAddress) internal {
+    ) external onlyRole(ADMIN_ROLE) {
         if (protocolPools[_protocolName][_poolId] != address(0)) {
             revert PoolAlreadyAdded();
         }
-        if (!hasRole(POOL_ROLE, _poolAddress)) {
-            super.grantRole(POOL_ROLE, _poolAddress);
+        // check if the proposal is in the waiting list
+        bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, _poolId, _poolAddress));
+        if (poolProposals[proposalId] == 0) {
+            revert PoolNotProposed();
+        }
+        // check if the delay has passed
+        if (block.timestamp < poolProposals[proposalId]) {
+            revert DelayNotPassed();
         }
         protocolPools[_protocolName][_poolId] = _poolAddress;
     }
 
-    function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address) {
-        address poolAddress = protocolPools[_protocolName][_poolId];
-        if (poolAddress == address(0) || !hasRole(POOL_ROLE, poolAddress)) {
-            revert PoolNotAllowed();
-        }
-        return poolAddress;
-    }
-
-    function addAction(bytes4 _actionId, address _actionAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function proposeAction(bytes4 _actionId, address _actionAddress) external onlyRole(OWNER_ROLE) {
         if (actionAddresses[_actionId] != address(0)) {
             revert ActionAlreadyAdded();
         }
-        if (!hasRole(ACTION_ROLE, _actionAddress)) {
-            // if it doesn't have the role, maybe it has already been proposed
-            // and we can just grant it
-            super.grantRole(ACTION_ROLE, _actionAddress);
+        bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
+        actionProposals[proposalId] = block.timestamp + delay;
+    }
+
+    function addAction(bytes4 _actionId, address _actionAddress) external onlyRole(ADMIN_ROLE) {
+        if (actionAddresses[_actionId] != address(0)) {
+            revert ActionAlreadyAdded();
+        }
+        // check if the proposal is in the waiting list
+        bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
+        if (actionProposals[proposalId] == 0) {
+            revert ActionNotProposed();
+        }
+        // check if the delay has passed
+        if (block.timestamp < actionProposals[proposalId]) {
+            revert DelayNotPassed();
         }
         actionAddresses[_actionId] = _actionAddress;
+    }
+
+    function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address) {
+        address poolAddress = protocolPools[_protocolName][_poolId];
+        if (poolAddress == address(0)) {
+            revert PoolNotFound();
+        }
+        return poolAddress;
     }
 
     function getActionAddress(bytes4 _actionId) external view returns (address) {

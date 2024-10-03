@@ -73,19 +73,25 @@ describe('Fluid tests', () => {
     fUSDT = await ethers.getContractAt('IFluidLending', FLUID_USDT_ADDRESS);
 
     // grant the fUSDC and fUSDT contracts the POOL_ROLE
-    await adminVault.proposeRole(await adminVault.POOL_ROLE(), FLUID_USDC_ADDRESS);
-    await adminVault.proposeRole(await adminVault.POOL_ROLE(), FLUID_USDT_ADDRESS);
-    await adminVault.grantRole(await adminVault.POOL_ROLE(), FLUID_USDC_ADDRESS);
-    await adminVault.grantRole(await adminVault.POOL_ROLE(), FLUID_USDT_ADDRESS);
-    await adminVault.addPools(
+    await adminVault.proposePool(
       'Fluid',
-      [ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10)],
-      [FLUID_USDC_ADDRESS]
+      ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10),
+      FLUID_USDC_ADDRESS
     );
-    await adminVault.addPools(
+    await adminVault.proposePool(
       'Fluid',
-      [ethers.keccak256(FLUID_USDT_ADDRESS).slice(0, 10)],
-      [FLUID_USDT_ADDRESS]
+      ethers.keccak256(FLUID_USDT_ADDRESS).slice(0, 10),
+      FLUID_USDT_ADDRESS
+    );
+    await adminVault.addPool(
+      'Fluid',
+      ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10),
+      FLUID_USDC_ADDRESS
+    );
+    await adminVault.addPool(
+      'Fluid',
+      ethers.keccak256(FLUID_USDT_ADDRESS).slice(0, 10),
+      FLUID_USDT_ADDRESS
     );
   });
 

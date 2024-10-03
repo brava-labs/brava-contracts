@@ -97,8 +97,16 @@ describe('AdminVault', function () {
       expect(await adminVault.maxFeeBasis()).to.equal(200);
     });
     it('should initialize fee timestamp correctly', async function () {
-      await adminVault.proposeRole(await adminVault.POOL_ROLE(), alice.address);
-      await adminVault.grantRole(await adminVault.POOL_ROLE(), alice.address);
+      await adminVault.proposePool(
+        'Fluid',
+        ethers.keccak256(alice.address).slice(0, 10),
+        alice.address
+      );
+      await adminVault.addPool(
+        'Fluid',
+        ethers.keccak256(alice.address).slice(0, 10),
+        alice.address
+      );
       const tx = await adminVault.connect(owner).initializeFeeTimestamp(alice.address);
 
       const receipt = await tx.wait();
@@ -109,8 +117,16 @@ describe('AdminVault', function () {
     });
 
     it('should update fee timestamp correctly', async function () {
-      await adminVault.proposeRole(await adminVault.POOL_ROLE(), alice.address);
-      await adminVault.grantRole(await adminVault.POOL_ROLE(), alice.address);
+      await adminVault.proposePool(
+        'Fluid',
+        ethers.keccak256(alice.address).slice(0, 10),
+        alice.address
+      );
+      await adminVault.addPool(
+        'Fluid',
+        ethers.keccak256(alice.address).slice(0, 10),
+        alice.address
+      );
       await adminVault.connect(owner).initializeFeeTimestamp(alice.address);
       const tx = await adminVault.connect(owner).updateFeeTimestamp(alice.address);
       const receipt = await tx.wait();
@@ -149,7 +165,11 @@ describe('AdminVault', function () {
       );
       fluidSupplyAddress = await fluidSupplyContract.getAddress();
       fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.fUSDC.address);
-      await adminVault.proposeRole(await adminVault.POOL_ROLE(), await fUSDC.getAddress());
+      await adminVault.proposePool(
+        'Fluid',
+        ethers.keccak256(await fUSDC.getAddress()).slice(0, 10),
+        await fUSDC.getAddress()
+      );
       await adminVault.addPool(
         'Fluid',
         ethers.keccak256(await fUSDC.getAddress()).slice(0, 10),

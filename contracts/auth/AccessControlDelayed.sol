@@ -40,13 +40,16 @@ abstract contract AccessControlDelayed is AccessControl {
         super.grantRole(role, account);
     }
 
-    function proposeRoles(bytes32[] calldata roles, address[] calldata accounts) external virtual {
+    function proposeRoles(
+        bytes32[] calldata roles,
+        address[] calldata accounts
+    ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < roles.length; i++) {
             _proposeRole(roles[i], accounts[i]);
         }
     }
 
-    function proposeRole(bytes32 role, address account) external virtual {
+    function proposeRole(bytes32 role, address account) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         _proposeRole(role, account);
     }
 
