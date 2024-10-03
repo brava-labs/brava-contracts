@@ -5,7 +5,6 @@ import {ActionBase} from "../ActionBase.sol";
 import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "hardhat/console.sol";
 
 /// @title Supplies tokens to Fluid vault
 contract FluidSupply is ActionBase {
@@ -35,6 +34,7 @@ contract FluidSupply is ActionBase {
         // verify input data
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
         address fToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
+
         // execute logic
         (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidSupply(inputData, fToken);
 

@@ -44,8 +44,8 @@ export const actionDefaults: Record<string, Partial<ActionArgs> & { encoding?: A
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
     encoding: {
-      inputParams: ['address', 'uint256', 'uint256', 'uint256'],
-      encodingVariables: ['vaultAddress', 'amount', 'feePercentage', 'maxSharesBurned'],
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'withdrawRequest', 'maxSharesBurned'],
     },
   },
   YearnSupply: {
@@ -59,8 +59,8 @@ export const actionDefaults: Record<string, Partial<ActionArgs> & { encoding?: A
     amount: '0',
     minSharesReceived: '0',
     encoding: {
-      inputParams: ['address', 'uint256', 'uint256', 'uint256'],
-      encodingVariables: ['vaultAddress', 'amount', 'feePercentage', 'minSharesReceived'],
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
   YearnWithdraw: {
@@ -74,8 +74,8 @@ export const actionDefaults: Record<string, Partial<ActionArgs> & { encoding?: A
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
     encoding: {
-      inputParams: ['address', 'uint256', 'uint256', 'uint256'],
-      encodingVariables: ['vaultAddress', 'amount', 'feePercentage', 'maxSharesBurned'],
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'withdrawRequest', 'maxSharesBurned'],
     },
   },
   // Add more action types and their defaults as needed

@@ -19,9 +19,9 @@ contract YearnSupply is ActionBase {
     /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param minSharesReceived - minimum amount of shares to receive
     struct Params {
-        address yToken;
+        bytes4 poolId;
+        uint16 feeBasis;
         uint256 amount;
-        uint256 feeBasis;
         uint256 minSharesReceived;
     }
 
@@ -34,17 +34,17 @@ contract YearnSupply is ActionBase {
 
         // verify input data
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-        // TODO: Verify the yToken is a whitelisted contract
+        address yToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
         // execute logic
-        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnSupply(inputData);
+        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnSupply(inputData, yToken);
 
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
             _encodeBalanceUpdate(
                 _strategyId,
-                _poolIdFromAddress(inputData.yToken),
+                inputData.poolId,
                 yBalanceBefore,
                 yBalanceAfter,
                 feeInTokens
@@ -60,9 +60,10 @@ contract YearnSupply is ActionBase {
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
     function _yearnSupply(
-        Params memory _inputData
+        Params memory _inputData,
+        address _yToken
     ) private returns (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) {
-        IYearnVault yToken = IYearnVault(_inputData.yToken);
+        IYearnVault yToken = IYearnVault(_yToken);
 
         // Check fee status
         if (yBalanceBefore == 0) {

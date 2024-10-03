@@ -110,7 +110,6 @@ describe('BuyCover tests', () => {
       'BuyCover',
       signer,
       await baseSetup.adminVault.getAddress(),
-      await baseSetup.contractRegistry.getAddress(),
       await baseSetup.logger.getAddress()
     );
   });

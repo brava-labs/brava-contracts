@@ -2,8 +2,7 @@
 
 pragma solidity =0.8.24;
 
-import "./AccessControlDelayed.sol";
-import "hardhat/console.sol";
+import {AccessControlDelayed} from "./AccessControlDelayed.sol";
 
 /// @title A stateful contract that holds some global variables, and permission management.
 contract AdminVault is AccessControlDelayed {
@@ -19,6 +18,9 @@ contract AdminVault is AccessControlDelayed {
     error DepositDisabled();
     error InvalidPoolData();
     error InvalidPoolAddress();
+    error ActionAlreadyAdded();
+    error ActionNotFound();
+
     bytes32 public constant ACTION_ADMIN_ROLE = keccak256("ACTION_ADMIN_ROLE");
     bytes32 public constant ACTION_ROLE = keccak256("ACTION_ROLE");
     bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
@@ -29,15 +31,12 @@ contract AdminVault is AccessControlDelayed {
     // mapping of when a particular safe had fees taken from a particular vault
     mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
 
-    // struct Pool {
-    //     address poolAddress;
-    //     bool depositEnabled;
-    //     mapping(address => uint256) lastFeeTimestamp;
-    // }
-
     // mapping of protocols to their pools, this restricts actions to pools only in their protocol
     // but doesn't restrict us from adding a pool to multiple protocols if necessary
     mapping(string => mapping(bytes4 => address)) public protocolPools; // Protocol => poolId => pool address
+
+    // mapping of actionId to action address
+    mapping(bytes4 => address) public actionAddresses;
 
     /// TODO: Should we add events for all the setters?
     constructor(address _initialOwner, uint256 _delay) AccessControlDelayed(_delay) {
@@ -92,15 +91,15 @@ contract AdminVault is AccessControlDelayed {
         bytes4 _poolId,
         address _poolAddress
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (!hasRole(POOL_ROLE, _poolAddress)) {
-            revert InvalidPoolAddress();
-        }
         _addPool(_protocolName, _poolId, _poolAddress);
     }
 
     function _addPool(string calldata _protocolName, bytes4 _poolId, address _poolAddress) internal {
         if (protocolPools[_protocolName][_poolId] != address(0)) {
             revert PoolAlreadyAdded();
+        }
+        if (!hasRole(POOL_ROLE, _poolAddress)) {
+            super.grantRole(POOL_ROLE, _poolAddress);
         }
         protocolPools[_protocolName][_poolId] = _poolAddress;
     }
@@ -113,9 +112,20 @@ contract AdminVault is AccessControlDelayed {
         return poolAddress;
     }
 
+    function addAction(bytes4 _actionId, address _actionAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (actionAddresses[_actionId] != address(0)) {
+            revert ActionAlreadyAdded();
+        }
+        if (!hasRole(ACTION_ROLE, _actionAddress)) {
+            // if it doesn't have the role, maybe it has already been proposed
+            // and we can just grant it
+            super.grantRole(ACTION_ROLE, _actionAddress);
+        }
+        actionAddresses[_actionId] = _actionAddress;
+    }
+
     function getActionAddress(bytes4 _actionId) external view returns (address) {
-        /// TODO: IMPLEMENT ME
-        return address(0);
+        return actionAddresses[_actionId];
     }
 
     // View functions

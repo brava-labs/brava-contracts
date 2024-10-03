@@ -2,7 +2,7 @@
 
 pragma solidity =0.8.24;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /// @title Add delays to granting roles in access control
 abstract contract AccessControlDelayed is AccessControl {
@@ -17,6 +17,12 @@ abstract contract AccessControlDelayed is AccessControl {
 
     constructor(uint256 _delay) {
         delay = _delay;
+    }
+
+    function grantRoles(bytes32[] calldata roles, address[] calldata accounts) external virtual {
+        for (uint256 i = 0; i < roles.length; i++) {
+            grantRole(roles[i], accounts[i]);
+        }
     }
 
     function grantRole(bytes32 role, address account) public virtual override(AccessControl) {
@@ -34,7 +40,17 @@ abstract contract AccessControlDelayed is AccessControl {
         super.grantRole(role, account);
     }
 
-    function proposeRole(bytes32 role, address account) public virtual {
+    function proposeRoles(bytes32[] calldata roles, address[] calldata accounts) external virtual {
+        for (uint256 i = 0; i < roles.length; i++) {
+            _proposeRole(roles[i], accounts[i]);
+        }
+    }
+
+    function proposeRole(bytes32 role, address account) external virtual {
+        _proposeRole(role, account);
+    }
+
+    function _proposeRole(bytes32 role, address account) internal virtual {
         // Check if role was already proposed
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         if (proposedRoles[proposalId] > 0) {
@@ -50,11 +66,13 @@ abstract contract AccessControlDelayed is AccessControl {
         proposedRoles[proposalId] = block.timestamp + delay + additionalDelay;
     }
 
+    // A helper to find the time when a role proposal will be available to grant
     function getProposalTime(bytes32 role, address account) public view returns (uint256) {
         return proposedRoles[keccak256(abi.encodePacked(role, account))];
     }
 
     function changeDelay(uint256 newDelay) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        // delay must be different and not more than 5 days (to avoid costly mistakes)
         if (newDelay == delay || newDelay > 5 days) {
             revert InvalidDelay();
         }

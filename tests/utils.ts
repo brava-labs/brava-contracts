@@ -322,6 +322,8 @@ export async function executeAction(args: ActionArgs) {
           return ethers.keccak256(vaultAddress).slice(0, 10);
         case 'feeBasis':
           return feePercentage;
+        case 'withdrawRequest':
+          return amount;
         default:
           throw new Error(`Unknown encoding variable: ${variable}`);
       }

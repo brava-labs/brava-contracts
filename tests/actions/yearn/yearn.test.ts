@@ -53,18 +53,23 @@ describe('Yearn tests', () => {
       'YearnSupply',
       signer,
       await adminVault.getAddress(),
-      await baseSetup.contractRegistry.getAddress(),
       loggerAddress
     );
     yearnWithdrawContract = await deploy(
       'YearnWithdraw',
       signer,
       await adminVault.getAddress(),
-      await baseSetup.contractRegistry.getAddress(),
       loggerAddress
     );
     yUSDC = await ethers.getContractAt('IYearnVault', YEARN_USDC_ADDRESS);
-    await adminVault.grantRole(await adminVault.VAULT_ROLE(), YEARN_USDC_ADDRESS);
+
+    await adminVault.proposeRole(await adminVault.POOL_ROLE(), YEARN_USDC_ADDRESS);
+    await adminVault.grantRole(await adminVault.POOL_ROLE(), YEARN_USDC_ADDRESS);
+    await adminVault.addPool(
+      'Yearn',
+      ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10),
+      YEARN_USDC_ADDRESS
+    );
   });
 
   beforeEach(async () => {

@@ -15,9 +15,9 @@ contract FluidWithdraw is ActionBase {
     /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param maxSharesBurned - maximum amount of fTokens to burn
     struct Params {
-        address fToken;
+        bytes4 poolId;
+        uint16 feeBasis;
         uint256 withdrawRequest;
-        uint256 feeBasis;
         uint256 maxSharesBurned;
     }
 
@@ -30,21 +30,15 @@ contract FluidWithdraw is ActionBase {
 
         // verify input data
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-        // TODO: Verify the fToken is a whitelisted contract
+        address fToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
         // execute logic
-        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidWithdraw(inputData);
+        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidWithdraw(inputData, fToken);
 
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
-            _encodeBalanceUpdate(
-                _strategyId,
-                _poolIdFromAddress(inputData.fToken),
-                fBalanceBefore,
-                fBalanceAfter,
-                feeInTokens
-            )
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
         );
     }
 
@@ -63,9 +57,10 @@ contract FluidWithdraw is ActionBase {
 
     /// Calcualte and take fees, then withdraw the underlying token
     function _fluidWithdraw(
-        Params memory _inputData
+        Params memory _inputData,
+        address _fToken
     ) private returns (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) {
-        IFluidLending fToken = IFluidLending(_inputData.fToken);
+        IFluidLending fToken = IFluidLending(_fToken);
 
         fBalanceBefore = fToken.balanceOf(address(this));
 
@@ -94,6 +89,6 @@ contract FluidWithdraw is ActionBase {
     }
 
     function protocolName() internal pure override returns (string memory) {
-        return "fluid";
+        return "Fluid";
     }
 }

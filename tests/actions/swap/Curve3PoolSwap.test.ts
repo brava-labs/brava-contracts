@@ -112,7 +112,6 @@ describe('Curve3PoolSwap tests', () => {
       'Curve3PoolSwap',
       signer,
       await adminVault.getAddress(),
-      baseSetup.contractRegistry.getAddress(),
       baseSetup.logger.getAddress(),
       CURVE_3POOL_ADDRESS
     );

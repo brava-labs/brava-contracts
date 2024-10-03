@@ -15,9 +15,9 @@ contract YearnWithdraw is ActionBase {
     /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param maxSharesBurned - maximum amount of yTokens to burn
     struct Params {
-        address yToken;
+        bytes4 poolId;
+        uint16 feeBasis;
         uint256 withdrawRequest;
-        uint256 feeBasis;
         uint256 maxSharesBurned;
     }
 
@@ -30,21 +30,15 @@ contract YearnWithdraw is ActionBase {
 
         // verify input data
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-        // TODO: Verify the yToken is a whitelisted contract
+        address yToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
         // execute logic
-        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnWithdraw(inputData);
+        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnWithdraw(inputData, yToken);
 
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
-            _encodeBalanceUpdate(
-                _strategyId,
-                _poolIdFromAddress(inputData.yToken),
-                yBalanceBefore,
-                yBalanceAfter,
-                feeInTokens
-            )
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, yBalanceBefore, yBalanceAfter, feeInTokens)
         );
     }
 
@@ -62,9 +56,10 @@ contract YearnWithdraw is ActionBase {
 
     /// Calculate and take fees, then withdraw the underlying token
     function _yearnWithdraw(
-        Params memory _inputData
+        Params memory _inputData,
+        address _yToken
     ) private returns (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) {
-        IYearnVault yToken = IYearnVault(_inputData.yToken);
+        IYearnVault yToken = IYearnVault(_yToken);
 
         // Take any fees before doing any further actions
         feeInTokens = _takeFee(address(yToken), _inputData.feeBasis);
