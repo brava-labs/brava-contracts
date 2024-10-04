@@ -22,7 +22,9 @@ contract AdminVault is AccessControlDelayed {
     error ActionNotFound();
     error PoolNotProposed();
     error ActionNotProposed();
-
+    error FeeRecipientNotProposed();
+    error InvalidFeeRange();
+    error InvalidInput();
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
@@ -39,6 +41,7 @@ contract AdminVault is AccessControlDelayed {
     // mapping of proposalId to the timestamp when it was proposed
     mapping(bytes32 => uint256) public poolProposals;
     mapping(bytes32 => uint256) public actionProposals;
+    mapping(address => uint256) public feeRecipientProposal;
 
     // mapping of actionId to action address
     mapping(bytes4 => address) public actionAddresses;
@@ -55,6 +58,7 @@ contract AdminVault is AccessControlDelayed {
         maxFeeBasis = 10000; // 100%
         feeRecipient = _initialOwner;
 
+        _grantRole(DEFAULT_ADMIN_ROLE, _initialOwner);
         _grantRole(OWNER_ROLE, _initialOwner);
         _grantRole(ADMIN_ROLE, _initialOwner);
 
@@ -64,14 +68,35 @@ contract AdminVault is AccessControlDelayed {
     }
 
     function setFeeRange(uint256 _min, uint256 _max) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_min >= _max) {
+            revert InvalidFeeRange();
+        }
         minFeeBasis = _min;
         maxFeeBasis = _max;
+    }
+
+    function proposeFeeRecipient(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_recipient == address(0)) {
+            revert InvalidRecipient();
+        }
+        feeRecipientProposal[_recipient] = block.timestamp + delay;
+    }
+
+    function cancelFeeRecipientProposal(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        feeRecipientProposal[_recipient] = 0;
     }
 
     function setFeeRecipient(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_recipient == address(0)) {
             revert InvalidRecipient();
         }
+        if (feeRecipientProposal[_recipient] == 0) {
+            revert FeeRecipientNotProposed();
+        }
+        if (block.timestamp < feeRecipientProposal[_recipient]) {
+            revert DelayNotPassed();
+        }
+        feeRecipientProposal[_recipient] = 0;
         feeRecipient = _recipient;
     }
 
@@ -100,6 +125,15 @@ contract AdminVault is AccessControlDelayed {
         poolProposals[proposalId] = block.timestamp + delay;
     }
 
+    function cancelPoolProposal(
+        string calldata _protocolName,
+        bytes4 _poolId,
+        address _poolAddress
+    ) external onlyRole(OWNER_ROLE) {
+        bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, _poolId, _poolAddress));
+        poolProposals[proposalId] = 0;
+    }
+
     function addPool(
         string calldata _protocolName,
         bytes4 _poolId,
@@ -107,6 +141,9 @@ contract AdminVault is AccessControlDelayed {
     ) external onlyRole(ADMIN_ROLE) {
         if (protocolPools[_protocolName][_poolId] != address(0)) {
             revert PoolAlreadyAdded();
+        }
+        if (bytes(_protocolName).length == 0 || _poolId == bytes4(0) || _poolAddress == address(0)) {
+            revert InvalidInput();
         }
         // check if the proposal is in the waiting list
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, _poolId, _poolAddress));
@@ -124,8 +161,16 @@ contract AdminVault is AccessControlDelayed {
         if (actionAddresses[_actionId] != address(0)) {
             revert ActionAlreadyAdded();
         }
+        if (_actionAddress == address(0) || _actionId == bytes4(0)) {
+            revert InvalidInput();
+        }
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         actionProposals[proposalId] = block.timestamp + delay;
+    }
+
+    function cancelActionProposal(bytes4 _actionId, address _actionAddress) external onlyRole(OWNER_ROLE) {
+        bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
+        actionProposals[proposalId] = 0;
     }
 
     function addAction(bytes4 _actionId, address _actionAddress) external onlyRole(ADMIN_ROLE) {
@@ -153,7 +198,11 @@ contract AdminVault is AccessControlDelayed {
     }
 
     function getActionAddress(bytes4 _actionId) external view returns (address) {
-        return actionAddresses[_actionId];
+        address actionAddress = actionAddresses[_actionId];
+        if (actionAddress == address(0)) {
+            revert ActionNotFound();
+        }
+        return actionAddress;
     }
 
     // View functions
@@ -166,5 +215,19 @@ contract AdminVault is AccessControlDelayed {
         if (_feeBasis < minFeeBasis || _feeBasis > maxFeeBasis) {
             revert FeePercentageOutOfRange();
         }
+    }
+
+    function getPoolProposalTime(
+        string calldata _protocolName,
+        bytes4 _poolId,
+        address _poolAddress
+    ) external view returns (uint256) {
+        bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, _poolId, _poolAddress));
+        return poolProposals[proposalId];
+    }
+
+    function getActionProposalTime(bytes4 _actionId, address _actionAddress) external view returns (uint256) {
+        bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
+        return actionProposals[proposalId];
     }
 }

@@ -7,12 +7,11 @@ import {
   TransactionReceipt,
   BytesLike,
 } from 'ethers';
-import * as constants from './constants';
-import { tokenConfig } from './constants';
+import { tokenConfig, ROLES } from './constants';
 import { actionDefaults, ActionArgs } from './actions';
 import { deploySafe, executeSafeTransaction } from 'athena-sdk';
 import * as athenaSDK from 'athena-sdk';
-import { Logger, AdminVault, ContractRegistry, ISafe } from '../typechain-types';
+import { Logger, AdminVault, ISafe } from '../typechain-types';
 import { BalanceUpdateLog, BuyCoverLog } from './logs';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
@@ -243,6 +242,7 @@ export async function executeAction(args: ActionArgs) {
     useSDK = defaults.useSDK,
     minSharesReceived = defaults.minSharesReceived,
     maxSharesBurned = defaults.maxSharesBurned,
+    poolAddress = defaults.poolAddress,
   } = args;
 
   // Check for required parameters
@@ -257,17 +257,20 @@ export async function executeAction(args: ActionArgs) {
     throw new Error(`Contract ${args.type} not deployed`);
   }
 
-  if (!token) {
-    throw new Error('Missing token in executeAction');
-  }
-  // check we have a valid token and return the corresponding vault address
-  let vaultAddress: string | undefined;
-  const tokenData = tokenConfig[token];
-  if ('vaults' in tokenData) {
-    vaultAddress = tokenData.vaults[protocol as keyof typeof tokenData.vaults];
-  }
-  if (!vaultAddress) {
-    throw new Error(`Invalid token or missing vaults for ${token}`);
+  let poolAddr: string;
+  if (poolAddress) {
+    poolAddr = poolAddress;
+  } else if (token) {
+    // check we have a valid token and return the corresponding vault address
+    let vaultAddress: string | undefined;
+    const tokenData = tokenConfig[token];
+    if ('pools' in tokenData) {
+      poolAddr = tokenData.pools[protocol as keyof typeof tokenData.pools];
+    } else {
+      throw new Error('Missing pool address in token config');
+    }
+  } else {
+    throw new Error('Missing token or pool address in executeAction');
   }
 
   // check if all encoding parameters are set
@@ -294,7 +297,7 @@ export async function executeAction(args: ActionArgs) {
         amount: string
       ) => any;
 
-      const action = new ActionConstructor(vaultAddress, amount.toString());
+      const action = new ActionConstructor(poolAddr, amount.toString());
       payload = action.encodeArgsForExecuteActionCall(0);
     } else {
       throw new Error(`Action ${ActionClass} is not a constructor in Athena SDK`);
@@ -308,8 +311,6 @@ export async function executeAction(args: ActionArgs) {
 
     const encodingValues = encodingConfig.encodingVariables.map((variable) => {
       switch (variable) {
-        case 'vaultAddress':
-          return vaultAddress;
         case 'amount':
           return amount;
         case 'feePercentage':
@@ -319,7 +320,7 @@ export async function executeAction(args: ActionArgs) {
         case 'maxSharesBurned':
           return maxSharesBurned;
         case 'poolId':
-          return ethers.keccak256(vaultAddress).slice(0, 10);
+          return ethers.keccak256(poolAddr).slice(0, 10);
         case 'feeBasis':
           return feePercentage;
         case 'withdrawRequest':
@@ -347,4 +348,26 @@ export async function executeAction(args: ActionArgs) {
     safeOperation,
     signer
   );
+}
+
+type RoleName = keyof typeof ROLES;
+
+const roleBytes: { [key in RoleName]: string } = Object.fromEntries(
+  Object.entries(ROLES).map(([key, value]) => [key, ethers.keccak256(ethers.toUtf8Bytes(value))])
+) as { [key in RoleName]: string };
+
+const roleLookup: { [key: string]: RoleName } = Object.fromEntries(
+  Object.entries(roleBytes).map(([key, value]) => [value, key as RoleName])
+);
+
+export function getRoleBytes(roleName: RoleName): string {
+  return roleBytes[roleName];
+}
+
+export function getRoleName(roleBytes: string): RoleName | undefined {
+  return roleLookup[roleBytes];
+}
+
+export function getBytes4(address: string): string {
+  return ethers.keccak256(address).slice(0, 10);
 }

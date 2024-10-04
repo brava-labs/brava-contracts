@@ -100,4 +100,5 @@ export interface ActionArgs {
   inputParams?: string[];
   minSharesReceived?: string;
   maxSharesBurned?: string;
+  poolAddress?: string;
 }

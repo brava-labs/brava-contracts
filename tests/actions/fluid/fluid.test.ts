@@ -387,10 +387,15 @@ describe('Fluid tests', () => {
       const actionType = await fluidWithdrawContract.actionType();
       expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
     });
-    it.skip('Should reject invalid token', async () => {
-      // Currently there is no guard against supplying a non-fToken that implements IFluidLending
-      // So this test could pass even if the token is not a valid fToken
-      // This test should be updated when we have a guard against supplying a non-fToken
+    it('Should reject invalid token', async () => {
+      const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
+      await expect(
+        executeAction({
+          type: 'FluidSupply',
+          poolAddress: '0x0000000000000000000000000000000000000000',
+        })
+      ).to.be.revertedWith('GS013');
     });
   });
 });
