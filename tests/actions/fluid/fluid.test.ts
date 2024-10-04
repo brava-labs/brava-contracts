@@ -212,6 +212,9 @@ describe('Fluid tests', () => {
 
       //get the block timestamp of the tx
       const txReceipt = await tx.wait();
+      if (!txReceipt) {
+        throw new Error('Transaction receipt not found');
+      }
       const block = await ethers.provider.getBlock(txReceipt.blockNumber);
       if (!block) {
         throw new Error('Block not found');
@@ -371,8 +374,8 @@ describe('Fluid tests', () => {
       });
 
       const expectedFee = await calculateExpectedFee(
-        supplyTx,
-        withdrawTx,
+        (await supplyTx.wait()) ?? throwError('Supply transaction failed'),
+        (await withdrawTx.wait()) ?? throwError('Withdraw transaction failed'),
         10,
         fUSDCBalanceAfterSupply
       );

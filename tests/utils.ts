@@ -11,7 +11,7 @@ import { tokenConfig, ROLES } from './constants';
 import { actionDefaults, ActionArgs } from './actions';
 import { deploySafe, executeSafeTransaction } from 'athena-sdk';
 import * as athenaSDK from 'athena-sdk';
-import { Logger, AdminVault, ISafe } from '../typechain-types';
+import { Logger, AdminVault, ISafe, SequenceExecutor } from '../typechain-types';
 import { BalanceUpdateLog, BuyCoverLog } from './logs';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
@@ -128,11 +128,6 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
     await deploySigner.getAddress(),
     0
   );
-  // const contractRegistry = await deploy<ContractRegistry>(
-  //   'ContractRegistry',
-  //   deploySigner,
-  //   await adminVault.getAddress()
-  // );
   const safeAddress = await deploySafe(deploySigner);
   const safe = await ethers.getContractAt('ISafe', safeAddress);
   log('Safe deployed at:', safeAddress);
@@ -220,12 +215,12 @@ export function getDeployedContract(name: string): DeployedContract | undefined 
   return deployedContracts[name];
 }
 
-// Helper function to execute an action
+// Helper function to encode an action
 // This function will use default values for any parameters not specified
 // It will also use the global setup to get the safe address and signer
 // It will also get the deployed contract for the action type
 // It is also possible to specify using the SDK or manual encoding
-export async function executeAction(args: ActionArgs) {
+export async function encodeAction(args: ActionArgs): Promise<string | BytesLike> {
   // Load defaults for the action type
   const defaults = actionDefaults[args.type] || {};
   // overwrite defaults with any given args
@@ -339,6 +334,26 @@ export async function executeAction(args: ActionArgs) {
     payload = actionContract.contract.interface.encodeFunctionData('executeAction', [encoded, 42]);
   }
 
+  // Instead of executing, return the payload
+  return payload;
+}
+
+// New executeAction function that uses encodeAction
+export async function executeAction(args: ActionArgs): Promise<TransactionResponse> {
+  const {
+    safeAddress = (await getGlobalSetup()).safe.getAddress(),
+    value = actionDefaults[args.type]?.value ?? 0,
+    safeOperation = actionDefaults[args.type]?.safeOperation ?? 0,
+    signer = (await getGlobalSetup()).signer,
+  } = args;
+
+  const actionContract = getDeployedContract(args.type);
+  if (!actionContract) {
+    throw new Error(`Contract ${args.type} not deployed`);
+  }
+
+  const payload = await encodeAction(args);
+
   // execute the action
   return executeSafeTransaction(
     await Promise.resolve(safeAddress),
@@ -348,6 +363,32 @@ export async function executeAction(args: ActionArgs) {
     safeOperation,
     signer
   );
+}
+
+export async function executeSequence(
+  safeAddr: string,
+  sequence: SequenceExecutor.SequenceStruct
+): Promise<TransactionResponse> {
+  // lets start with a dumb function, just read in an run it
+  // get the sequence executor address
+  const sequenceExecutorAddress = getDeployedContract('SequenceExecutor')?.address;
+  if (!sequenceExecutorAddress) {
+    throw new Error('SequenceExecutor not deployed');
+  }
+
+  const signer = (await getGlobalSetup()).signer;
+
+  const sequenceExecutor = await ethers.getContractAt('SequenceExecutor', sequenceExecutorAddress);
+  if (!sequenceExecutor) {
+    throw new Error('SequenceExecutor not deployed');
+  }
+  const payload = sequenceExecutor.interface.encodeFunctionData('executeSequence', [sequence]);
+
+  // execute the sequence
+  log('Executing sequence');
+  log('Sequence executor address:', sequenceExecutorAddress);
+  log('Safe address:', safeAddr);
+  return executeSafeTransaction(safeAddr, sequenceExecutorAddress, 0, payload, 1, signer);
 }
 
 type RoleName = keyof typeof ROLES;

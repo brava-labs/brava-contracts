@@ -26,7 +26,7 @@ import {IAdminVault} from "./interfaces/IAdminVault.sol";
  *
  *
  */
-contract RecipeExecutor {
+contract SequenceExecutor {
     /// @dev List of actions grouped as a sequence
     /// @param name Name of the sequence useful for logging what sequence is executing
     /// @param callData Array of calldata inputs to each action
@@ -42,9 +42,9 @@ contract RecipeExecutor {
     error NoActionAddressGiven();
 
     /// @dev Function sig of ActionBase.executeAction()
-    bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint8[],bytes32[])"));
+    bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint16)"));
 
-    constructor(address _adminVault, address _contractRegistry) {
+    constructor(address _adminVault) {
         ADMIN_VAULT = IAdminVault(_adminVault);
     }
 
@@ -69,7 +69,7 @@ contract RecipeExecutor {
     /// @param _index Index of the action in the sequence array
     function _executeAction(Sequence memory _currSequence, uint256 _index) internal {
         address actionAddr = ADMIN_VAULT.getActionAddress(_currSequence.actionIds[_index]);
-        delegateCall(actionAddr, abi.encodeWithSelector(EXECUTE_ACTION_SELECTOR, _currSequence.callData[_index]));
+        delegateCall(actionAddr, _currSequence.callData[_index]);
     }
 
     function delegateCall(address _target, bytes memory _data) internal {
