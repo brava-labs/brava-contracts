@@ -3,7 +3,7 @@ import { BigNumberish } from 'ethers';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../constants';
-import { Curve3PoolSwap, IERC20 } from '../../../typechain-types';
+import { Curve3PoolSwap, IERC20Metadata } from '../../../typechain-types';
 import { Curve3PoolSwapParams } from '../../params';
 import { deploy, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken, getStables } from '../../utils-stable';
@@ -20,7 +20,7 @@ describe('Curve3PoolSwap tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let curve3PoolSwap: Curve3PoolSwap;
-  let USDC: IERC20, USDT: IERC20, DAI: IERC20;
+  let USDC: IERC20Metadata, USDT: IERC20Metadata, DAI: IERC20Metadata;
   let snapshotId: string;
 
   function prepareSwapParameters(
@@ -106,12 +106,12 @@ describe('Curve3PoolSwap tests', () => {
       throw new Error('Base setup not deployed');
     }
     safeAddr = await baseSetup.safe.getAddress();
-
+    const adminVault = await baseSetup.adminVault;
     // Deploy contracts specific to these tests
     curve3PoolSwap = await deploy(
       'Curve3PoolSwap',
       signer,
-      baseSetup.contractRegistry.getAddress(),
+      await adminVault.getAddress(),
       baseSetup.logger.getAddress(),
       CURVE_3POOL_ADDRESS
     );

@@ -2,8 +2,7 @@
 
 pragma solidity =0.8.24;
 
-import {AdminAuth} from "./auth/AdminAuth.sol";
-import {IContractRegistry} from "./interfaces/IContractRegistry.sol";
+import {IAdminVault} from "./interfaces/IAdminVault.sol";
 
 /**
  * @title Entry point into executing recipes/checking triggers directly and as part of a strategy
@@ -27,28 +26,26 @@ import {IContractRegistry} from "./interfaces/IContractRegistry.sol";
  *
  *
  */
-contract RecipeExecutor is AdminAuth {
+contract RecipeExecutor {
     /// @dev List of actions grouped as a sequence
     /// @param name Name of the sequence useful for logging what sequence is executing
     /// @param callData Array of calldata inputs to each action
     /// @param actionIds Array of identifiers for actions - bytes4(keccak256(ActionName))
-    /// @param paramMapping Describes how inputs to functions are piped from return/subbed values
     struct Sequence {
         string name;
         bytes[] callData;
         bytes4[] actionIds;
-        uint8[][] paramMapping;
     }
 
-    IContractRegistry public immutable CONTRACT_REGISTRY;
+    IAdminVault public immutable ADMIN_VAULT;
 
     error NoActionAddressGiven();
 
     /// @dev Function sig of ActionBase.executeAction()
     bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint8[],bytes32[])"));
 
-    constructor(address _adminVault, address _contractRegistry) AdminAuth(_adminVault) {
-        CONTRACT_REGISTRY = IContractRegistry(_contractRegistry);
+    constructor(address _adminVault, address _contractRegistry) {
+        ADMIN_VAULT = IAdminVault(_adminVault);
     }
 
     /// @notice Called directly through user wallet to execute a sequence
@@ -61,10 +58,8 @@ contract RecipeExecutor is AdminAuth {
     /// @notice Runs all actions from the sequence
     /// @param _currSequence Sequence to be executed
     function _executeActions(Sequence memory _currSequence) internal {
-        bytes32[] memory returnValues = new bytes32[](_currSequence.actionIds.length);
-
         for (uint256 i = 0; i < _currSequence.actionIds.length; ++i) {
-            returnValues[i] = _executeAction(_currSequence, i, returnValues);
+            _executeAction(_currSequence, i);
         }
     }
 
@@ -72,36 +67,19 @@ contract RecipeExecutor is AdminAuth {
     /// @dev We delegate context of user's wallet to action contract
     /// @param _currSequence Sequence to be executed
     /// @param _index Index of the action in the sequence array
-    /// @param _returnValues Return values from previous actions
-    function _executeAction(
-        Sequence memory _currSequence,
-        uint256 _index,
-        bytes32[] memory _returnValues
-    ) internal returns (bytes32 response) {
-        address actionAddr = CONTRACT_REGISTRY.getAddr(_currSequence.actionIds[_index]);
-
-        response = delegateCallAndReturnBytes32(
-            actionAddr,
-            abi.encodeWithSelector(
-                EXECUTE_ACTION_SELECTOR,
-                _currSequence.callData[_index],
-                _currSequence.paramMapping[_index],
-                _returnValues
-            )
-        );
+    function _executeAction(Sequence memory _currSequence, uint256 _index) internal {
+        address actionAddr = ADMIN_VAULT.getActionAddress(_currSequence.actionIds[_index]);
+        delegateCall(actionAddr, abi.encodeWithSelector(EXECUTE_ACTION_SELECTOR, _currSequence.callData[_index]));
     }
 
-    function delegateCallAndReturnBytes32(address _target, bytes memory _data) internal returns (bytes32 response) {
+    function delegateCall(address _target, bytes memory _data) internal {
         if (_target == address(0)) {
             revert NoActionAddressGiven();
         }
         // call contract in current context
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            let succeeded := delegatecall(sub(gas(), 5000), _target, add(_data, 0x20), mload(_data), 0, 32)
-
-            // load delegatecall output
-            response := mload(0)
+            let succeeded := delegatecall(sub(gas(), 5000), _target, add(_data, 0x20), mload(_data), 0, 0)
 
             // throw if delegatecall failed
             if eq(succeeded, 0) {

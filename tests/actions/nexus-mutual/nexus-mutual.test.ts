@@ -109,7 +109,7 @@ describe('BuyCover tests', () => {
     buyCover = await deploy(
       'BuyCover',
       signer,
-      await baseSetup.contractRegistry.getAddress(),
+      await baseSetup.adminVault.getAddress(),
       await baseSetup.logger.getAddress()
     );
   });
@@ -212,7 +212,7 @@ describe('BuyCover tests', () => {
     const fundAmount = 1000; // 1000 DAI
     await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
 
-    const nft = await ethers.getContractAt('IERC721', NEXUS_MUTUAL_NFT_ADDRESS);
+    const nft = await ethers.getContractAt('IERC721Metadata', NEXUS_MUTUAL_NFT_ADDRESS);
     expect(await nft.balanceOf(safeAddr)).to.equal(0);
 
     const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({

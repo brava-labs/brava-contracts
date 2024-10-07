@@ -2,16 +2,11 @@
 pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
-import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
-import {ActionUtils} from "../../libraries/ActionUtils.sol";
-import {AdminAuth} from "../../auth/AdminAuth.sol";
 
 /// @title Burns yTokens and receive underlying tokens in return
 /// @dev yTokens need to be approved for user's wallet to pull them (yToken address)
-contract YearnWithdraw is ActionBase, AdminAuth {
-    using TokenUtils for address;
-
+contract YearnWithdraw is ActionBase {
     // TODO: Implement unified error reporting for all actions.
     error YearnWithdraw__MaxSharesBurnedExceeded();
 
@@ -20,17 +15,13 @@ contract YearnWithdraw is ActionBase, AdminAuth {
     /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param maxSharesBurned - maximum amount of yTokens to burn
     struct Params {
-        address yToken;
+        bytes4 poolId;
+        uint16 feeBasis;
         uint256 withdrawRequest;
-        uint256 feeBasis;
         uint256 maxSharesBurned;
     }
 
-    constructor(
-        address _registry,
-        address _logger,
-        address _adminVault
-    ) ActionBase(_registry, _logger) AdminAuth(_adminVault) {}
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
@@ -39,21 +30,15 @@ contract YearnWithdraw is ActionBase, AdminAuth {
 
         // verify input data
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-        // TODO: Verify the yToken is a whitelisted contract
+        address yToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
         // execute logic
-        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnWithdraw(inputData);
+        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnWithdraw(inputData, yToken);
 
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
-                _strategyId,
-                ActionUtils._poolIdFromAddress(inputData.yToken),
-                yBalanceBefore,
-                yBalanceAfter,
-                feeInTokens
-            )
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, yBalanceBefore, yBalanceAfter, feeInTokens)
         );
     }
 
@@ -71,9 +56,10 @@ contract YearnWithdraw is ActionBase, AdminAuth {
 
     /// Calculate and take fees, then withdraw the underlying token
     function _yearnWithdraw(
-        Params memory _inputData
+        Params memory _inputData,
+        address _yToken
     ) private returns (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) {
-        IYearnVault yToken = IYearnVault(_inputData.yToken);
+        IYearnVault yToken = IYearnVault(_yToken);
 
         // Take any fees before doing any further actions
         feeInTokens = _takeFee(address(yToken), _inputData.feeBasis);
@@ -100,5 +86,9 @@ contract YearnWithdraw is ActionBase, AdminAuth {
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
+    }
+
+    function protocolName() internal pure override returns (string memory) {
+        return "Yearn";
     }
 }

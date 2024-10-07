@@ -3,11 +3,11 @@ pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
 import {ICurve3Pool} from "../../interfaces/curve/ICurve3Pool.sol";
-import {IERC20} from "../../interfaces/IERC20.sol";
-import {TokenUtils} from "../../libraries/TokenUtils.sol";
+import {IERC20Metadata as IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Curve3PoolSwap is ActionBase {
-    using TokenUtils for address;
+    using SafeERC20 for IERC20;
 
     ICurve3Pool public immutable POOL;
 
@@ -28,7 +28,11 @@ contract Curve3PoolSwap is ActionBase {
         uint256 minAmountOut;
     }
 
-    constructor(address _registry, address _logger, address _poolAddress) ActionBase(_registry, _logger) {
+    constructor(
+        address _adminVault,
+        address _logger,
+        address _poolAddress
+    ) ActionBase(_adminVault, _logger) {
         POOL = ICurve3Pool(_poolAddress);
     }
 
@@ -59,10 +63,10 @@ contract Curve3PoolSwap is ActionBase {
             revert MinimumAmountOutMustBeGreaterThanZero();
         }
 
-        address tokenIn = POOL.coins(uint256(uint128(_params.fromToken)));
-        address tokenOut = POOL.coins(uint256(uint128(_params.toToken)));
+        IERC20 tokenIn = IERC20(POOL.coins(uint256(uint128(_params.fromToken))));
+        IERC20 tokenOut = IERC20(POOL.coins(uint256(uint128(_params.toToken))));
 
-        tokenIn.approveToken(address(POOL), _params.amountIn);
+        tokenIn.safeIncreaseAllowance(address(POOL), _params.amountIn);
 
         uint256 balanceBefore = IERC20(tokenOut).balanceOf(address(this));
 
@@ -76,5 +80,9 @@ contract Curve3PoolSwap is ActionBase {
 
     function _parseInputs(bytes memory _callData) internal pure returns (Params memory params) {
         params = abi.decode(_callData, (Params));
+    }
+
+    function protocolName() internal pure override returns (string memory) {
+        return "Curve";
     }
 }

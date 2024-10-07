@@ -2,40 +2,26 @@
 pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
-import {TokenUtils} from "../../libraries/TokenUtils.sol";
 import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
-import {ActionUtils} from "../../libraries/ActionUtils.sol";
-import {AdminAuth} from "../../auth/AdminAuth.sol";
 
 /// @title Burns fTokens and receive underlying tokens in return
 /// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
-contract FluidWithdraw is ActionBase, AdminAuth {
-    using TokenUtils for address;
-
+contract FluidWithdraw is ActionBase {
     // TODO: Implement unified error reporting for all actions.
     error FluidWithdraw__ZeroAmount();
-    error FluidWithdraw__InvalidAddress();
 
     /// @param fToken - address of fToken vault contract
     /// @param amount - amount of underlying token to withdraw
     /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param maxSharesBurned - maximum amount of fTokens to burn
     struct Params {
-        address fToken;
+        bytes4 poolId;
+        uint16 feeBasis;
         uint256 withdrawRequest;
-        uint256 feeBasis;
         uint256 maxSharesBurned;
     }
 
-    constructor(
-        address _registry,
-        address _logger,
-        address _adminVault
-    ) ActionBase(_registry, _logger) AdminAuth(_adminVault) {
-        if (_registry == address(0) || _logger == address(0) || _adminVault == address(0)) {
-            revert FluidWithdraw__InvalidAddress();
-        }
-    }
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
@@ -44,21 +30,15 @@ contract FluidWithdraw is ActionBase, AdminAuth {
 
         // verify input data
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-        // TODO: Verify the fToken is a whitelisted contract
+        address fToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
         // execute logic
-        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidWithdraw(inputData);
+        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidWithdraw(inputData, fToken);
 
         // log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
-                _strategyId,
-                ActionUtils._poolIdFromAddress(inputData.fToken),
-                fBalanceBefore,
-                fBalanceAfter,
-                feeInTokens
-            )
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
         );
     }
 
@@ -77,9 +57,10 @@ contract FluidWithdraw is ActionBase, AdminAuth {
 
     /// Calcualte and take fees, then withdraw the underlying token
     function _fluidWithdraw(
-        Params memory _inputData
+        Params memory _inputData,
+        address _fToken
     ) private returns (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) {
-        IFluidLending fToken = IFluidLending(_inputData.fToken);
+        IFluidLending fToken = IFluidLending(_fToken);
 
         fBalanceBefore = fToken.balanceOf(address(this));
 
@@ -105,5 +86,9 @@ contract FluidWithdraw is ActionBase, AdminAuth {
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
+    }
+
+    function protocolName() internal pure override returns (string memory) {
+        return "Fluid";
     }
 }

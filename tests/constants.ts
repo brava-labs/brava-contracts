@@ -17,6 +17,13 @@ export const CURVE_3POOL_INDICES = {
   USDT: 2,
 };
 
+// Roles
+export const ROLES = {
+  OWNER_ROLE: 'OWNER_ROLE',
+  ADMIN_ROLE: 'ADMIN_ROLE',
+  // Add more roles as needed
+} as const;
+
 // Other Constants
 export const ETH_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
@@ -26,7 +33,7 @@ export const tokenConfig = {
     address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 6,
-    vaults: {
+    pools: {
       fluid: '0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33',
       yearn: '0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE',
     },
@@ -35,7 +42,7 @@ export const tokenConfig = {
     address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 6,
-    vaults: {
+    pools: {
       fluid: '0x5c20b550819128074fd538edf79791733ccedd18',
     },
   },

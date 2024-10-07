@@ -3,9 +3,9 @@
 pragma solidity =0.8.24;
 
 import {IWETH} from "../interfaces/IWETH.sol";
-import {IERC20} from "../interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "../interfaces/IERC20Permit.sol";
-import {SafeERC20} from "./SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 library TokenUtils {
     using SafeERC20 for IERC20;
@@ -19,7 +19,7 @@ library TokenUtils {
     function approveToken(address _tokenAddr, address _to, uint256 _amount) internal {
         if (_tokenAddr == ETH_ADDR) return;
         if (IERC20(_tokenAddr).allowance(address(this), _to) < _amount) {
-            IERC20(_tokenAddr).safeApprove(_to, _amount);
+            IERC20(_tokenAddr).approve(_to, _amount);
         }
     }
 
@@ -35,7 +35,7 @@ library TokenUtils {
         }
 
         if (_from != address(0) && _from != address(this) && _token != ETH_ADDR && _amount != 0) {
-            IERC20(_token).safeTransferFrom(_from, address(this), _amount);
+            IERC20(_token).transferFrom(_from, address(this), _amount);
         }
 
         return _amount;
@@ -57,7 +57,7 @@ library TokenUtils {
 
         if (_from != address(0) && _from != address(this) && _token != ETH_ADDR && _amount != 0) {
             IERC20Permit(_token).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
-            IERC20(_token).safeTransferFrom(_from, address(this), _amount);
+            IERC20(_token).transferFrom(_from, address(this), _amount);
         }
 
         return _amount;
@@ -70,7 +70,7 @@ library TokenUtils {
 
         if (_to != address(0) && _to != address(this) && _amount != 0) {
             if (_token != ETH_ADDR) {
-                IERC20(_token).safeTransfer(_to, _amount);
+                IERC20(_token).transfer(_to, _amount);
             } else {
                 (bool success, ) = _to.call{value: _amount}("");
                 if (!success) {
@@ -98,9 +98,9 @@ library TokenUtils {
         }
     }
 
-    function getTokenDecimals(address _token) internal view returns (uint256) {
-        if (_token == ETH_ADDR) return 18;
+    // function getTokenDecimals(address _token) internal view returns (uint256) {
+    //     if (_token == ETH_ADDR) return 18;
 
-        return IERC20(_token).decimals();
-    }
+    //     return IERC20(_token).decimals();
+    // }
 }

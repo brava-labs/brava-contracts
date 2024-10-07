@@ -42,7 +42,7 @@ describe('Fluid tests', () => {
 
   before(async () => {
     [signer] = await ethers.getSigners();
-    const baseSetup = await getBaseSetup();
+    const baseSetup = await getBaseSetup(signer);
     if (!baseSetup) {
       throw new Error('Base setup not deployed');
     }
@@ -58,21 +58,41 @@ describe('Fluid tests', () => {
     fluidSupplyContract = await deploy(
       'FluidSupply',
       signer,
-      await baseSetup.contractRegistry.getAddress(),
-      loggerAddress,
-      await adminVault.getAddress()
+      await adminVault.getAddress(),
+      loggerAddress
     );
     fluidWithdrawContract = await deploy(
       'FluidWithdraw',
       signer,
-      await baseSetup.contractRegistry.getAddress(),
-      loggerAddress,
-      await adminVault.getAddress()
+      await adminVault.getAddress(),
+      loggerAddress
     );
     fluidSupplyAddress = await fluidSupplyContract.getAddress();
     fluidWithdrawAddress = await fluidWithdrawContract.getAddress();
     fUSDC = await ethers.getContractAt('IFluidLending', FLUID_USDC_ADDRESS);
     fUSDT = await ethers.getContractAt('IFluidLending', FLUID_USDT_ADDRESS);
+
+    // grant the fUSDC and fUSDT contracts the POOL_ROLE
+    await adminVault.proposePool(
+      'Fluid',
+      ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10),
+      FLUID_USDC_ADDRESS
+    );
+    await adminVault.proposePool(
+      'Fluid',
+      ethers.keccak256(FLUID_USDT_ADDRESS).slice(0, 10),
+      FLUID_USDT_ADDRESS
+    );
+    await adminVault.addPool(
+      'Fluid',
+      ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10),
+      FLUID_USDC_ADDRESS
+    );
+    await adminVault.addPool(
+      'Fluid',
+      ethers.keccak256(FLUID_USDT_ADDRESS).slice(0, 10),
+      FLUID_USDT_ADDRESS
+    );
   });
 
   beforeEach(async () => {
@@ -367,10 +387,15 @@ describe('Fluid tests', () => {
       const actionType = await fluidWithdrawContract.actionType();
       expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
     });
-    it.skip('Should reject invalid token', async () => {
-      // Currently there is no guard against supplying a non-fToken that implements IFluidLending
-      // So this test could pass even if the token is not a valid fToken
-      // This test should be updated when we have a guard against supplying a non-fToken
+    it('Should reject invalid token', async () => {
+      const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
+      await expect(
+        executeAction({
+          type: 'FluidSupply',
+          poolAddress: '0x0000000000000000000000000000000000000000',
+        })
+      ).to.be.revertedWith('GS013');
     });
   });
 });
