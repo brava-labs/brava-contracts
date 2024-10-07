@@ -63,16 +63,8 @@ describe('Yearn tests', () => {
     );
     yUSDC = await ethers.getContractAt('IYearnVault', YEARN_USDC_ADDRESS);
 
-    await adminVault.proposePool(
-      'Yearn',
-      ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10),
-      YEARN_USDC_ADDRESS
-    );
-    await adminVault.addPool(
-      'Yearn',
-      ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10),
-      YEARN_USDC_ADDRESS
-    );
+    await adminVault.proposePool('Yearn', YEARN_USDC_ADDRESS);
+    await adminVault.addPool('Yearn', YEARN_USDC_ADDRESS);
   });
 
   beforeEach(async () => {

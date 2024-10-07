@@ -75,16 +75,8 @@ describe('Sequence tests', () => {
     await adminVault.addAction(getBytes4(fluidWithdrawAddress), fluidWithdrawAddress);
     await adminVault.addAction(getBytes4(swapActionAddress), swapActionAddress);
     const FLUID_USDC_ADDRESS = tokenConfig.fUSDC.address;
-    await adminVault.proposePool(
-      'Fluid',
-      ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10),
-      FLUID_USDC_ADDRESS
-    );
-    await adminVault.addPool(
-      'Fluid',
-      ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10),
-      FLUID_USDC_ADDRESS
-    );
+    await adminVault.proposePool('Fluid', FLUID_USDC_ADDRESS);
+    await adminVault.addPool('Fluid', FLUID_USDC_ADDRESS);
   });
   beforeEach(async () => {
     // IMPORTANT: take a new snapshot, they can't be reused!
