@@ -10,19 +10,28 @@ import {
   log,
 } from './utils';
 import { fundAccountWithToken } from './utils-stable';
-import { tokenConfig } from './constants';
-import { AdminVault, FluidSupply, FluidWithdraw, SequenceExecutor } from '../typechain-types';
+import { tokenConfig, CURVE_3POOL_ADDRESS } from './constants';
+import {
+  AdminVault,
+  FluidSupply,
+  FluidWithdraw,
+  SequenceExecutor,
+  Curve3PoolSwap,
+} from '../typechain-types';
+import { Swap } from 'athena-sdk';
 
-describe.only('Sequence tests', () => {
+describe('Sequence tests', () => {
   let snapshotId: string;
   let signer: Signer;
   let safeAddr: string;
   let adminVault: AdminVault;
   let fluidSupplyAction: FluidSupply;
   let fluidWithdrawAction: FluidWithdraw;
+  let swapAction: Curve3PoolSwap;
   let loggerAddress: string;
   let fluidSupplyAddress: string;
   let fluidWithdrawAddress: string;
+  let swapActionAddress: string;
   let sequenceExecutor: SequenceExecutor;
   before(async () => {
     [signer] = await ethers.getSigners();
@@ -49,12 +58,22 @@ describe.only('Sequence tests', () => {
       await adminVault.getAddress(),
       loggerAddress
     );
+    swapAction = await deploy(
+      'Curve3PoolSwap',
+      signer,
+      await adminVault.getAddress(),
+      loggerAddress,
+      CURVE_3POOL_ADDRESS
+    );
     fluidSupplyAddress = await fluidSupplyAction.getAddress();
     fluidWithdrawAddress = await fluidWithdrawAction.getAddress();
+    swapActionAddress = await swapAction.getAddress();
     await adminVault.proposeAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
     await adminVault.proposeAction(getBytes4(fluidWithdrawAddress), fluidWithdrawAddress);
+    await adminVault.proposeAction(getBytes4(swapActionAddress), swapActionAddress);
     await adminVault.addAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
     await adminVault.addAction(getBytes4(fluidWithdrawAddress), fluidWithdrawAddress);
+    await adminVault.addAction(getBytes4(swapActionAddress), swapActionAddress);
     const FLUID_USDC_ADDRESS = tokenConfig.fUSDC.address;
     await adminVault.proposePool(
       'Fluid',
@@ -95,6 +114,60 @@ describe.only('Sequence tests', () => {
       name: 'FluidSupplySequence',
       callData: [payloadSupply, payloadWithdraw],
       actionIds: [getBytes4(fluidSupplyAddress), getBytes4(fluidWithdrawAddress)],
+    };
+    const tx = await executeSequence(safeAddr, sequence);
+    await tx.wait();
+  });
+  it('should be able to execute a complex sequence of actions', async () => {
+    // Lets deposit Dai, swap half to USDC and half to USDT, put the USDT into Fluid  and the USDC into Yearn. Also purchase insurance.
+
+    const amount = ethers.parseUnits('1000', tokenConfig.DAI.decimals);
+    await fundAccountWithToken(safeAddr, 'DAI', amount);
+
+    const usdcSwap = await encodeAction({
+      type: 'Curve3PoolSwap',
+      tokenIn: 'DAI',
+      tokenOut: 'USDC',
+      amount: BigInt(amount) / 2n,
+    });
+    const usdtSwap = await encodeAction({
+      type: 'Curve3PoolSwap',
+      tokenIn: 'DAI',
+      tokenOut: 'USDT',
+      amount: BigInt(amount) / 2n,
+    });
+    // TODO: We need some basic conversions before we can give input amounts for subsequent actions.
+    // const fluidSupply = await encodeAction({
+    //   type: 'FluidSupply',
+    //   amount: BigInt(amount) / 3n,
+    // });
+    // const yearnSupply = await encodeAction({
+    //   type: 'YearnSupply',
+    //   amount,
+    // });
+
+    // const insurancePurchase = await encodeAction({
+    //   type: 'NexusCover',
+    //   amount,
+    // });
+
+    // const tx = await executeAction({
+    //   type: 'Curve3PoolSwap',
+    //   tokenIn: 'DAI',
+    //   tokenOut: 'USDC',
+    //   amount: BigInt(amount),
+    // });
+
+    const sequence: SequenceExecutor.SequenceStruct = {
+      name: 'ComplexSequence',
+      callData: [usdcSwap, usdtSwap],
+      actionIds: [
+        getBytes4(swapActionAddress),
+        getBytes4(swapActionAddress),
+        // getBytes4(fluidSupplyAddress),
+        // getBytes4(yearnSupplyAddress),
+        // getBytes4(nexusCoverAddress),
+      ],
     };
     const tx = await executeSequence(safeAddr, sequence);
     await tx.wait();

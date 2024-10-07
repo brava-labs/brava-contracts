@@ -135,7 +135,7 @@ describe('Fluid tests', () => {
 
       await executeAction({
         type: 'FluidSupply',
-        token,
+        poolAddress: tokenConfig[token].pools.fluid,
         amount,
       });
 
@@ -154,7 +154,7 @@ describe('Fluid tests', () => {
 
       await executeAction({
         type: 'FluidSupply',
-        token,
+        poolAddress: tokenConfig[token].pools.fluid,
         amount: ethers.MaxUint256,
       });
 
@@ -222,10 +222,13 @@ describe('Fluid tests', () => {
       const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, FLUID_USDC_ADDRESS);
       expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
     });
-    it.skip('Should reject invalid token', async () => {
-      // Currently there is no guard against supplying a non-fToken that implements IFluidLending
-      // So this test could pass even if the token is not a valid fToken
-      // This test should be updated when we have a guard against supplying a non-fToken
+    it('Should reject invalid token', async () => {
+      await expect(
+        executeAction({
+          type: 'FluidSupply',
+          poolAddress: '0x0000000000000000000000000000000000000000',
+        })
+      ).to.be.revertedWith('GS013');
     });
   });
 
@@ -258,7 +261,7 @@ describe('Fluid tests', () => {
       // Initialize the fee timestamp for fUSDT
       await executeAction({
         type: 'FluidSupply',
-        token: 'USDT',
+        poolAddress: tokenConfig.USDT.pools.fluid,
         amount: '0',
       });
 
@@ -270,7 +273,7 @@ describe('Fluid tests', () => {
 
       await executeAction({
         type: 'FluidWithdraw',
-        token: 'USDT',
+        poolAddress: tokenConfig.USDT.pools.fluid,
         amount: withdrawAmount,
       });
 
@@ -369,7 +372,7 @@ describe('Fluid tests', () => {
       const withdrawTx = await executeAction({
         type: 'FluidWithdraw',
         token,
-        feePercentage: 10,
+        feeBasis: 10,
         amount: '0',
       });
 

@@ -7,7 +7,7 @@ import {
   TransactionReceipt,
   BytesLike,
 } from 'ethers';
-import { tokenConfig, ROLES } from './constants';
+import { tokenConfig, ROLES, CURVE_3POOL_INDICES } from './constants';
 import { actionDefaults, ActionArgs } from './actions';
 import { deploySafe, executeSafeTransaction } from 'athena-sdk';
 import * as athenaSDK from 'athena-sdk';
@@ -220,121 +220,70 @@ export function getDeployedContract(name: string): DeployedContract | undefined 
 // It will also use the global setup to get the safe address and signer
 // It will also get the deployed contract for the action type
 // It is also possible to specify using the SDK or manual encoding
-export async function encodeAction(args: ActionArgs): Promise<string | BytesLike> {
-  // Load defaults for the action type
-  const defaults = actionDefaults[args.type] || {};
-  // overwrite defaults with any given args
-  const {
-    protocol = defaults.protocol,
-    safeAddress = (await getGlobalSetup()).safe.getAddress(),
-    value = defaults.value,
-    safeOperation = defaults.safeOperation,
-    signer = (await getGlobalSetup()).signer,
-    token = defaults.token,
-    amount = defaults.amount,
-    feePercentage = defaults.feePercentage,
-    minAmount = defaults.minAmount,
-    useSDK = defaults.useSDK,
-    minSharesReceived = defaults.minSharesReceived,
-    maxSharesBurned = defaults.maxSharesBurned,
-    poolAddress = defaults.poolAddress,
-  } = args;
-
-  // Check for required parameters
-  if (!signer || value === undefined || safeOperation === undefined) {
-    throw new Error('Missing required parameters for executeAction');
+export async function encodeAction(args: ActionArgs): Promise<string> {
+  const defaults = actionDefaults[args.type];
+  if (!defaults) {
+    throw new Error(`Unknown action type: ${args.type}`);
   }
 
-  // get the deployed contract for the action type
-  const actionContract = getDeployedContract(args.type);
+  const mergedArgs = { ...defaults, ...args };
+  const { encoding } = defaults;
 
+  const encodingValues = encoding!.encodingVariables.map((variable) => {
+    let value = (mergedArgs as Record<string, any>)[variable];
+
+    // Handle poolId special case
+    if (variable === 'poolId') {
+      if (mergedArgs.poolId) {
+        return mergedArgs.poolId;
+      } else if (mergedArgs.poolAddress) {
+        return getBytes4(mergedArgs.poolAddress);
+      } else {
+        throw new Error(`Missing required parameter: poolId or poolAddress for ${args.type}`);
+      }
+    }
+
+    // Handle token special case
+    // we generally have token name, but we need to change to the curve token index
+    if (variable === 'fromToken') {
+      if (mergedArgs.tokenIn && mergedArgs.tokenIn in CURVE_3POOL_INDICES) {
+        return CURVE_3POOL_INDICES[mergedArgs.tokenIn as keyof typeof CURVE_3POOL_INDICES];
+      } else {
+        throw new Error(`Invalid or missing token parameter for ${args.type}`);
+      }
+    }
+    // the same for toToken
+    if (variable === 'toToken') {
+      if (mergedArgs.tokenOut && mergedArgs.tokenOut in CURVE_3POOL_INDICES) {
+        return CURVE_3POOL_INDICES[mergedArgs.tokenOut as keyof typeof CURVE_3POOL_INDICES];
+      } else {
+        throw new Error(`Invalid or missing token parameter for ${args.type}`);
+      }
+    }
+
+    if (value === undefined) {
+      throw new Error(`Missing required parameter: ${variable} for ${args.type}`);
+    }
+    return value;
+  });
+
+  log('Encoding action:', args.type);
+  log('Encoding params:', encoding!.inputParams);
+  log('Encoding values:', encodingValues);
+  const inputParams = ethers.AbiCoder.defaultAbiCoder().encode(
+    encoding!.inputParams,
+    encodingValues
+  );
+  const actionContract = getDeployedContract(args.type);
   if (!actionContract) {
     throw new Error(`Contract ${args.type} not deployed`);
   }
-
-  let poolAddr: string;
-  if (poolAddress) {
-    poolAddr = poolAddress;
-  } else if (token) {
-    // check we have a valid token and return the corresponding vault address
-    let vaultAddress: string | undefined;
-    const tokenData = tokenConfig[token];
-    if ('pools' in tokenData) {
-      poolAddr = tokenData.pools[protocol as keyof typeof tokenData.pools];
-    } else {
-      throw new Error('Missing pool address in token config');
-    }
-  } else {
-    throw new Error('Missing token or pool address in executeAction');
-  }
-
-  // check if all encoding parameters are set
-  if (
-    (!amount && amount !== '0') ||
-    (!feePercentage && feePercentage !== 0) ||
-    (!minAmount && minAmount !== '0')
-  ) {
-    console.log('amount', amount);
-    console.log('feePercentage', feePercentage);
-    console.log('minAmount', minAmount);
-    throw new Error('Missing encoding parameters in executeAction');
-  }
-  let payload: string | BytesLike;
-  if (useSDK) {
-    // We're using the SDK, encode it
-    const ActionClass = args.type + 'Action';
-    if (
-      typeof athenaSDK[ActionClass as keyof typeof athenaSDK] === 'function' &&
-      'prototype' in athenaSDK[ActionClass as keyof typeof athenaSDK]
-    ) {
-      const ActionConstructor = athenaSDK[ActionClass as keyof typeof athenaSDK] as new (
-        token: string,
-        amount: string
-      ) => any;
-
-      const action = new ActionConstructor(poolAddr, amount.toString());
-      payload = action.encodeArgsForExecuteActionCall(0);
-    } else {
-      throw new Error(`Action ${ActionClass} is not a constructor in Athena SDK`);
-    }
-  } else {
-    // We're not using the SDK, encode it manually
-    const encodingConfig = defaults.encoding;
-    if (!encodingConfig) {
-      throw new Error(`Missing encoding configuration for action type: ${args.type}`);
-    }
-
-    const encodingValues = encodingConfig.encodingVariables.map((variable) => {
-      switch (variable) {
-        case 'amount':
-          return amount;
-        case 'feePercentage':
-          return feePercentage;
-        case 'minSharesReceived':
-          return minSharesReceived;
-        case 'maxSharesBurned':
-          return maxSharesBurned;
-        case 'poolId':
-          return ethers.keccak256(poolAddr).slice(0, 10);
-        case 'feeBasis':
-          return feePercentage;
-        case 'withdrawRequest':
-          return amount;
-        default:
-          throw new Error(`Unknown encoding variable: ${variable}`);
-      }
-    });
-
-    const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-      encodingConfig.inputParams,
-      encodingValues
-    );
-
-    // encode the action
-    payload = actionContract.contract.interface.encodeFunctionData('executeAction', [encoded, 42]);
-  }
-
-  // Instead of executing, return the payload
+  const payload = actionContract.contract.interface.encodeFunctionData('executeAction', [
+    inputParams,
+    42,
+  ]);
+  log('Action contract:', actionContract.address);
+  log('Encoded payload:', payload);
   return payload;
 }
 
