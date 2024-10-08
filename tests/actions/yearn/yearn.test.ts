@@ -159,7 +159,7 @@ describe('Yearn tests', () => {
       });
 
       const txReceipt = await tx.wait();
-      const block = await ethers.provider.getBlock(txReceipt.blockNumber);
+      const block = await ethers.provider.getBlock(txReceipt!.blockNumber);
       if (!block) {
         throw new Error('Block not found');
       }
@@ -275,8 +275,14 @@ describe('Yearn tests', () => {
       });
 
       const expectedFee = await calculateExpectedFee(
-        supplyTx,
-        withdrawTx,
+        (await supplyTx.wait()) ??
+          (() => {
+            throw new Error('Supply transaction failed');
+          })(),
+        (await withdrawTx.wait()) ??
+          (() => {
+            throw new Error('Withdraw transaction failed');
+          })(),
         10,
         yUSDCBalanceAfterSupply
       );

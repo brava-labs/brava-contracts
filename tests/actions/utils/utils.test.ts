@@ -5,7 +5,7 @@ import { getBaseSetup, deploy, executeAction } from '../../utils';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
 import { tokenConfig } from '../../constants';
 
-describe.only('Utils tests', () => {
+describe('Utils tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let loggerAddress: string;
