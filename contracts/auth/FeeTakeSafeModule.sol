@@ -34,7 +34,8 @@ contract FeeTakeSafeModule {
     /// @param _safeAddr Address of the users Safe
     /// @param _actionIds Array of action ids
     /// @param _poolIds Array of pool ids
-    function takeFees(address _safeAddr, bytes4[] memory _actionIds, bytes4[] memory _poolIds, uint16[] memory _feeBases) public payable {
+    /// @param _feeBases Array of fee bases
+    function takeFees(address _safeAddr, bytes4[] memory _actionIds, bytes4[] memory _poolIds, uint16[] memory _feeBases) external payable {
         // check if the sender has the fee taker role
         if (!ADMIN_VAULT.hasRole(FEE_TAKER_ROLE, msg.sender)) {
             revert SenderNotFeeTaker(msg.sender);
@@ -51,7 +52,7 @@ contract FeeTakeSafeModule {
 
             ActionBase action = ActionBase(ADMIN_VAULT.getActionAddress(actionId));
             // check if the action is a deposit action
-            if (action.actionType() != ActionBase.ActionType.DEPOSIT_ACTION) {
+            if (action.actionType() != uint8(ActionBase.ActionType.DEPOSIT_ACTION)) {
                 revert InvalidActionType(actionId);
             }
 
