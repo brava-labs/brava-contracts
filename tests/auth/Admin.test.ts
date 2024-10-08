@@ -534,7 +534,7 @@ describe('AdminVault', function () {
       const withdrawTx = await executeAction({
         type: 'FluidSupply',
         token,
-        feePercentage: 10,
+        feeBasis: 10,
         amount: '0',
       });
 
