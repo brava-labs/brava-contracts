@@ -143,7 +143,8 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
     'AdminVault',
     deploySigner,
     await deploySigner.getAddress(),
-    0
+    0,
+    logger.getAddress()
   );
   const safeAddress = await deploySafe(deploySigner);
   const safe = await ethers.getContractAt('ISafe', safeAddress);

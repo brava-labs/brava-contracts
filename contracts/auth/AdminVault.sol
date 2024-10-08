@@ -3,12 +3,14 @@
 pragma solidity =0.8.24;
 
 import {AccessControlDelayed} from "./AccessControlDelayed.sol";
+import {ILogger} from "../interfaces/ILogger.sol";
 import {Errors} from "../Errors.sol";
-
 /// @title AdminVault
 /// @notice A stateful contract that manages global variables and permissions for the protocol.
 /// @dev This contract handles fee management, pool and action registrations, and role-based access control.
 contract AdminVault is AccessControlDelayed {
+    ILogger public immutable LOGGER;
+
     // Role definitions
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -32,27 +34,16 @@ contract AdminVault is AccessControlDelayed {
     // Action management: actionId => actionAddress
     mapping(bytes4 => address) public actionAddresses;
 
-    // Events
-    event FeeRangeSet(uint256 minFee, uint256 maxFee);
-    event FeeRecipientProposed(address indexed proposer, address indexed proposedRecipient, uint256 timestamp);
-    event FeeRecipientSet(address indexed newFeeRecipient);
-    event PoolProposed(
-        string indexed protocolName,
-        bytes4 indexed poolId,
-        address indexed poolAddress,
-        uint256 timestamp
-    );
-    event PoolAdded(string indexed protocolName, bytes4 indexed poolId, address indexed poolAddress);
-    event ActionProposed(bytes4 indexed actionId, address indexed actionAddress, uint256 timestamp);
-    event ActionAdded(bytes4 indexed actionId, address indexed actionAddress);
-
     /// @notice Initializes the AdminVault with an initial owner and delay period.
     /// @param _initialOwner The address to be granted all initial roles.
     /// @param _delay The required delay period for proposals (in seconds).
-    constructor(address _initialOwner, uint256 _delay) AccessControlDelayed(_delay) {
-        if (_initialOwner == address(0)) {
+    /// @param _logger The address of the Logger contract.
+    constructor(address _initialOwner, uint256 _delay, address _logger) AccessControlDelayed(_delay) {
+        if (_initialOwner == address(0) || _logger == address(0)) {
             revert Errors.InvalidInput("AdminVault", "constructor");
         }
+
+        LOGGER = ILogger(_logger);
 
         // Set initial fee configuration
         minFeeBasis = 0;
@@ -77,7 +68,7 @@ contract AdminVault is AccessControlDelayed {
         }
         minFeeBasis = _min;
         maxFeeBasis = _max;
-        emit FeeRangeSet(_min, _max);
+        LOGGER.logAdminVaultEvent("FeeRangeSet", abi.encode(_min, _max));
     }
 
     /// Fee recipient management
@@ -92,13 +83,14 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.InvalidInput("AdminVault", "proposeFeeRecipient");
         }
         feeRecipientProposal[_recipient] = block.timestamp + delay;
-        emit FeeRecipientProposed(msg.sender, _recipient, feeRecipientProposal[_recipient]);
+        LOGGER.logAdminVaultEvent("FeeRecipientProposed", abi.encode(_recipient));
     }
 
     /// @notice Cancels a fee recipient proposal.
     /// @param _recipient The address of the proposed fee recipient to cancel.
     function cancelFeeRecipientProposal(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
         feeRecipientProposal[_recipient] = 0;
+        LOGGER.logAdminVaultEvent("FeeRecipientProposalCancelled", abi.encode(_recipient));
     }
 
     /// @notice Sets a new fee recipient after the proposal delay has passed.
@@ -115,7 +107,7 @@ contract AdminVault is AccessControlDelayed {
         }
         feeRecipientProposal[_recipient] = 0;
         feeRecipient = _recipient;
-        emit FeeRecipientSet(_recipient);
+        LOGGER.logAdminVaultEvent("FeeRecipientSet", abi.encode(_recipient));
     }
 
     /// Pool management
@@ -133,7 +125,7 @@ contract AdminVault is AccessControlDelayed {
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
         poolProposals[proposalId] = block.timestamp + delay;
-        emit PoolProposed(_protocolName, poolId, _poolAddress, poolProposals[proposalId]);
+        LOGGER.logAdminVaultEvent("PoolProposed", abi.encode(_protocolName, _poolAddress));
     }
 
     /// @notice Cancels a pool proposal.
@@ -146,6 +138,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_NotProposed();
         }
         poolProposals[proposalId] = 0;
+        LOGGER.logAdminVaultEvent("PoolProposalCancelled", abi.encode(_protocolName, _poolAddress));
     }
 
     /// @notice Adds a new pool after the proposal delay has passed.
@@ -167,7 +160,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_DelayNotPassed(block.timestamp, poolProposals[proposalId]);
         }
         protocolPools[_protocolName][poolId] = _poolAddress;
-        emit PoolAdded(_protocolName, poolId, _poolAddress);
+        LOGGER.logAdminVaultEvent("PoolAdded", abi.encode(_protocolName, _poolAddress));
     }
 
     /// Action management
@@ -187,7 +180,7 @@ contract AdminVault is AccessControlDelayed {
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         actionProposals[proposalId] = block.timestamp + delay;
-        emit ActionProposed(_actionId, _actionAddress, actionProposals[proposalId]);
+        LOGGER.logAdminVaultEvent("ActionProposed", abi.encode(_actionId, _actionAddress));
     }
 
     /// @notice Cancels an action proposal.
@@ -196,6 +189,7 @@ contract AdminVault is AccessControlDelayed {
     function cancelActionProposal(bytes4 _actionId, address _actionAddress) external onlyRole(OWNER_ROLE) {
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         actionProposals[proposalId] = 0;
+        LOGGER.logAdminVaultEvent("ActionProposalCancelled", abi.encode(_actionId, _actionAddress));
     }
 
     /// @notice Adds a new action after the proposal delay has passed.
@@ -213,7 +207,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_DelayNotPassed(block.timestamp, actionProposals[proposalId]);
         }
         actionAddresses[_actionId] = _actionAddress;
-        emit ActionAdded(_actionId, _actionAddress);
+        LOGGER.logAdminVaultEvent("ActionAdded", abi.encode(_actionId, _actionAddress));
     }
 
     /// Fee timestamp management
