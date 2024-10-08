@@ -46,7 +46,7 @@ abstract contract ActionBase {
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual;
 
     /// @notice Returns the type of action we are implementing
-    function actionType() public pure virtual returns (uint8);
+    function actionType() public pure virtual returns (ActionType);
 
     /// Helper functions
 
