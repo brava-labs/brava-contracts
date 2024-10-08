@@ -51,7 +51,7 @@ contract AdminVault is AccessControlDelayed {
     /// @param _delay The required delay period for proposals (in seconds).
     constructor(address _initialOwner, uint256 _delay) AccessControlDelayed(_delay) {
         if (_initialOwner == address(0)) {
-            revert Errors.InvalidInput();
+            revert Errors.InvalidInput("AdminVault", "constructor");
         }
 
         // Set initial fee configuration
@@ -89,7 +89,7 @@ contract AdminVault is AccessControlDelayed {
     /// @param _recipient The address of the proposed fee recipient.
     function proposeFeeRecipient(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_recipient == address(0)) {
-            revert Errors.InvalidInput();
+            revert Errors.InvalidInput("AdminVault", "proposeFeeRecipient");
         }
         feeRecipientProposal[_recipient] = block.timestamp + delay;
         emit FeeRecipientProposed(msg.sender, _recipient, feeRecipientProposal[_recipient]);
@@ -105,7 +105,7 @@ contract AdminVault is AccessControlDelayed {
     /// @param _recipient The address to set as the new fee recipient.
     function setFeeRecipient(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_recipient == address(0)) {
-            revert Errors.InvalidInput();
+            revert Errors.InvalidInput("AdminVault", "setFeeRecipient");
         }
         if (feeRecipientProposal[_recipient] == 0) {
             revert Errors.AdminVault_NotProposed();
@@ -157,7 +157,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_AlreadyAdded();
         }
         if (bytes(_protocolName).length == 0 || _poolAddress == address(0)) {
-            revert Errors.InvalidInput();
+            revert Errors.InvalidInput("AdminVault", "addPool");
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
         if (poolProposals[proposalId] == 0) {
@@ -183,7 +183,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_AlreadyAdded();
         }
         if (_actionAddress == address(0) || _actionId == bytes4(0)) {
-            revert Errors.InvalidInput();
+            revert Errors.InvalidInput("AdminVault", "proposeAction");
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         actionProposals[proposalId] = block.timestamp + delay;

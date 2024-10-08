@@ -455,8 +455,14 @@ describe('AdminVault', function () {
       });
 
       const expectedFee = await calculateExpectedFee(
-        supplyTx,
-        withdrawTx,
+        (await supplyTx.wait()) ??
+          (() => {
+            throw new Error('Supply transaction failed');
+          })(),
+        (await withdrawTx.wait()) ??
+          (() => {
+            throw new Error('Withdraw transaction failed');
+          })(),
         10,
         fUSDCBalanceAfterSupply
       );

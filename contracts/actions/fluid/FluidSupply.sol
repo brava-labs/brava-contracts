@@ -35,13 +35,17 @@ contract FluidSupply is ActionBase {
     /// @param _callData Encoded call data containing Params struct
     /// @param _strategyId ID of the strategy executing this action
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+        // Parse inputs
         Params memory inputData = _parseInputs(_callData);
 
+        // Check inputs
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
         address fToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
+        // Execute action
         (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidSupply(inputData, fToken);
 
+        // Log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
             _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
@@ -83,6 +87,7 @@ contract FluidSupply is ActionBase {
                 : _inputData.amount;
 
             if (amountToDeposit == 0) {
+                // We wanted to input max, but have zero stable balance
                 revert Errors.Action_ZeroAmount(protocolName(), actionType());
             }
 

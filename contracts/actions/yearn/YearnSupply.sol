@@ -35,13 +35,17 @@ contract YearnSupply is ActionBase {
     /// @param _callData Encoded call data containing Params struct
     /// @param _strategyId ID of the strategy executing this action
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+        // Parse inputs
         Params memory inputData = _parseInputs(_callData);
 
+        // Check inputs
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
         address yToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
+        // Execute action
         (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnSupply(inputData, yToken);
 
+        // Log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
             _encodeBalanceUpdate(_strategyId, inputData.poolId, yBalanceBefore, yBalanceAfter, feeInTokens)

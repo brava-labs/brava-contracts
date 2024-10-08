@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
+import {Errors} from "../../Errors.sol";
 import {ActionBase} from "../ActionBase.sol";
 import {ICurve3Pool} from "../../interfaces/curve/ICurve3Pool.sol";
 import {IERC20Metadata as IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -14,15 +15,6 @@ contract Curve3PoolSwap is ActionBase {
 
     /// @notice The Curve 3Pool contract
     ICurve3Pool public immutable POOL;
-
-    /// @notice Thrown when invalid token indices are provided
-    error InvalidTokenIndices();
-    /// @notice Thrown when attempting to swap a token for itself
-    error CannotSwapSameToken();
-    /// @notice Thrown when the input amount is zero
-    error AmountInMustBeGreaterThanZero();
-    /// @notice Thrown when the minimum output amount is zero
-    error MinimumAmountOutMustBeGreaterThanZero();
 
     /// @notice Parameters for the Curve3PoolSwap action
     /// @param fromToken Curve 3Pool token index to swap from
@@ -60,20 +52,15 @@ contract Curve3PoolSwap is ActionBase {
     /// @notice Executes the Curve 3Pool swap
     /// @param _params Struct containing swap parameters
     function _curve3PoolSwap(Params memory _params) internal {
-        if (!(_params.fromToken >= 0 && _params.fromToken < 3 && _params.toToken >= 0 && _params.toToken < 3)) {
-            revert InvalidTokenIndices();
+        if (
+            !(_params.fromToken >= 0 && _params.fromToken < 3 && _params.toToken >= 0 && _params.toToken < 3) ||
+            _params.fromToken == _params.toToken
+        ) {
+            revert Errors.Curve3Pool__InvalidTokenIndices(_params.fromToken, _params.toToken);
         }
 
-        if (_params.fromToken == _params.toToken) {
-            revert CannotSwapSameToken();
-        }
-
-        if (_params.amountIn == 0) {
-            revert AmountInMustBeGreaterThanZero();
-        }
-
-        if (_params.minAmountOut == 0) {
-            revert MinimumAmountOutMustBeGreaterThanZero();
+        if (_params.amountIn == 0 || _params.minAmountOut == 0) {
+            revert Errors.InvalidInput("Curve3PoolSwap", "executeAction");
         }
 
         IERC20 tokenIn = IERC20(POOL.coins(uint256(uint128(_params.fromToken))));

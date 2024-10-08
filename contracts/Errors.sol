@@ -5,8 +5,7 @@ pragma solidity =0.8.24;
 /// @notice This contract contains all custom errors used across the protocol
 contract Errors {
     // Generic errors
-    error InvalidAmount(string _reference, uint256 _providedAmount);
-    error InvalidInput();
+    error InvalidInput(string _contract, string _function);
 
     // AccessControlDelayed errors
     error AccessControlDelayed_InvalidDelay();
@@ -26,22 +25,19 @@ contract Errors {
 
     // Generic Action errors
     error Action_ZeroAmount(string _protocolName, uint8 _actionType);
-    error Action_InsufficientSharesReceived(string _protocolName, uint8 _actionType, uint256 _sharesReceived, uint256 _minSharesReceived);
-    error Action_MaxSharesBurnedExceeded(string _protocolName, uint8 _actionType, uint256 _sharesBurned, uint256 _maxAllowed);
+    error Action_InsufficientSharesReceived(
+        string _protocolName,
+        uint8 _actionType,
+        uint256 _sharesReceived,
+        uint256 _minSharesReceived
+    );
+    error Action_MaxSharesBurnedExceeded(
+        string _protocolName,
+        uint8 _actionType,
+        uint256 _sharesBurned,
+        uint256 _maxAllowed
+    );
 
-    // // BuyCover errors
-    // error BuyCover_InvalidAssetID(uint256 _assetId);
-
-    // // YearnSupply errors
-    // error YearnSupply_InsufficientSharesReceived(uint256 _sharesReceived, uint256 _minSharesReceived);
-
-    // // YearnWithdraw errors
-    // error YearnWithdraw_MaxSharesBurnedExceeded(uint256 _sharesBurned, uint256 _maxAllowed);
-
-    // // Curve3PoolSwap errors
-    // error Curve3PoolSwap_InvalidTokenIndices(int128 _fromToken, int128 _toToken);
-    // error Curve3PoolSwap_CannotSwapSameToken(int128 _tokenIndex);
-
-    // // SequenceExecutor errors
-    // error SequenceExecutor_NoActionAddressGiven(bytes4 _actionId);
+    // Curve3PoolSwap errors
+    error Curve3Pool__InvalidTokenIndices(int128 _fromToken, int128 _toToken);
 }

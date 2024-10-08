@@ -52,7 +52,7 @@ abstract contract AccessControlDelayed is AccessControl {
 
     function _proposeRole(bytes32 role, address account) internal virtual {
         if (account == address(0)) {
-            revert Errors.InvalidInput();
+            revert Errors.InvalidInput("AccessControlDelayed", "_proposeRole");
         }
         // Check if role was already proposed
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));

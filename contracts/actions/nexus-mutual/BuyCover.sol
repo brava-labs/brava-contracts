@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
+import {Errors} from "../../Errors.sol";
 import {ActionBase} from "../ActionBase.sol";
 import {IERC721Metadata as IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -42,8 +43,19 @@ contract BuyCover is ActionBase {
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+        // Parse inputs
         Params memory inputData = _parseInputs(_callData);
-        _buyCover(inputData, _strategyId);
+
+        // Check inputs
+        if (inputData.buyCoverParams.length == 0 || inputData.poolAllocationRequests.length == 0) {
+            revert Errors.InvalidInput("BuyCover", "executeAction");
+        }
+
+        // Execute action
+        (uint32 period, uint256 amount, uint256 coverId) = _buyCover(inputData);
+
+        // Log event
+        LOGGER.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, period, amount, coverId));
     }
 
     /// @inheritdoc ActionBase
@@ -53,8 +65,7 @@ contract BuyCover is ActionBase {
 
     /// @notice Executes the buy cover action
     /// @param _inputData Struct containing buy cover parameters
-    /// @param _strategyId ID of the strategy executing this action
-    function _buyCover(Params memory _inputData, uint16 _strategyId) private {
+    function _buyCover(Params memory _inputData) private returns (uint32 period, uint256 amount, uint256 coverId) {
         BuyCoverParams memory params = abi.decode(_inputData.buyCoverParams, (BuyCoverParams));
 
         PoolAllocationRequest[] memory poolAllocationRequests = new PoolAllocationRequest[](
@@ -67,14 +78,13 @@ contract BuyCover is ActionBase {
         IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
         paymentAsset.safeIncreaseAllowance(address(COVER_BROKER), params.maxPremiumInAsset);
 
-        uint256 coverId;
         if (params.paymentAsset == 0) {
             coverId = COVER_BROKER.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
         } else {
             coverId = COVER_BROKER.buyCover(params, poolAllocationRequests);
         }
 
-        LOGGER.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, params.period, params.amount, coverId));
+        return (params.period, params.amount, coverId);
     }
 
     /// @notice Converts asset ID to token address
