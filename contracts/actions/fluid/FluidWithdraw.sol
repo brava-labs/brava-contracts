@@ -1,89 +1,104 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import { ActionBase } from "../ActionBase.sol";
-import { TokenUtils } from "../../libraries/TokenUtils.sol";
-import { IFToken } from "../../interfaces/fluid/IFToken.sol";
-import { ActionUtils } from "../../libraries/ActionUtils.sol";
+import {Errors} from "../../Errors.sol";
+import {ActionBase} from "../ActionBase.sol";
+import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
 
-/// @title Burns fTokens and receive underlying tokens in return
-/// @dev fTokens need to be approved for user's wallet to pull them (fToken address)
+/// @title FluidWithdraw - Burns fTokens and receives underlying tokens in return
+/// @notice This contract allows users to withdraw tokens from a Fluid vault
+/// @dev Inherits from ActionBase and implements the withdraw functionality for Fluid protocol
 contract FluidWithdraw is ActionBase {
-    using TokenUtils for address;
-
-    /// @param fToken - address of yToken to withdraw
-    /// @param fAmount - amount of yToken to withdraw
+    /// @notice Parameters for the withdraw action
+    /// @param poolId ID of fToken vault contract
+    /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param withdrawRequest Amount of underlying token to withdraw
+    /// @param maxSharesBurned Maximum amount of fTokens to burn
     struct Params {
-        address fToken;
-        uint256 fAmount;
+        bytes4 poolId;
+        uint16 feeBasis;
+        uint256 withdrawRequest;
+        uint256 maxSharesBurned;
     }
 
-    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
-    
+    /// @notice Initializes the FluidWithdraw contract
+    /// @param _adminVault Address of the admin vault
+    /// @param _logger Address of the logger contract
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
+
     /// @inheritdoc ActionBase
-    function executeAction(
-        bytes memory _callData,
-        uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues,
-        uint16 _strategyId
-    ) public payable virtual override returns (bytes32) {
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+        // Parse inputs
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.fAmount = _parseParamUint(
-            inputData.fAmount,
-            _paramMapping[1],
-            _returnValues
+        // Check inputs
+        ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
+        address fToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
+
+        // Execute action
+        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidWithdraw(inputData, fToken);
+
+        // Log event
+        LOGGER.logActionEvent(
+            "BalanceUpdate",
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
         );
-
-        (uint256 amountReceived, bytes memory logData) = _fluidWithdraw(inputData, _strategyId);
-        logger.logActionEvent("FluidWithdraw", logData);
-        return (bytes32(amountReceived));
     }
 
     /// @inheritdoc ActionBase
-    // TODO do we want strategy IDs for direct executions?
-    function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _fluidWithdraw(inputData, 0);
-        logger.logActionEvent("FluidWithdraw", logData);
-    }
-
-    /// @inheritdoc ActionBase
-    function actionType() public pure virtual override returns (uint8) {
+    function actionType() public pure override returns (uint8) {
         return uint8(ActionType.WITHDRAW_ACTION);
     }
 
-    //////////////////////////// ACTION LOGIC ////////////////////////////
-
-    function _fluidWithdraw(Params memory _inputData, uint16 _strategyId)
-       private 
-        returns (uint256 tokenAmountReceived, bytes memory logData)
-    {
-        IFToken fToken = IFToken(_inputData.fToken);
-
-        address underlyingToken = fToken.asset();
-
-        uint256 fBalanceBefore = address(fToken).getBalance(address(this));
-        uint256 underlyingTokenBalanceBefore = underlyingToken.getBalance(address(this));
-        fToken.withdraw(_inputData.fAmount, address(this), address(this));
-        uint256 fBalanceAfter = address(fToken).getBalance(address(this));
-        uint256 underlyingTokenBalanceAfter = underlyingToken.getBalance(address(this));
-        tokenAmountReceived = underlyingTokenBalanceAfter - underlyingTokenBalanceBefore;
-
-        logData = abi.encode(_inputData, tokenAmountReceived);
-
-        logger.logActionEvent(
-            "BalanceUpdate",
-            ActionUtils._encodeBalanceUpdate(
-                _strategyId,
-                ActionUtils._poolIdFromAddress(_inputData.fToken),
-                fBalanceBefore,
-                fBalanceAfter
-            )
-        );
+    /// @notice Withdraws all available tokens from the specified Fluid vault
+    /// @param _fToken Address of the fToken contract
+    function exit(address _fToken) public {
+        IFluidLending fToken = IFluidLending(_fToken);
+        uint256 maxWithdrawAmount = fToken.maxWithdraw(address(this));
+        fToken.withdraw(maxWithdrawAmount, address(this), address(this));
     }
 
+    /// @notice Calculates and takes fees, then withdraws the underlying token
+    /// @param _inputData Struct containing withdraw parameters
+    /// @param _fToken Address of the fToken contract
+    /// @return fBalanceBefore Balance of fTokens before the withdrawal
+    /// @return fBalanceAfter Balance of fTokens after the withdrawal
+    /// @return feeInTokens Amount of fees taken in tokens
+    function _fluidWithdraw(
+        Params memory _inputData,
+        address _fToken
+    ) private returns (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) {
+        IFluidLending fToken = IFluidLending(_fToken);
+
+        fBalanceBefore = fToken.balanceOf(address(this));
+
+        // Take any fees before doing any further actions
+        feeInTokens = _takeFee(address(fToken), _inputData.feeBasis);
+
+        // If withdraw request is non-zero, process the withdrawal
+        if (_inputData.withdrawRequest != 0) {
+            uint256 maxWithdrawAmount = fToken.maxWithdraw(address(this));
+            uint256 amountToWithdraw = _inputData.withdrawRequest > maxWithdrawAmount
+                ? maxWithdrawAmount
+                : _inputData.withdrawRequest;
+
+            if (amountToWithdraw == 0) {
+                revert Errors.Action_ZeroAmount(protocolName(), actionType());
+            }
+            fToken.withdraw(amountToWithdraw, address(this), address(this), _inputData.maxSharesBurned);
+        }
+        fBalanceAfter = fToken.balanceOf(address(this));
+    }
+
+    /// @notice Parses the input data from bytes to Params struct
+    /// @param _callData Encoded call data
+    /// @return inputData Decoded Params struct
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
+    }
+
+    /// @inheritdoc ActionBase
+    function protocolName() internal pure override returns (string memory) {
+        return "Fluid";
     }
 }

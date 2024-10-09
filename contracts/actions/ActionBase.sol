@@ -1,30 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import "../interfaces/IContractRegistry.sol";
-import {Logger} from "../Logger.sol";
-import {ISafe} from "../interfaces/safe/ISafe.sol";
+import {Errors} from "../Errors.sol";
+import {ILogger} from "../interfaces/ILogger.sol";
+import {IAdminVault} from "../interfaces/IAdminVault.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// TODOs for each actions
-// private parsing function for each action
-// improve logging with indexer in mind
-// utilize ContractRegistry for all actions (?)
-// do we go with fixed version or ^0.8.0
-
-
-/// @title Implements Action interface and common helpers for passing inputs
+/// @title ActionBase - Base contract for all actions in the protocol
+/// @notice Implements common functionality and interfaces for all actions
+/// @dev This contract should be inherited by all specific action contracts
 abstract contract ActionBase {
+    using SafeERC20 for IERC20;
 
-    IContractRegistry public immutable registry;
+    /// @notice Interface for the admin vault
+    IAdminVault public immutable ADMIN_VAULT;
 
-    Logger public immutable logger;
+    /// @notice Interface for the logger
+    ILogger public immutable LOGGER;
 
-    /// @dev If the input value should not be replaced
-    uint8 public constant NO_PARAM_MAPPING = 0;
+    /// @notice Basis points for fee calculations (100% = 10000)
+    uint256 public constant FEE_BASIS_POINTS = 10000;
 
-    uint8 public constant WALLET_ADDRESS_PARAM_MAPPING = 254;
-    uint8 public constant OWNER_ADDRESS_PARAM_MAPPING = 255;
+    /// @notice Duration of a fee period (1 year)
+    uint256 public constant FEE_PERIOD = 365 days;
 
+    /// @notice Enum representing different types of actions
     enum ActionType {
         DEPOSIT_ACTION,
         WITHDRAW_ACTION,
@@ -35,93 +36,88 @@ abstract contract ActionBase {
         CUSTOM_ACTION
     }
 
-    constructor(address _registry, address _logger) {
-        registry = IContractRegistry(_registry);
-        logger = Logger(_logger);
+    /// @notice Initializes the ActionBase contract
+    /// @param _adminVault Address of the admin vault
+    /// @param _logger Address of the logger contract
+    constructor(address _adminVault, address _logger) {
+        ADMIN_VAULT = IAdminVault(_adminVault);
+        LOGGER = ILogger(_logger);
     }
 
-    /// @notice Parses inputs and runs the implemented action through a user wallet
-    /// @dev Is called by the RecipeExecutor chaining actions together
-    /// @param _callData Array of input values each value encoded as bytes
-    /// @param _paramMapping Array that specifies how return values are mapped in input
-    /// @param _returnValues Returns values from actions before, which can be injected in inputs
-    /// @param _strategyId The index of the strategy the action is related to
-    /// @return Returns a bytes32 value through user wallet, each actions implements what that value is
-    function executeAction(
-        bytes memory _callData,
-        uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues,
-        uint16 _strategyId
-    ) public payable virtual returns (bytes32);
+    /// @notice Executes the implemented action
+    /// @dev This function should be overridden by inheriting contracts
+    /// @param _callData Encoded input data for the action
+    /// @param _strategyId The ID of the strategy executing this action
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual;
 
-    /// @notice Parses inputs and runs the single implemented action through a user wallet
-    /// @dev Used to save gas when executing a single action directly
-    function executeActionDirect(bytes memory _callData) public payable virtual;
-
-    /// @notice Returns the type of action we are implementing
+    /// @notice Returns the type of action being implemented
+    /// @return uint8 The action type as defined in the ActionType enum
     function actionType() public pure virtual returns (uint8);
 
-    //////////////////////////// HELPER METHODS ////////////////////////////
-
-    /// @notice Given an uint256 input, injects return/sub values if specified
-    /// @param _param The original input value
-    /// @param _mapType Indicated the type of the input in paramMapping
-    /// @param _returnValues Array of subscription data we can replace the input value with
-    function _parseParamUint(uint _param, uint8 _mapType, bytes32[] memory _returnValues) internal pure returns (uint) {
-        if (isReplaceable(_mapType)) {
-            _param = uint(_returnValues[getReturnIndex(_mapType)]);
+    /// @notice Takes the fee due from the vault and performs required updates
+    /// @param _vault Address of the vault
+    /// @param _feePercentage Fee percentage in basis points
+    /// @return uint256 The amount of fee taken
+    function _takeFee(address _vault, uint256 _feePercentage) internal returns (uint256) {
+        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_vault);
+        uint256 currentTimestamp = block.timestamp;
+        if (lastFeeTimestamp == 0) {
+            revert Errors.AdminVault_NotInitialized();
+        } else if (lastFeeTimestamp == currentTimestamp) {
+            return 0; // Don't take fees twice in the same block
+        } else {
+            IERC20 vault = IERC20(_vault);
+            uint256 balance = vault.balanceOf(address(this));
+            uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
+            vault.safeTransfer(ADMIN_VAULT.feeRecipient(), fee);
+            ADMIN_VAULT.updateFeeTimestamp(_vault);
+            return fee;
         }
-        return _param;
     }
 
-    /// @notice Given an addr input, injects return/sub values if specified
-    /// @param _param The original input value
-    /// @param _mapType Indicated the type of the input in paramMapping
-    /// @param _returnValues Array of subscription data we can replace the input value with
-    function _parseParamAddr(
-        address _param,
-        uint8 _mapType,
-        bytes32[] memory _returnValues
-    ) internal view returns (address) {
-        if (isReplaceable(_mapType)) {
-                /// @dev The last two values are specially reserved for proxy addr and owner addr
-                if (_mapType == WALLET_ADDRESS_PARAM_MAPPING) return address(this); // wallet address
-                if (_mapType == OWNER_ADDRESS_PARAM_MAPPING) return fetchOwnersOrWallet(); // owner if 1/1 wallet or the wallet itself
-                return address(bytes20((_returnValues[getReturnIndex(_mapType)])));
-            }
-        return _param;
+    /// @notice Calculates the fee due from the vault
+    /// @param _totalDeposit Total amount deposited in the vault
+    /// @param _feePercentage Fee percentage in basis points
+    /// @param _lastFeeTimestamp Timestamp of the last fee collection
+    /// @param _currentTimestamp Current timestamp
+    /// @return uint256 The calculated fee amount
+    function _calculateFee(
+        uint256 _totalDeposit,
+        uint256 _feePercentage,
+        uint256 _lastFeeTimestamp,
+        uint256 _currentTimestamp
+    ) internal pure returns (uint256) {
+        uint256 secondsPassed = _currentTimestamp - _lastFeeTimestamp;
+        uint256 annualFee = (_totalDeposit * _feePercentage) / FEE_BASIS_POINTS;
+        uint256 feeForPeriod = (annualFee * secondsPassed) / FEE_PERIOD;
+        return feeForPeriod;
     }
 
-    /// @notice Given an bytes32 input, injects return/sub values if specified
-    /// @param _param The original input value
-    /// @param _mapType Indicated the type of the input in paramMapping
-    /// @param _returnValues Array of subscription data we can replace the input value with
-    function _parseParamABytes32(
-        bytes32 _param,
-        uint8 _mapType,
-        bytes32[] memory _returnValues
-    ) internal pure returns (bytes32) {
-        if (isReplaceable(_mapType)) {
-            _param = (_returnValues[getReturnIndex(_mapType)]);
-        }
-        return _param;
+    /// @notice Generates a pool ID from an address
+    /// @param _addr Address to generate the pool ID from
+    /// @return bytes4 The generated pool ID
+    function _poolIdFromAddress(address _addr) internal pure returns (bytes4) {
+        return bytes4(keccak256(abi.encodePacked(_addr)));
     }
 
-    /// @notice Checks if the paramMapping value indicated that we need to inject values
-    /// @param _type Indicated the type of the input
-    function isReplaceable(uint8 _type) internal pure returns (bool) {
-        return _type != NO_PARAM_MAPPING;
+    /// @notice Encodes balance update information
+    /// @param _strategyId ID of the strategy
+    /// @param _poolId ID of the pool
+    /// @param _balanceBefore Balance before the action
+    /// @param _balanceAfter Balance after the action
+    /// @param _feeInTokens Amount of fee taken in tokens
+    /// @return bytes Encoded balance update information
+    function _encodeBalanceUpdate(
+        uint16 _strategyId,
+        bytes4 _poolId,
+        uint256 _balanceBefore,
+        uint256 _balanceAfter,
+        uint256 _feeInTokens
+    ) internal pure returns (bytes memory) {
+        return abi.encode(_strategyId, _poolId, _balanceBefore, _balanceAfter, _feeInTokens);
     }
 
-    /// @notice Transforms the paramMapping value to the index in return array value
-    /// @param _type Indicated the type of the input
-    function getReturnIndex(uint8 _type) internal pure returns (uint8) {
-        return _type - 1;
-    }
-
-    function fetchOwnersOrWallet() internal view returns (address) {
-        address[] memory owners = ISafe(address(this)).getOwners();
-        return owners.length == 1 ? owners[0] : address(this);
-    }
-
+    /// @notice Returns the name of the protocol
+    /// @return string The name of the protocol
+    function protocolName() internal pure virtual returns (string memory);
 }

@@ -1,78 +1,112 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import { ActionBase } from "../ActionBase.sol";
-import { TokenUtils } from "../../libraries/TokenUtils.sol";
-import { IYearnVault } from "../../interfaces/yearn/IYearnVault.sol";
-import { IYearnRegistry } from "../../interfaces/yearn/IYearnRegistry.sol";
-import { ActionUtils } from "../../libraries/ActionUtils.sol";
+import {ActionBase} from "../ActionBase.sol";
+import {Errors} from "../../Errors.sol";
+import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title Supplies tokens to Yearn vault
-/// @dev tokens need to be approved for user's wallet to pull them (token address)
+/// @title YearnSupply - Supplies tokens to Yearn vault
+/// @notice This contract allows users to supply tokens to a Yearn vault
+/// @dev Inherits from ActionBase and implements the supply functionality for Yearn protocol
 contract YearnSupply is ActionBase {
-    using TokenUtils for address;
+    using SafeERC20 for IERC20;
 
-    /// @param token - address of token to supply
-    /// @param amount - amount of token to supply
+    /// @notice Parameters for the supply action
+    /// @param poolId ID of yToken vault contract
+    /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param amount Amount of underlying token to supply
+    /// @param minSharesReceived Minimum amount of shares to receive
     struct Params {
-        address token;
+        bytes4 poolId;
+        uint16 feeBasis;
         uint256 amount;
+        uint256 minSharesReceived;
     }
 
-    IYearnRegistry public constant yearnRegistry = IYearnRegistry(address(0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804));
+    /// @notice Initializes the YearnSupply contract
+    /// @param _adminVault Address of the admin vault
+    /// @param _logger Address of the logger contract
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
-    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
-    
     /// @inheritdoc ActionBase
-    function executeAction(
-        bytes memory _callData,
-        uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues,
-        uint16 _strategyId
-    ) public payable virtual override returns (bytes32) {
+    /// @notice Executes the supply action
+    /// @param _callData Encoded call data containing Params struct
+    /// @param _strategyId ID of the strategy executing this action
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+        // Parse inputs
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.amount = _parseParamUint(
-            inputData.amount,
-            _paramMapping[1],
-            _returnValues
+        // Check inputs
+        ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
+        address yToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
+
+        // Execute action
+        (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnSupply(inputData, yToken);
+
+        // Log event
+        LOGGER.logActionEvent(
+            "BalanceUpdate",
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, yBalanceBefore, yBalanceAfter, feeInTokens)
         );
-
-        (uint256 yAmountReceived, bytes memory logData) = _yearnSupply(inputData, _strategyId);
-        logger.logActionEvent("YearnSupply", logData);
-        return bytes32(yAmountReceived);
     }
 
     /// @inheritdoc ActionBase
-    function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _yearnSupply(inputData, 0);
-        logger.logActionEvent("YearnSupply", logData);
-    }
-
-    /// @inheritdoc ActionBase
-    function actionType() public pure virtual override returns (uint8) {
+    function actionType() public pure override returns (uint8) {
         return uint8(ActionType.DEPOSIT_ACTION);
     }
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _yearnSupply(Params memory _inputData, uint16 _strategyId) private returns (uint256 yTokenAmount, bytes memory logData) {
-        IYearnVault vault = IYearnVault(yearnRegistry.latestVault(_inputData.token));
+    function _yearnSupply(
+        Params memory _inputData,
+        address _yToken
+    ) private returns (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) {
+        IYearnVault yToken = IYearnVault(_yToken);
 
-        _inputData.token.approveToken(address(vault), _inputData.amount);
+        // Check fee status
+        if (yBalanceBefore == 0) {
+            // Balance is zero, initialize fee timestamp for future fee calculations
+            ADMIN_VAULT.initializeFeeTimestamp(address(yToken));
+        } else {
+            // Balance is non-zero, take fees before depositing
+            feeInTokens = _takeFee(address(yToken), _inputData.feeBasis);
+        }
 
-        uint256 yBalanceBefore = address(vault).getBalance(address(this));
-        vault.deposit(_inputData.amount, address(this));
-        uint256 yBalanceAfter = address(vault).getBalance(address(this));
-        yTokenAmount = yBalanceAfter - yBalanceBefore;
+        yBalanceBefore = yToken.balanceOf(address(this));
 
-        logData = abi.encode(_inputData, yTokenAmount);
+        // Deposit tokens
+        if (_inputData.amount != 0) {
+            IERC20 underlyingToken = IERC20(yToken.token());
+            if (_inputData.amount == type(uint256).max) {
+                _inputData.amount = underlyingToken.balanceOf(address(this));
+            }
+            underlyingToken.approve(address(yToken), _inputData.amount);
 
-        logger.logActionEvent("BalanceUpdate", ActionUtils._encodeBalanceUpdate(_strategyId, ActionUtils._poolIdFromAddress(address(vault)), yBalanceBefore, yBalanceAfter));
+            uint256 shares = yToken.deposit(_inputData.amount);
+            if (shares < _inputData.minSharesReceived) {
+                revert Errors.Action_InsufficientSharesReceived(
+                    protocolName(),
+                    actionType(),
+                    shares,
+                    _inputData.minSharesReceived
+                );
+            }
+        }
+
+        yBalanceAfter = yToken.balanceOf(address(this));
     }
 
+    /// @notice Parses the input data from bytes to Params struct
+    /// @param _callData Encoded call data
+    /// @return inputData Decoded Params struct
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
+    }
+
+    /// @inheritdoc ActionBase
+    function protocolName() internal pure override returns (string memory) {
+        return "Yearn";
     }
 }

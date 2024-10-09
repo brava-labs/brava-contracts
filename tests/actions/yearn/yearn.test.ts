@@ -1,97 +1,301 @@
-import { ethers, Signer, expect } from '../..';
+import { expect, ethers, Signer } from '../..';
 import { network } from 'hardhat';
-import { YearnSupply, IERC20 } from '../../../typechain-types';
-import { YEARN_REGISTRY_ADDRESS, tokenConfig } from '../../constants';
-import { deploy, log, getBaseSetup } from '../../utils';
-import { executeSafeTransaction } from 'athena-sdk';
-import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
+import {
+  IERC20,
+  YearnSupply,
+  YearnWithdraw,
+  IYearnVault,
+  Logger,
+  AdminVault,
+} from '../../../typechain-types';
+import {
+  deploy,
+  getBaseSetup,
+  log,
+  decodeLoggerLog,
+  calculateExpectedFee,
+  executeAction,
+} from '../../utils';
+import { BalanceUpdateLog } from '../../logs';
+import { fundAccountWithToken, getUSDC } from '../../utils-stable';
+import { tokenConfig } from '../../constants';
+import { actionTypes } from '../../actions';
+import { BytesLike } from 'ethers';
 
-// AI generated test, this doesn't work yet
-
-describe('YearnSupply tests', () => {
+describe('Yearn tests', () => {
   let signer: Signer;
   let safeAddr: string;
-  let yearnSupply: YearnSupply;
-  let USDC: IERC20;
+  let loggerAddress: string;
+  let logger: Logger;
   let snapshotId: string;
+  let USDC: IERC20;
+  let yearnSupplyContract: YearnSupply;
+  let yearnWithdrawContract: YearnWithdraw;
+  let yUSDC: IYearnVault;
+  let adminVault: AdminVault;
+  const YEARN_USDC_ADDRESS = tokenConfig.yUSDC.address;
 
   before(async () => {
     [signer] = await ethers.getSigners();
     const baseSetup = await getBaseSetup();
-    safeAddr = baseSetup.safeAddr;
-    log('Safe Address', safeAddr);
+    if (!baseSetup) {
+      throw new Error('Base setup not deployed');
+    }
+    safeAddr = (await baseSetup.safe.getAddress()) as string;
+    loggerAddress = (await baseSetup.logger.getAddress()) as string;
+    logger = await ethers.getContractAt('Logger', loggerAddress);
+    adminVault = await baseSetup.adminVault;
+    // Fetch the USDC token
+    USDC = await getUSDC();
 
-    yearnSupply = await deploy(
+    // Initialize YearnSupply and YearnWithdraw actions
+    yearnSupplyContract = await deploy(
       'YearnSupply',
       signer,
-      baseSetup.contractRegistry.getAddress(),
-      baseSetup.logger.getAddress()
+      await adminVault.getAddress(),
+      loggerAddress
     );
-    ({ USDC } = await getStables());
+    yearnWithdrawContract = await deploy(
+      'YearnWithdraw',
+      signer,
+      await adminVault.getAddress(),
+      loggerAddress
+    );
+    yUSDC = await ethers.getContractAt('IYearnVault', YEARN_USDC_ADDRESS);
+
+    await adminVault.proposePool('Yearn', YEARN_USDC_ADDRESS);
+    await adminVault.addPool('Yearn', YEARN_USDC_ADDRESS);
   });
 
   beforeEach(async () => {
+    log('Taking local snapshot');
     snapshotId = await network.provider.send('evm_snapshot');
   });
 
   afterEach(async () => {
+    log('Reverting to local snapshot');
     await network.provider.send('evm_revert', [snapshotId]);
-
-    // IMPORTANT: take a new snapshot, they can't be reused!
-    snapshotId = await network.provider.send('evm_snapshot');
   });
 
-  // Skip this until it's implemented properly
-  it.skip('should supply USDC to Yearn vault', async () => {
-    const fundAmount = 1000; // 1000 USDC
-    await fundAccountWithStablecoin(safeAddr, 'USDC', fundAmount);
+  describe('Yearn Supply', () => {
+    it('Should deposit USDC', async () => {
+      const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
 
-    const initialUsdcBalance = await USDC.balanceOf(safeAddr);
-    expect(initialUsdcBalance).to.equal(ethers.parseUnits(fundAmount.toString(), 6));
+      const initialUSDCBalance = await USDC.balanceOf(safeAddr);
+      const initialYearnBalance = await yUSDC.balanceOf(safeAddr);
 
-    // Prepare supply parameters
-    const supplyAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals); // 100 USDC
-    const params = {
-      token: tokenConfig.USDC.address,
-      amount: supplyAmount,
-      from: safeAddr,
-      to: safeAddr,
-    };
+      await executeAction({
+        type: 'YearnSupply',
+        amount: supplyAmount,
+      });
 
-    const abiCoder = new ethers.AbiCoder();
-    const paramsEncoded = abiCoder.encode(
-      ['tuple(address token, uint256 amount, address from, address to)'],
-      [params]
-    );
+      const finalUSDCBalance = await USDC.balanceOf(safeAddr);
+      const finalyTokenBalance = await yUSDC.balanceOf(safeAddr);
 
-    const yearnSupplyAddress = await yearnSupply.getAddress();
-    const encodedFunctionCall = yearnSupply.interface.encodeFunctionData('executeActionDirect', [
-      paramsEncoded,
-    ]);
-
-    // Approve USDC spending
-    await USDC.connect(signer).approve(safeAddr, supplyAmount);
-
-    // fund safe with eth
-    await signer.sendTransaction({
-      to: safeAddr,
-      value: ethers.parseUnits('100', 18),
+      expect(finalUSDCBalance).to.equal(initialUSDCBalance - supplyAmount);
+      expect(finalyTokenBalance).to.be.greaterThan(initialYearnBalance);
     });
 
-    // Execute supply
-    await executeSafeTransaction(safeAddr, yearnSupplyAddress, 0, encodedFunctionCall, 0, signer);
+    it('Should deposit max', async () => {
+      const amount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(safeAddr, 'USDC', amount);
 
-    // Check balances after supply
-    const finalUsdcBalance = await USDC.balanceOf(safeAddr);
-    expect(finalUsdcBalance).to.be.lt(initialUsdcBalance);
+      expect(await USDC.balanceOf(safeAddr)).to.equal(amount);
 
-    // Get Yearn vault address for USDC
-    const yearnRegistry = await ethers.getContractAt('IYearnRegistry', YEARN_REGISTRY_ADDRESS);
-    const vaultAddress = await yearnRegistry.latestVault(tokenConfig.USDC.address);
-    const yUSDC = await ethers.getContractAt('IERC20', vaultAddress);
+      await executeAction({
+        type: 'YearnSupply',
+        amount: ethers.MaxUint256,
+      });
 
-    const yUsdcBalance = await yUSDC.balanceOf(safeAddr);
-    expect(yUsdcBalance).to.be.gt(0);
+      expect(await USDC.balanceOf(safeAddr)).to.equal(0);
+      expect(await yUSDC.balanceOf(safeAddr)).to.be.greaterThan(0);
+    });
+
+    it('Should emit the correct log on deposit', async () => {
+      const amount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(safeAddr, 'USDC', amount);
+      const strategyId: number = 42;
+      const poolId: BytesLike = ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10);
+
+      const tx = await executeAction({
+        type: 'YearnSupply',
+        amount,
+      });
+
+      const logs = await decodeLoggerLog(tx, loggerAddress);
+      log('Logs:', logs);
+
+      expect(logs).to.have.length(1);
+      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
+
+      const txLog = logs[0] as BalanceUpdateLog;
+      expect(txLog).to.have.property('safeAddress', safeAddr);
+      expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+      expect(txLog).to.have.property('poolId', poolId);
+      expect(txLog).to.have.property('balanceBefore', BigInt(0));
+      expect(txLog).to.have.property('balanceAfter');
+      expect(txLog).to.have.property('feeInTokens');
+      expect(txLog.balanceAfter).to.be.a('bigint');
+      expect(txLog.balanceAfter).to.not.equal(BigInt(0));
+    });
+
+    it('Should have deposit action type', async () => {
+      const actionType = await yearnSupplyContract.actionType();
+      expect(actionType).to.equal(actionTypes.DEPOSIT_ACTION);
+    });
+
+    it('Should initialize last fee timestamp', async () => {
+      const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
+        safeAddr,
+        YEARN_USDC_ADDRESS
+      );
+      expect(initialLastFeeTimestamp).to.equal(BigInt(0));
+
+      await fundAccountWithToken(safeAddr, 'USDC', 1000);
+
+      const tx = await executeAction({
+        type: 'YearnSupply',
+      });
+
+      const txReceipt = await tx.wait();
+      const block = await ethers.provider.getBlock(txReceipt!.blockNumber);
+      if (!block) {
+        throw new Error('Block not found');
+      }
+      const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, YEARN_USDC_ADDRESS);
+      expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
+    });
+  });
+
+  describe('Yearn Withdraw', () => {
+    beforeEach(async () => {
+      // Do an empty deposit to initialize the fee timestamp
+      await executeAction({
+        type: 'YearnSupply',
+      });
+    });
+
+    it('Should withdraw USDC', async () => {
+      const amount = ethers.parseUnits('100', tokenConfig.yUSDC.decimals);
+      await fundAccountWithToken(safeAddr, 'yUSDC', amount);
+
+      const initialUSDCBalance = await USDC.balanceOf(safeAddr);
+      const initialyUSDCBalance = await yUSDC.balanceOf(safeAddr);
+
+      const tx = await executeAction({
+        type: 'YearnWithdraw',
+        amount,
+      });
+
+      const finalUSDCBalance = await USDC.balanceOf(safeAddr);
+      const finalyUSDCBalance = await yUSDC.balanceOf(safeAddr);
+      expect(finalUSDCBalance).to.be.greaterThan(initialUSDCBalance);
+      expect(finalyUSDCBalance).to.be.lessThan(initialyUSDCBalance);
+    });
+
+    it('Should emit the correct log on withdraw', async () => {
+      const amount = ethers.parseUnits('100', tokenConfig.yUSDC.decimals);
+      await fundAccountWithToken(safeAddr, 'yUSDC', amount);
+      const strategyId: number = 42;
+      const poolId: BytesLike = ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10);
+
+      const tx = await executeAction({
+        type: 'YearnWithdraw',
+        amount,
+      });
+
+      const logs = await decodeLoggerLog(tx, loggerAddress);
+      log('Logs:', logs);
+
+      expect(logs).to.have.length(1);
+      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
+
+      const txLog = logs[0] as BalanceUpdateLog;
+      expect(txLog).to.have.property('safeAddress', safeAddr);
+      expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+      expect(txLog).to.have.property('poolId', poolId);
+      expect(txLog).to.have.property('balanceBefore', amount);
+      expect(txLog).to.have.property('balanceAfter');
+      expect(txLog).to.have.property('feeInTokens');
+      expect(txLog.balanceAfter).to.be.a('bigint');
+      expect(txLog.balanceAfter).to.be.lessThan(amount);
+    });
+
+    it('Should use the exit function to withdraw', async () => {
+      const yearnWithdrawContractAddress = await yearnWithdrawContract.getAddress();
+      await fundAccountWithToken(yearnWithdrawContractAddress, 'yUSDC', 100);
+
+      await yearnWithdrawContract.exit(YEARN_USDC_ADDRESS);
+
+      expect(await yUSDC.balanceOf(yearnWithdrawContractAddress)).to.be.equal(BigInt(0));
+    });
+
+    it('Should withdraw the maximum amount of yUSDC', async () => {
+      const amount = ethers.parseUnits('100', tokenConfig.yUSDC.decimals);
+      await fundAccountWithToken(safeAddr, 'yUSDC', amount);
+
+      expect(await yUSDC.balanceOf(safeAddr)).to.equal(amount);
+      expect(await USDC.balanceOf(safeAddr)).to.equal(0);
+
+      await executeAction({
+        type: 'YearnWithdraw',
+        amount: ethers.MaxUint256,
+      });
+
+      expect(await yUSDC.balanceOf(safeAddr)).to.equal(0);
+      expect(await USDC.balanceOf(safeAddr)).to.be.greaterThan(0);
+    });
+
+    it('Should take fees', async () => {
+      const amount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
+
+      await fundAccountWithToken(safeAddr, 'USDC', amount);
+
+      const feeRecipient = await adminVault.feeRecipient();
+      const feeRecipientUSDCBalanceBefore = await USDC.balanceOf(feeRecipient);
+      const feeRecipientyUSDCBalanceBefore = await yUSDC.balanceOf(feeRecipient);
+
+      const supplyTx = await executeAction({
+        type: 'YearnSupply',
+        amount,
+      });
+
+      const yUSDCBalanceAfterSupply = await yUSDC.balanceOf(safeAddr);
+
+      const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, YEARN_USDC_ADDRESS);
+      const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp
+
+      await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
+
+      const withdrawTx = await executeAction({
+        type: 'YearnWithdraw',
+        feeBasis: 10,
+        amount: '0',
+      });
+
+      const expectedFee = await calculateExpectedFee(
+        (await supplyTx.wait()) ??
+          (() => {
+            throw new Error('Supply transaction failed');
+          })(),
+        (await withdrawTx.wait()) ??
+          (() => {
+            throw new Error('Withdraw transaction failed');
+          })(),
+        10,
+        yUSDCBalanceAfterSupply
+      );
+      const expectedFeeRecipientBalance = feeRecipientyUSDCBalanceBefore + expectedFee;
+
+      expect(await USDC.balanceOf(feeRecipient)).to.equal(feeRecipientUSDCBalanceBefore);
+      expect(await yUSDC.balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
+    });
+
+    it('Should have withdraw action type', async () => {
+      const actionType = await yearnWithdrawContract.actionType();
+      expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
+    });
   });
 });
 

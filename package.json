@@ -7,6 +7,7 @@
     "hardhat-run": "hardhat run",
     "test": "hardhat test",
     "test:logging": "ENABLE_LOGGING=true hardhat test",
+    "test:sdk": "USE_ATHENA_SDK=true hardhat test",
     "coverage": "hardhat coverage",
     "lint": "hardhat check"
   },
@@ -21,6 +22,7 @@
   },
   "homepage": "https://github.com/amorphicxyz/athena-contracts#readme",
   "devDependencies": {
+    "@nexusmutual/sdk": "^0.4.13",
     "@nomicfoundation/hardhat-ledger": "^1.0.3",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@tenderly/hardhat-tenderly": "^2.2.2",
@@ -28,6 +30,9 @@
   },
   "dependencies": {
     "@nomiclabs/hardhat-solhint": "^4.0.0",
-    "dotenv": "^16.4.5"
+    "@openzeppelin/contracts": "^5.0.2",
+    "athena-sdk": "github:amorphicxyz/athena-sdk#DEL-54",
+    "dotenv": "^16.4.5",
+    "ethers": "6.13.2"
   }
 }

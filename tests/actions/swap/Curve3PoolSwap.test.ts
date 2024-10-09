@@ -1,12 +1,14 @@
-import { ethers, Signer, expect } from '../..';
-import { network } from 'hardhat';
-import { Curve3PoolSwap, IERC20 } from '../../../typechain-types';
-import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../../tests/constants';
-import { deploy, log, getBaseSetup } from '../../utils';
 import { executeSafeTransaction } from 'athena-sdk';
-import { fundAccountWithStablecoin, getStables } from '../../utils-stable';
 import { BigNumberish } from 'ethers';
+import { network } from 'hardhat';
+import { ethers, expect, Signer } from '../..';
+import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../constants';
+import { Curve3PoolSwap, IERC20Metadata } from '../../../typechain-types';
 import { Curve3PoolSwapParams } from '../../params';
+import { deploy, executeAction, getBaseSetup, log } from '../../utils';
+import { fundAccountWithToken, getStables } from '../../utils-stable';
+import { actionTypes } from '../../actions';
+
 interface SwapParams {
   fromToken: number;
   toToken: number;
@@ -18,66 +20,29 @@ describe('Curve3PoolSwap tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let curve3PoolSwap: Curve3PoolSwap;
-  let USDC: IERC20, USDT: IERC20, DAI: IERC20;
+  let USDC: IERC20Metadata, USDT: IERC20Metadata, DAI: IERC20Metadata;
   let snapshotId: string;
-
-  function prepareSwapParameters(
-    curve3PoolSwap: Curve3PoolSwap,
-    params: SwapParams
-  ): Promise<[string, string]> {
-    const abiCoder = new ethers.AbiCoder();
-    const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
-
-    return curve3PoolSwap
-      .getAddress()
-      .then((curve3PoolSwapAddress) => [
-        curve3PoolSwapAddress,
-        curve3PoolSwap.interface.encodeFunctionData('executeActionDirect', [paramsEncoded]),
-      ]);
-  }
 
   async function testSwap(
     fromToken: 'USDC' | 'USDT' | 'DAI',
     toToken: 'USDC' | 'USDT' | 'DAI',
     fundAmount: number
   ) {
-    await fundAccountWithStablecoin(safeAddr, fromToken, fundAmount);
+    await fundAccountWithToken(safeAddr, fromToken, fundAmount);
 
     const FromToken = eval(fromToken);
     const ToToken = eval(toToken);
     const initialFromBalance = await FromToken.balanceOf(safeAddr);
     const initialToBalance = await ToToken.balanceOf(safeAddr);
 
-    expect(initialFromBalance).to.equal(
-      ethers.parseUnits(fundAmount.toString(), tokenConfig[fromToken].decimals)
-    );
-    expect(initialToBalance).to.equal(0);
-
     const swapAmount = ethers.parseUnits(fundAmount.toString(), tokenConfig[fromToken].decimals);
-    const params: SwapParams = {
-      fromToken: CURVE_3POOL_INDICES[fromToken],
-      toToken: CURVE_3POOL_INDICES[toToken],
-      amountIn: swapAmount,
-      minAmountOut: ethers.parseUnits(
-        (fundAmount * 0.99).toString(),
-        tokenConfig[toToken].decimals
-      ),
-    };
 
-    const [curve3PoolSwapAddress, encodedFunctionCall] = await prepareSwapParameters(
-      curve3PoolSwap,
-      params
-    );
-
-    // Execute swap
-    await executeSafeTransaction(
-      safeAddr,
-      curve3PoolSwapAddress,
-      0,
-      encodedFunctionCall,
-      1,
-      signer
-    );
+    await executeAction({
+      type: 'Curve3PoolSwap',
+      tokenIn: fromToken,
+      tokenOut: toToken,
+      amount: swapAmount,
+    });
 
     // Check balances after swap
     const finalFromBalance = await FromToken.balanceOf(safeAddr);
@@ -100,13 +65,16 @@ describe('Curve3PoolSwap tests', () => {
     // Deploy base setup
     [signer] = await ethers.getSigners();
     const baseSetup = await getBaseSetup();
-    safeAddr = baseSetup.safeAddr;
-
+    if (!baseSetup) {
+      throw new Error('Base setup not deployed');
+    }
+    safeAddr = await baseSetup.safe.getAddress();
+    const adminVault = await baseSetup.adminVault;
     // Deploy contracts specific to these tests
     curve3PoolSwap = await deploy(
       'Curve3PoolSwap',
       signer,
-      baseSetup.contractRegistry.getAddress(),
+      await adminVault.getAddress(),
       baseSetup.logger.getAddress(),
       CURVE_3POOL_ADDRESS
     );
@@ -189,6 +157,10 @@ describe('Curve3PoolSwap tests', () => {
       expect(await DAI.symbol()).to.equal('DAI');
       expect(await DAI.decimals()).to.equal(tokenConfig.DAI.decimals);
     });
+    it('Should have swap action type', async () => {
+      const actionType = await curve3PoolSwap.actionType();
+      expect(actionType).to.equal(actionTypes.SWAP_ACTION);
+    });
   });
   describe('Edge cases', () => {
     it('should swap large amounts (10 million tokens)', async () => {
@@ -196,38 +168,27 @@ describe('Curve3PoolSwap tests', () => {
     });
 
     it('should fail when swapping zero amount', async () => {
-      const params: SwapParams = {
-        fromToken: CURVE_3POOL_INDICES.DAI,
-        toToken: CURVE_3POOL_INDICES.USDC,
-        amountIn: 0,
-        minAmountOut: 0,
-      };
-      const [curve3PoolSwapAddress, encodedFunctionCall] = await prepareSwapParameters(
-        curve3PoolSwap,
-        params
-      );
       await expect(
-        executeSafeTransaction(safeAddr, curve3PoolSwapAddress, 0, encodedFunctionCall, 1, signer)
+        executeAction({
+          type: 'Curve3PoolSwap',
+          tokenIn: 'DAI',
+          tokenOut: 'USDC',
+          amount: '0',
+        })
       ).to.be.revertedWith('GS013');
     });
   });
   describe('Slippage protection', () => {
     it('should fail when slippage is too high', async () => {
-      const mainSwapParams: SwapParams = {
-        fromToken: CURVE_3POOL_INDICES.USDC,
-        toToken: CURVE_3POOL_INDICES.DAI,
-        amountIn: 100,
-        minAmountOut: 150,
-      };
-
-      const [mainSwapAddress, mainSwapEncodedCall] = await prepareSwapParameters(
-        curve3PoolSwap,
-        mainSwapParams
-      );
-
       // The transaction should revert due to unrealistic slippage expectation
       await expect(
-        executeSafeTransaction(safeAddr, mainSwapAddress, 0, mainSwapEncodedCall, 1, signer)
+        executeAction({
+          type: 'Curve3PoolSwap',
+          tokenIn: 'DAI',
+          tokenOut: 'USDC',
+          amount: '10',
+          minAmount: '1000',
+        })
       ).to.be.revertedWith('GS013');
     });
   });
@@ -241,7 +202,7 @@ describe('Curve3PoolSwap tests', () => {
     it('should fail with invalid token indices', async () => {
       // Not using the safe as it obsfucates the error message
       const swapAmount = ethers.parseUnits('10', tokenConfig.USDC.decimals);
-      await fundAccountWithStablecoin(await curve3PoolSwap.getAddress(), 'USDC', 100);
+      await fundAccountWithToken(await curve3PoolSwap.getAddress(), 'USDC', 100);
 
       const params = {
         fromToken: 1,
@@ -253,14 +214,14 @@ describe('Curve3PoolSwap tests', () => {
       const abiCoder = new ethers.AbiCoder();
       const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
 
-      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWithCustomError(
+      await expect(curve3PoolSwap.executeAction(paramsEncoded, 0)).to.be.revertedWithCustomError(
         curve3PoolSwap,
-        'InvalidTokenIndices'
+        'Curve3Pool__InvalidTokenIndices'
       );
     });
     it('should fail with matching token indices', async () => {
       const swapAmount = ethers.parseUnits('10', tokenConfig.USDC.decimals);
-      await fundAccountWithStablecoin(await curve3PoolSwap.getAddress(), 'USDC', 1000);
+      await fundAccountWithToken(await curve3PoolSwap.getAddress(), 'USDC', 1000);
       const params = {
         fromToken: 0,
         toToken: 0,
@@ -270,9 +231,9 @@ describe('Curve3PoolSwap tests', () => {
 
       const abiCoder = new ethers.AbiCoder();
       const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
-      await expect(curve3PoolSwap.executeActionDirect(paramsEncoded)).to.be.revertedWithCustomError(
+      await expect(curve3PoolSwap.executeAction(paramsEncoded, 0)).to.be.revertedWithCustomError(
         curve3PoolSwap,
-        'CannotSwapSameToken'
+        'Curve3Pool__InvalidTokenIndices'
       );
     });
   });

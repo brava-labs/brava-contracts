@@ -1,8 +1,9 @@
-import "@nomicfoundation/hardhat-ledger";
-import "@nomicfoundation/hardhat-toolbox";
-import * as tenderly from "@tenderly/hardhat-tenderly";
-import "dotenv/config";
-import { HardhatUserConfig } from "hardhat/config";
+import '@nomicfoundation/hardhat-ledger';
+import '@nomicfoundation/hardhat-toolbox';
+import '@nomiclabs/hardhat-solhint';
+import * as tenderly from '@tenderly/hardhat-tenderly';
+import 'dotenv/config';
+import { HardhatUserConfig } from 'hardhat/config';
 
 tenderly.setup({
   automaticVerifications: !!process.env.TENDERLY_AUTOMATIC_VERIFICATION,
@@ -20,14 +21,13 @@ const config: HardhatUserConfig = {
     },
     hardhat: {
       forking: {
-        url:
-          "https://eth-mainnet.g.alchemy.com/v2/" +
-          process.env.ALCHEMY_API_KEY!,
+        url: 'https://mainnet.gateway.tenderly.co/' + process.env.TENDERLY_API_KEY!,
+        blockNumber: 20840000,
         enabled: true,
       },
     },
     localhost: {
-      url: "http://127.0.0.1:8545",
+      url: 'http://127.0.0.1:8545',
     },
   },
   tenderly: {

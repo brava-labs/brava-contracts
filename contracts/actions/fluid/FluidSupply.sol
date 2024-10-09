@@ -1,75 +1,114 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import { ActionBase } from "../ActionBase.sol";
-import { TokenUtils } from "../../libraries/TokenUtils.sol";
-import { IFToken } from "../../interfaces/fluid/IFToken.sol";
-import { ActionUtils } from "../../libraries/ActionUtils.sol";
+import {ActionBase} from "../ActionBase.sol";
+import {Errors} from "../../Errors.sol";
+import {IFluidLending} from "../../interfaces/fluid/IFToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title Supplies tokens to Yearn vault
-/// @dev tokens need to be approved for user's wallet to pull them (token address)
+/// @title FluidSupply - Supplies tokens to Fluid vault
+/// @notice This contract allows users to supply tokens to a Fluid vault
+/// @dev Inherits from ActionBase and implements the supply functionality for Fluid protocol
 contract FluidSupply is ActionBase {
-    using TokenUtils for address;
+    using SafeERC20 for IERC20;
 
-    /// @param token - address of fToken contract
-    /// @param amount - amount of token to supply
+    /// @notice Parameters for the supply action
+    /// @param poolId ID of fToken vault contract
+    /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param amount Amount of underlying token to supply
+    /// @param minSharesReceived Minimum amount of shares to receive
     struct Params {
-        address token;
+        bytes4 poolId;
+        uint16 feeBasis;
         uint256 amount;
+        uint256 minSharesReceived;
     }
 
-    constructor(address _registry, address _logger) ActionBase(_registry, _logger) {}
+    /// @notice Initializes the FluidSupply contract
+    /// @param _adminVault Address of the admin vault
+    /// @param _logger Address of the logger contract
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
-    function executeAction(
-        bytes memory _callData,
-        uint8[] memory _paramMapping,
-        bytes32[] memory _returnValues,
-        uint16 _strategyId
-    ) public payable virtual override returns (bytes32) {
+    /// @notice Executes the supply action
+    /// @param _callData Encoded call data containing Params struct
+    /// @param _strategyId ID of the strategy executing this action
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+        // Parse inputs
         Params memory inputData = _parseInputs(_callData);
 
-        inputData.amount = _parseParamUint(
-            inputData.amount,
-            _paramMapping[1],
-            _returnValues
+        // Check inputs
+        ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
+        address fToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
+
+        // Execute action
+        (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) = _fluidSupply(inputData, fToken);
+
+        // Log event
+        LOGGER.logActionEvent(
+            "BalanceUpdate",
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
         );
-
-        (uint256 fAmountReceived, bytes memory logData) = _fluidSupply(inputData, _strategyId);
-        logger.logActionEvent("FluidSupply", logData);
-        return bytes32(fAmountReceived);
     }
 
     /// @inheritdoc ActionBase
-    function executeActionDirect(bytes memory _callData) public payable override {
-        Params memory inputData = _parseInputs(_callData);
-        (, bytes memory logData) = _fluidSupply(inputData, 0);
-        logger.logActionEvent("FluidSupply", logData);
-    }
-
-    /// @inheritdoc ActionBase
-    function actionType() public pure virtual override returns (uint8) {
+    function actionType() public pure override returns (uint8) {
         return uint8(ActionType.DEPOSIT_ACTION);
     }
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    function _fluidSupply(Params memory _inputData, uint16 _strategyId) private returns (uint256 fTokenAmount, bytes memory logData) {
-        IFToken fToken = IFToken(address(_inputData.token));
+    /// @notice Executes the Fluid supply logic
+    /// @param _inputData Struct containing supply parameters
+    /// @param _fTokenAddress Address of the fToken contract
+    /// @return fBalanceBefore Balance of fTokens before the supply
+    /// @return fBalanceAfter Balance of fTokens after the supply
+    /// @return feeInTokens Amount of fees taken in tokens
+    function _fluidSupply(
+        Params memory _inputData,
+        address _fTokenAddress
+    ) private returns (uint256 fBalanceBefore, uint256 fBalanceAfter, uint256 feeInTokens) {
+        IFluidLending fToken = IFluidLending(_fTokenAddress);
+        fBalanceBefore = fToken.balanceOf(address(this));
 
-        _inputData.token.approveToken(address(fToken), _inputData.amount);
+        // Handle fee initialization or collection
+        if (fBalanceBefore == 0) {
+            ADMIN_VAULT.initializeFeeTimestamp(_fTokenAddress);
+        } else {
+            feeInTokens = _takeFee(_fTokenAddress, _inputData.feeBasis);
+        }
 
-        uint256 fBalanceBefore = address(fToken).getBalance(address(this));
-        fToken.deposit(_inputData.amount, address(this));
-        uint256 fBalanceAfter = address(fToken).getBalance(address(this));
-        fTokenAmount = fBalanceAfter - fBalanceBefore;
+        // Perform the deposit
+        if (_inputData.amount != 0) {
+            IERC20 stableToken = IERC20(fToken.asset());
+            uint256 amountToDeposit = _inputData.amount == type(uint256).max
+                ? stableToken.balanceOf(address(this))
+                : _inputData.amount;
 
-        logData = abi.encode(_inputData, fTokenAmount);
+            if (amountToDeposit == 0) {
+                // We wanted to input max, but have zero stable balance
+                revert Errors.Action_ZeroAmount(protocolName(), actionType());
+            }
 
-        logger.logActionEvent("BalanceUpdate", ActionUtils._encodeBalanceUpdate(_strategyId, ActionUtils._poolIdFromAddress(address(fToken)), fBalanceBefore, fBalanceAfter));
+            stableToken.safeIncreaseAllowance(_fTokenAddress, amountToDeposit);
+            fToken.deposit(_inputData.amount, address(this), _inputData.minSharesReceived);
+        }
+
+        fBalanceAfter = fToken.balanceOf(address(this));
     }
 
+    /// @notice Parses the input data from bytes to Params struct
+    /// @param _callData Encoded call data
+    /// @return inputData Decoded Params struct
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
+    }
+
+    /// @inheritdoc ActionBase
+    /// @notice Returns the protocol name
+    /// @return string "Fluid"
+    function protocolName() internal pure override returns (string memory) {
+        return "Fluid";
     }
 }
