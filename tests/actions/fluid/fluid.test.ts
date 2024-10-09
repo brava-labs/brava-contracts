@@ -73,26 +73,10 @@ describe('Fluid tests', () => {
     fUSDT = await ethers.getContractAt('IFluidLending', FLUID_USDT_ADDRESS);
 
     // grant the fUSDC and fUSDT contracts the POOL_ROLE
-    await adminVault.proposePool(
-      'Fluid',
-      ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10),
-      FLUID_USDC_ADDRESS
-    );
-    await adminVault.proposePool(
-      'Fluid',
-      ethers.keccak256(FLUID_USDT_ADDRESS).slice(0, 10),
-      FLUID_USDT_ADDRESS
-    );
-    await adminVault.addPool(
-      'Fluid',
-      ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10),
-      FLUID_USDC_ADDRESS
-    );
-    await adminVault.addPool(
-      'Fluid',
-      ethers.keccak256(FLUID_USDT_ADDRESS).slice(0, 10),
-      FLUID_USDT_ADDRESS
-    );
+    await adminVault.proposePool('Fluid', FLUID_USDC_ADDRESS);
+    await adminVault.proposePool('Fluid', FLUID_USDT_ADDRESS);
+    await adminVault.addPool('Fluid', FLUID_USDC_ADDRESS);
+    await adminVault.addPool('Fluid', FLUID_USDT_ADDRESS);
   });
 
   beforeEach(async () => {
@@ -359,6 +343,7 @@ describe('Fluid tests', () => {
       const supplyTx = await executeAction({
         type: 'FluidSupply',
         amount,
+        feeBasis: 10,
       });
 
       const fUSDCBalanceAfterSupply = await fUSDC.balanceOf(safeAddr);
@@ -377,8 +362,14 @@ describe('Fluid tests', () => {
       });
 
       const expectedFee = await calculateExpectedFee(
-        (await supplyTx.wait()) ?? throwError('Supply transaction failed'),
-        (await withdrawTx.wait()) ?? throwError('Withdraw transaction failed'),
+        (await supplyTx.wait()) ??
+          (() => {
+            throw new Error('Supply transaction failed');
+          })(),
+        (await withdrawTx.wait()) ??
+          (() => {
+            throw new Error('Withdraw transaction failed');
+          })(),
         10,
         fUSDCBalanceAfterSupply
       );

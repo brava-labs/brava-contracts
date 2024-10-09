@@ -63,16 +63,8 @@ describe('Yearn tests', () => {
     );
     yUSDC = await ethers.getContractAt('IYearnVault', YEARN_USDC_ADDRESS);
 
-    await adminVault.proposePool(
-      'Yearn',
-      ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10),
-      YEARN_USDC_ADDRESS
-    );
-    await adminVault.addPool(
-      'Yearn',
-      ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10),
-      YEARN_USDC_ADDRESS
-    );
+    await adminVault.proposePool('Yearn', YEARN_USDC_ADDRESS);
+    await adminVault.addPool('Yearn', YEARN_USDC_ADDRESS);
   });
 
   beforeEach(async () => {
@@ -167,7 +159,7 @@ describe('Yearn tests', () => {
       });
 
       const txReceipt = await tx.wait();
-      const block = await ethers.provider.getBlock(txReceipt.blockNumber);
+      const block = await ethers.provider.getBlock(txReceipt!.blockNumber);
       if (!block) {
         throw new Error('Block not found');
       }
@@ -283,8 +275,14 @@ describe('Yearn tests', () => {
       });
 
       const expectedFee = await calculateExpectedFee(
-        supplyTx,
-        withdrawTx,
+        (await supplyTx.wait()) ??
+          (() => {
+            throw new Error('Supply transaction failed');
+          })(),
+        (await withdrawTx.wait()) ??
+          (() => {
+            throw new Error('Withdraw transaction failed');
+          })(),
         10,
         yUSDCBalanceAfterSupply
       );

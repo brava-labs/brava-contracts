@@ -216,7 +216,7 @@ describe('Curve3PoolSwap tests', () => {
 
       await expect(curve3PoolSwap.executeAction(paramsEncoded, 0)).to.be.revertedWithCustomError(
         curve3PoolSwap,
-        'InvalidTokenIndices'
+        'Curve3Pool__InvalidTokenIndices'
       );
     });
     it('should fail with matching token indices', async () => {
@@ -233,7 +233,7 @@ describe('Curve3PoolSwap tests', () => {
       const paramsEncoded = abiCoder.encode([Curve3PoolSwapParams], [params]);
       await expect(curve3PoolSwap.executeAction(paramsEncoded, 0)).to.be.revertedWithCustomError(
         curve3PoolSwap,
-        'CannotSwapSameToken'
+        'Curve3Pool__InvalidTokenIndices'
       );
     });
   });

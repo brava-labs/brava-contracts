@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
+import {Errors} from "../../Errors.sol";
 import {ActionBase} from "../ActionBase.sol";
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
 
-/// @title Burns yTokens and receive underlying tokens in return
-/// @dev yTokens need to be approved for user's wallet to pull them (yToken address)
+/// @title YearnWithdraw - Burns yTokens and receives underlying tokens in return
+/// @notice This contract allows users to withdraw tokens from a Yearn vault
+/// @dev Inherits from ActionBase and implements the withdraw functionality for Yearn protocol
 contract YearnWithdraw is ActionBase {
-    // TODO: Implement unified error reporting for all actions.
-    error YearnWithdraw__MaxSharesBurnedExceeded();
 
-    /// @param yToken - address of yToken vault contract
-    /// @param amount - amount of underlying token to withdraw
-    /// @param feeBasis - fee percentage to apply (in basis points, e.g., 100 = 1%)
-    /// @param maxSharesBurned - maximum amount of yTokens to burn
+    /// @notice Parameters for the withdraw action
+    /// @param poolId ID of yToken vault contract
+    /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param withdrawRequest Amount of underlying token to withdraw
+    /// @param maxSharesBurned Maximum amount of yTokens to burn
     struct Params {
         bytes4 poolId;
         uint16 feeBasis;
@@ -21,21 +22,24 @@ contract YearnWithdraw is ActionBase {
         uint256 maxSharesBurned;
     }
 
+    /// @notice Initializes the YearnWithdraw contract
+    /// @param _adminVault Address of the admin vault
+    /// @param _logger Address of the logger contract
     constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
-    function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual override {
-        // parse input data
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {    
+        // Parse inputs
         Params memory inputData = _parseInputs(_callData);
 
-        // verify input data
+        // Check inputs
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
         address yToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
-
-        // execute logic
+    
+        // Execute action
         (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnWithdraw(inputData, yToken);
 
-        // log event
+        // Log event
         LOGGER.logActionEvent(
             "BalanceUpdate",
             _encodeBalanceUpdate(_strategyId, inputData.poolId, yBalanceBefore, yBalanceAfter, feeInTokens)
@@ -43,18 +47,23 @@ contract YearnWithdraw is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function actionType() public pure virtual override returns (uint8) {
+    function actionType() public pure override returns (uint8) {
         return uint8(ActionType.WITHDRAW_ACTION);
     }
 
+    /// @notice Withdraws all available tokens from the specified Yearn vault
+    /// @param _yToken Address of the yToken contract
     function exit(address _yToken) public {
         IYearnVault yToken = IYearnVault(_yToken);
         yToken.withdraw();
     }
 
-    //////////////////////////// ACTION LOGIC ////////////////////////////
-
-    /// Calculate and take fees, then withdraw the underlying token
+    /// @notice Calculates and takes fees, then withdraws the underlying token
+    /// @param _inputData Struct containing withdraw parameters
+    /// @param _yToken Address of the yToken contract
+    /// @return yBalanceBefore Balance of yTokens before the withdrawal
+    /// @return yBalanceAfter Balance of yTokens after the withdrawal
+    /// @return feeInTokens Amount of fees taken in tokens
     function _yearnWithdraw(
         Params memory _inputData,
         address _yToken
@@ -66,28 +75,34 @@ contract YearnWithdraw is ActionBase {
 
         yBalanceBefore = yToken.balanceOf(address(this));
 
-        // If withdraw request is zero this was only a fee take, so we can skip the rest
+        // If withdraw request is non-zero, process the withdrawal
         if (_inputData.withdrawRequest != 0) {
-            // If withdraw exceeds balance, withdraw max
             uint256 pricePerShare = yToken.pricePerShare();
             uint256 maxWithdrawAmount = yBalanceBefore * pricePerShare;
+            uint256 sharesBurned;
+
             if (_inputData.withdrawRequest > maxWithdrawAmount) {
-                if (yToken.withdraw() > _inputData.maxSharesBurned) {
-                    revert YearnWithdraw__MaxSharesBurnedExceeded();
-                }
+                sharesBurned = yToken.withdraw();
             } else {
-                if (yToken.withdraw(_inputData.withdrawRequest, address(this)) > _inputData.maxSharesBurned) {
-                    revert YearnWithdraw__MaxSharesBurnedExceeded();
-                }
+                sharesBurned = yToken.withdraw(_inputData.withdrawRequest, address(this));
+            }
+
+            if (sharesBurned > _inputData.maxSharesBurned) {
+                revert Errors.Action_MaxSharesBurnedExceeded(protocolName(), actionType(), sharesBurned, _inputData.maxSharesBurned);
             }
         }
+
         yBalanceAfter = yToken.balanceOf(address(this));
     }
 
+    /// @notice Parses the input data from bytes to Params struct
+    /// @param _callData Encoded call data
+    /// @return inputData Decoded Params struct
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
         inputData = abi.decode(_callData, (Params));
     }
 
+    /// @inheritdoc ActionBase
     function protocolName() internal pure override returns (string memory) {
         return "Yearn";
     }

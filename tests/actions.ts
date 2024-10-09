@@ -89,6 +89,30 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['fromToken', 'toToken', 'amount', 'minAmount'],
     },
   },
+  PullToken: {
+    type: 'PullToken',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    token: 'USDC',
+    amount: '0',
+    encoding: {
+      inputParams: ['address', 'address', 'uint256'],
+      encodingVariables: ['tokenAddress', 'from', 'amount'],
+    },
+  },
+  SendToken: {
+    type: 'SendToken',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    token: 'USDC',
+    amount: '0',
+    encoding: {
+      inputParams: ['address', 'address', 'uint256'],
+      encodingVariables: ['tokenAddress', 'to', 'amount'],
+    },
+  },
   // Add more action types and their defaults as needed
 };
 
@@ -116,4 +140,7 @@ export interface ActionArgs {
   encoding?: ActionEncoding;
   poolId?: string;
   poolAddress?: string;
+  tokenAddress?: string;
+  from?: string;
+  to?: string;
 }

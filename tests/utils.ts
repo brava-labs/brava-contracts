@@ -108,12 +108,29 @@ export async function deploy<T extends BaseContract>(
 ): Promise<T> {
   log(`Deploying ${contractName} with args:`, ...args);
   const feeData = await ethers.provider.getFeeData();
-  const gasOverrides = {
-    maxFeePerGas: feeData.maxFeePerGas,
-    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-  };
   const factory = await ethers.getContractFactory(contractName, signer);
-  const contract = (await factory.deploy(...args, gasOverrides)) as T;
+  let contract: T;
+  try {
+    // By default try and deploy with gasOverrides from the provider
+    const gasOverrides = {
+      maxFeePerGas: feeData.maxFeePerGas,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+    };
+    contract = (await factory.deploy(...args, gasOverrides)) as T;
+  } catch (error) {
+    // If the deployment fails, try and deploy with 0 gas
+    const gasOverrides = {
+      maxFeePerGas: '0',
+      maxPriorityFeePerGas: '0',
+    };
+    try {
+      contract = (await factory.deploy(...args, gasOverrides)) as T;
+    } catch (error) {
+      // now we really are out of options
+      log(`Error deploying ${contractName} with gas overrides:`, error);
+      throw error;
+    }
+  }
   log(`${contractName} deployed at:`, await contract.getAddress());
   deployedContracts[contractName] = { address: await contract.getAddress(), contract };
   return contract.waitForDeployment() as Promise<T>;
@@ -126,7 +143,8 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
     'AdminVault',
     deploySigner,
     await deploySigner.getAddress(),
-    0
+    0,
+    logger.getAddress()
   );
   const safeAddress = await deploySafe(deploySigner);
   const safe = await ethers.getContractAt('ISafe', safeAddress);
@@ -243,7 +261,7 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
       }
     }
 
-    // Handle token special case
+    // Handle Curve swap special case
     // we generally have token name, but we need to change to the curve token index
     if (variable === 'fromToken') {
       if (mergedArgs.tokenIn && mergedArgs.tokenIn in CURVE_3POOL_INDICES) {
@@ -258,6 +276,17 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
         return CURVE_3POOL_INDICES[mergedArgs.tokenOut as keyof typeof CURVE_3POOL_INDICES];
       } else {
         throw new Error(`Invalid or missing token parameter for ${args.type}`);
+      }
+    }
+
+    // Handle PullToken and SendToken special case
+    if (variable === 'tokenAddress') {
+      if (mergedArgs.tokenAddress) {
+        return mergedArgs.tokenAddress;
+      } else if (mergedArgs.token) {
+        return tokenConfig[mergedArgs.token as keyof typeof tokenConfig].address;
+      } else {
+        throw new Error(`Missing required parameter: token for ${args.type}`);
       }
     }
 
