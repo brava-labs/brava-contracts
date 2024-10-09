@@ -3,15 +3,10 @@
 pragma solidity =0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Errors} from "../Errors.sol";
 
 /// @title Add delays to granting roles in access control
 abstract contract AccessControlDelayed is AccessControl {
-    error RoleAlreadyProposed();
-    error RoleNotProposed();
-    error DelayNotPassed();
-    error InvalidDelay();
-    error InvalidAddress();
-
     uint256 public delay;
     uint256 public delayReductionLockTime;
     // mapping of proposed roles to the timestamp they can be granted
@@ -31,11 +26,11 @@ abstract contract AccessControlDelayed is AccessControl {
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         // Check if role was proposed
         if (proposedRoles[proposalId] == 0) {
-            revert RoleNotProposed();
+            revert Errors.AdminVault_NotProposed();
         }
         // Check if delay is passed
         if (block.timestamp < proposedRoles[proposalId]) {
-            revert DelayNotPassed();
+            revert Errors.AdminVault_DelayNotPassed(block.timestamp, proposedRoles[proposalId]);
         }
         // role was proposed and delay has passed, delete proposal and grant role
         delete proposedRoles[proposalId];
@@ -57,12 +52,12 @@ abstract contract AccessControlDelayed is AccessControl {
 
     function _proposeRole(bytes32 role, address account) internal virtual {
         if (account == address(0)) {
-            revert InvalidAddress();
+            revert Errors.InvalidInput("AccessControlDelayed", "_proposeRole");
         }
         // Check if role was already proposed
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         if (proposedRoles[proposalId] > 0) {
-            revert RoleAlreadyProposed();
+            revert Errors.AdminVault_AlreadyProposed();
         }
         uint256 additionalDelay = 0;
         // Check if delay reduction lock time is passed
@@ -82,7 +77,7 @@ abstract contract AccessControlDelayed is AccessControl {
     function changeDelay(uint256 newDelay) public onlyRole(DEFAULT_ADMIN_ROLE) {
         // delay must be different and not more than 5 days (to avoid costly mistakes)
         if (newDelay == delay || newDelay > 5 days) {
-            revert InvalidDelay();
+            revert Errors.AccessControlDelayed_InvalidDelay();
         }
         if (newDelay > delay) {
             // new delay is longer, just set it
@@ -103,7 +98,7 @@ abstract contract AccessControlDelayed is AccessControl {
 
     function cancelRoleProposal(bytes32 role, address account) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         if (proposedRoles[keccak256(abi.encodePacked(role, account))] == 0) {
-            revert RoleNotProposed();
+            revert Errors.AdminVault_NotProposed();
         }
         delete proposedRoles[keccak256(abi.encodePacked(role, account))];
     }

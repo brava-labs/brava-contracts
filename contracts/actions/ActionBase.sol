@@ -1,29 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import {IAdminVault} from "../interfaces/IAdminVault.sol";
+import {Errors} from "../Errors.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
+import {IAdminVault} from "../interfaces/IAdminVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// TODOs for each actions
-// private parsing function for each action
-// improve logging with indexer in mind
-// utilize ContractRegistry for all actions (?)
-// do we go with fixed version or ^0.8.0
-
-/// @title Implements Action interface and common helpers for passing inputs
+/// @title ActionBase - Base contract for all actions in the protocol
+/// @notice Implements common functionality and interfaces for all actions
+/// @dev This contract should be inherited by all specific action contracts
 abstract contract ActionBase {
     using SafeERC20 for IERC20;
 
+    /// @notice Interface for the admin vault
     IAdminVault public immutable ADMIN_VAULT;
+
+    /// @notice Interface for the logger
     ILogger public immutable LOGGER;
 
-    error FeeTimestampNotInitialized();
-
+    /// @notice Basis points for fee calculations (100% = 10000)
     uint256 public constant FEE_BASIS_POINTS = 10000;
+
+    /// @notice Duration of a fee period (1 year)
     uint256 public constant FEE_PERIOD = 365 days;
 
+    /// @notice Enum representing different types of actions
     enum ActionType {
         DEPOSIT_ACTION,
         WITHDRAW_ACTION,
@@ -34,32 +36,35 @@ abstract contract ActionBase {
         CUSTOM_ACTION
     }
 
+    /// @notice Initializes the ActionBase contract
+    /// @param _adminVault Address of the admin vault
+    /// @param _logger Address of the logger contract
     constructor(address _adminVault, address _logger) {
         ADMIN_VAULT = IAdminVault(_adminVault);
         LOGGER = ILogger(_logger);
     }
 
-    /// @notice Parses inputs and runs the implemented action through a user wallet
-    /// @dev Is called by the RecipeExecutor chaining actions together
-    /// @param _callData Array of input values each value encoded as bytes
-    /// @param _strategyId The index of the strategy the action is related to
+    /// @notice Executes the implemented action
+    /// @dev This function should be overridden by inheriting contracts
+    /// @param _callData Encoded input data for the action
+    /// @param _strategyId The ID of the strategy executing this action
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual;
 
-    /// @notice Returns the type of action we are implementing
+    /// @notice Returns the type of action being implemented
+    /// @return uint8 The action type as defined in the ActionType enum
     function actionType() public pure virtual returns (uint8);
 
-    /// Helper functions
-
-    /// @notice If necessary, takes the fee due from the vault and performs required updates
+    /// @notice Takes the fee due from the vault and performs required updates
+    /// @param _vault Address of the vault
+    /// @param _feePercentage Fee percentage in basis points
+    /// @return uint256 The amount of fee taken
     function _takeFee(address _vault, uint256 _feePercentage) internal returns (uint256) {
         uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_vault);
         uint256 currentTimestamp = block.timestamp;
         if (lastFeeTimestamp == 0) {
-            // Ensure the fee timestamp is initialized
-            revert FeeTimestampNotInitialized();
+            revert Errors.AdminVault_NotInitialized();
         } else if (lastFeeTimestamp == currentTimestamp) {
-            // Don't take fees twice in the same block
-            return 0;
+            return 0; // Don't take fees twice in the same block
         } else {
             IERC20 vault = IERC20(_vault);
             uint256 balance = vault.balanceOf(address(this));
@@ -70,7 +75,12 @@ abstract contract ActionBase {
         }
     }
 
-    /// @notice Calculates the fee due from the vault based on the balance and fee percentage
+    /// @notice Calculates the fee due from the vault
+    /// @param _totalDeposit Total amount deposited in the vault
+    /// @param _feePercentage Fee percentage in basis points
+    /// @param _lastFeeTimestamp Timestamp of the last fee collection
+    /// @param _currentTimestamp Current timestamp
+    /// @return uint256 The calculated fee amount
     function _calculateFee(
         uint256 _totalDeposit,
         uint256 _feePercentage,
@@ -78,18 +88,25 @@ abstract contract ActionBase {
         uint256 _currentTimestamp
     ) internal pure returns (uint256) {
         uint256 secondsPassed = _currentTimestamp - _lastFeeTimestamp;
-
-        // Calculate fee based on seconds passed, this is accurate enough
-        // for the long term nature of the investements being dealt with here
         uint256 annualFee = (_totalDeposit * _feePercentage) / FEE_BASIS_POINTS;
         uint256 feeForPeriod = (annualFee * secondsPassed) / FEE_PERIOD;
         return feeForPeriod;
     }
 
+    /// @notice Generates a pool ID from an address
+    /// @param _addr Address to generate the pool ID from
+    /// @return bytes4 The generated pool ID
     function _poolIdFromAddress(address _addr) internal pure returns (bytes4) {
         return bytes4(keccak256(abi.encodePacked(_addr)));
     }
 
+    /// @notice Encodes balance update information
+    /// @param _strategyId ID of the strategy
+    /// @param _poolId ID of the pool
+    /// @param _balanceBefore Balance before the action
+    /// @param _balanceAfter Balance after the action
+    /// @param _feeInTokens Amount of fee taken in tokens
+    /// @return bytes Encoded balance update information
     function _encodeBalanceUpdate(
         uint16 _strategyId,
         bytes4 _poolId,
@@ -100,5 +117,7 @@ abstract contract ActionBase {
         return abi.encode(_strategyId, _poolId, _balanceBefore, _balanceAfter, _feeInTokens);
     }
 
+    /// @notice Returns the name of the protocol
+    /// @return string The name of the protocol
     function protocolName() internal pure virtual returns (string memory);
 }

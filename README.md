@@ -56,27 +56,32 @@ Our smart contract architecture is built on the Safe (formerly Gnosis Safe) smar
 
 ### Structure
 
-- **Actions** 📁: The `actions` folder contains subfolders for each supported protocol. Within these subfolders, individual contracts represent specific protocol functions (e.g., Deposit, Withdraw).
+- **Sequence Executor** 🔄: The central component that enables the execution of complex, multi-step DeFi operations in a single transaction.
 
-- **Contract Registry** 📚: A central registry contract keeps track of all action contracts, allowing for easy updates and management of the system.
+- **Actions** 📁: The `actions` folder contains subfolders for each supported protocol. Within these subfolders, individual contracts represent specific protocol functions (e.g., Deposit, Withdraw, Swap).
 
-- **Logger** 📝: A dedicated logger contract is responsible for emitting all events, providing a centralized and consistent approach to event handling.
+- **AdminVault** 🔐: A central registry contract that keeps track of all action contracts and controls which actions are available, allowing for easy updates and management of the system.
+
+- **Logger** 📝: A dedicated logger contract responsible for emitting all events, providing a centralized and consistent approach to event handling.
 
 ### Execution Model 🔄
 
-Actions are designed to be chained together through a sequence of `delegatecall`s from an individual user's Safe smart wallet. This architecture allows for:
+Sequences of actions are executed through the Sequence Executor, which uses `delegatecall`s to run actions from an individual user's Safe smart wallet. This architecture allows for:
 
 1. **Composability** 🧩: Multiple actions can be combined within a single transaction.
-2. **Flexibility** 🤸: Complex DeFi operations can be constructed by sequencing simpler actions.
+2. **Flexibility** 🤸: Complex DeFi operations can be constructed by sequencing simpler actions in any order.
 3. **Gas Efficiency** ⛽: By executing multiple operations in one transaction, gas costs are optimized.
+4. **User Fund Custody** 💼: All operations are executed in the context of the user's Safe wallet, maintaining custody of funds.
 
 ### Key Features 🌟
 
 - **Modularity** 🧱: Each action is encapsulated in its own contract, promoting code reusability and easier maintenance.
-- **Upgradability** 🔄: The contract registry allows for seamless updates to individual action contracts without affecting the overall system.
-- **Extensibility** 🔌: New protocols and actions can be easily added by deploying new contracts and registering them.
+- **Upgradability** 🔄: The AdminVault allows for seamless updates to individual action contracts without affecting the overall system.
+- **Extensibility** 🔌: New protocols and actions can be easily added by deploying new contracts and registering them with the AdminVault.
+- **Security** 🛡️: Action types provide fine-grained control over operations, enhancing system security.
+- **Transparency** 🔍: Centralized logging and action type system improve error reporting and traceability.
 
-This architecture enables users to perform sophisticated DeFi strategies efficiently and securely, all within the context of their Safe smart wallet. 🚀💼
+This architecture enables users to perform sophisticated DeFi strategies efficiently and securely, all within the context of their Safe smart wallet, without AthenaFi taking custody of funds. 🚀💼
 
 ## 🤝 Contributing
 

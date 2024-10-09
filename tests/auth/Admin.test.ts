@@ -110,21 +110,21 @@ describe('AdminVault', function () {
         await adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), alice.address);
         await expect(
           adminVault.connect(admin).grantRole(getRoleBytes('OWNER_ROLE'), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'DelayNotPassed');
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_DelayNotPassed');
       });
 
       it('should not be able to grant a role if the role is not proposed', async function () {
         if (!this.test!.ctx!.granted) this.skip();
         await expect(
           adminVault.connect(admin).grantRole(getRoleBytes('OWNER_ROLE'), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'RoleNotProposed');
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
       });
 
       it('should not be able to propose a role to the zero address', async function () {
         if (!this.test!.ctx!.proposed) this.skip();
         await expect(
           adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), ethers.ZeroAddress)
-        ).to.be.revertedWithCustomError(adminVault, 'InvalidAddress');
+        ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
       });
     });
 
@@ -173,106 +173,62 @@ describe('AdminVault', function () {
         await adminVault.connect(admin).proposeFeeRecipient(alice.address);
         await expect(
           adminVault.connect(admin).setFeeRecipient(alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'DelayNotPassed');
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_DelayNotPassed');
       });
 
       it('should not be able to set a fee recipient if the fee recipient is not proposed', async function () {
         if (!this.test!.ctx!.set) this.skip();
         await expect(
           adminVault.connect(admin).setFeeRecipient(alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'FeeRecipientNotProposed');
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
       });
 
       it('should not be able to set a fee recipient if the fee recipient is the zero address', async function () {
         if (!this.test!.ctx!.set) this.skip();
         await expect(
           adminVault.connect(admin).setFeeRecipient(ethers.ZeroAddress)
-        ).to.be.revertedWithCustomError(adminVault, 'InvalidRecipient');
+        ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
       });
     });
 
     describe('Pool management', function () {
       it('should be able to propose a pool', async function () {
-        expect(
-          await adminVault.getPoolProposalTime(
-            'Fluid',
-            ethers.keccak256(alice.address).slice(0, 10),
-            alice.address
-          )
-        ).to.equal(0);
+        expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.equal(0);
         // alice should not be able to propose a pool
         await expect(
-          adminVault
-            .connect(alice)
-            .proposePool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address)
+          adminVault.connect(alice).proposePool('Fluid', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
         // admin should be able to propose a pool
-        await adminVault
-          .connect(admin)
-          .proposePool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address);
-        expect(
-          await adminVault.getPoolProposalTime(
-            'Fluid',
-            ethers.keccak256(alice.address).slice(0, 10),
-            alice.address
-          )
-        ).to.not.equal(0);
+        await adminVault.connect(admin).proposePool('Fluid', alice.address);
+        expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.not.equal(0);
         this.test!.ctx!.proposed = true;
       });
 
       it('should be able to cancel a pool proposal', async function () {
         if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault
-          .connect(admin)
-          .proposePool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address);
-        expect(
-          await adminVault.getPoolProposalTime(
-            'Fluid',
-            ethers.keccak256(alice.address).slice(0, 10),
-            alice.address
-          )
-        ).to.not.equal(0);
+        await adminVault.connect(admin).proposePool('Fluid', alice.address);
+        expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.not.equal(0);
         // alice should not be able to cancel the pool proposal
         await expect(
-          adminVault
-            .connect(alice)
-            .cancelPoolProposal(
-              'Fluid',
-              ethers.keccak256(alice.address).slice(0, 10),
-              alice.address
-            )
+          adminVault.connect(alice).cancelPoolProposal('Fluid', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
         // admin should be able to cancel the pool proposal
-        await adminVault
-          .connect(admin)
-          .cancelPoolProposal('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address);
-        expect(
-          await adminVault.getPoolProposalTime(
-            'Fluid',
-            ethers.keccak256(alice.address).slice(0, 10),
-            alice.address
-          )
-        ).to.equal(0);
+        await adminVault.connect(admin).cancelPoolProposal('Fluid', alice.address);
+        expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.equal(0);
       });
 
       it('should be able to add a pool', async function () {
         if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault
-          .connect(admin)
-          .proposePool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address);
+        await adminVault.connect(admin).proposePool('Fluid', alice.address);
         // alice should not be able to add a pool
         await expect(
-          adminVault
-            .connect(alice)
-            .addPool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address)
+          adminVault.connect(alice).addPool('Fluid', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
         // admin should be able to add a pool
-        await adminVault
-          .connect(admin)
-          .addPool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address);
-        expect(
-          await adminVault.getPoolAddress('Fluid', ethers.keccak256(alice.address).slice(0, 10))
-        ).to.equal(alice.address);
+        await adminVault.connect(admin).addPool('Fluid', alice.address);
+        expect(await adminVault.getPoolAddress('Fluid', getBytes4(alice.address))).to.equal(
+          alice.address
+        );
         this.test!.ctx!.added = true;
       });
 
@@ -280,51 +236,35 @@ describe('AdminVault', function () {
         if (!this.test!.ctx!.added) this.skip();
         const delay = 60 * 60 * 24;
         await adminVault.connect(admin).changeDelay(delay);
-        await adminVault
-          .connect(admin)
-          .proposePool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address);
+        await adminVault.connect(admin).proposePool('Fluid', alice.address);
         await expect(
-          adminVault
-            .connect(admin)
-            .addPool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'DelayNotPassed');
+          adminVault.connect(admin).addPool('Fluid', alice.address)
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_DelayNotPassed');
       });
 
       it('should not be able to add a pool if the pool is not proposed', async function () {
         if (!this.test!.ctx!.added) this.skip();
         await expect(
-          adminVault
-            .connect(admin)
-            .addPool('Fluid', ethers.keccak256(alice.address).slice(0, 10), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'PoolNotProposed');
+          adminVault.connect(admin).addPool('Fluid', alice.address)
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
       });
 
       it('should not be able to add a pool if any values are empty', async function () {
         if (!this.test!.ctx!.added) this.skip();
         // protocol name is empty
         await expect(
-          adminVault
-            .connect(admin)
-            .addPool('', ethers.keccak256(alice.address).slice(0, 10), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
-        // pool id is empty
-        await expect(
-          adminVault.connect(admin).addPool('Fluid', ethers.ZeroHash.slice(0, 10), alice.address)
+          adminVault.connect(admin).addPool('', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
         // pool address is zero address
         await expect(
-          adminVault
-            .connect(admin)
-            .addPool('Fluid', ethers.keccak256(alice.address).slice(0, 10), ethers.ZeroAddress)
+          adminVault.connect(admin).addPool('Fluid', ethers.ZeroAddress)
         ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
       });
       it('should revert if pool is not found', async function () {
         if (!this.test!.ctx!.added) this.skip();
         await expect(
-          adminVault
-            .connect(admin)
-            .getPoolAddress('Fluid', ethers.keccak256(alice.address).slice(0, 10))
-        ).to.be.revertedWithCustomError(adminVault, 'PoolNotFound');
+          adminVault.connect(admin).getPoolAddress('Fluid', getBytes4(alice.address))
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotFound');
       });
     });
 
@@ -382,14 +322,14 @@ describe('AdminVault', function () {
         await adminVault.connect(admin).proposeAction(getBytes4(alice.address), alice.address);
         await expect(
           adminVault.connect(admin).addAction(getBytes4(alice.address), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'DelayNotPassed');
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_DelayNotPassed');
       });
 
       it('should not be able to add an action if the action is not proposed', async function () {
         if (!this.test!.ctx!.added) this.skip();
         await expect(
           adminVault.connect(admin).addAction(getBytes4(alice.address), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'ActionNotProposed');
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
       });
 
       it('should not be able to propose an action if the action is the zero address', async function () {
@@ -405,7 +345,7 @@ describe('AdminVault', function () {
         if (!this.test!.ctx!.added) this.skip();
         await expect(
           adminVault.connect(admin).getActionAddress(getBytes4(alice.address))
-        ).to.be.revertedWithCustomError(adminVault, 'ActionNotFound');
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotFound');
       });
     });
 
@@ -418,7 +358,7 @@ describe('AdminVault', function () {
 
       await expect(adminVault.connect(admin).setFeeRange(200, 100)).to.be.revertedWithCustomError(
         adminVault,
-        'InvalidFeeRange'
+        'AdminVault_InvalidFeeRange'
       );
 
       await adminVault.connect(admin).setFeeRange(100, 200);
@@ -426,16 +366,8 @@ describe('AdminVault', function () {
       expect(await adminVault.maxFeeBasis()).to.equal(200);
     });
     it('should initialize fee timestamp correctly', async function () {
-      await adminVault.proposePool(
-        'Fluid',
-        ethers.keccak256(alice.address).slice(0, 10),
-        alice.address
-      );
-      await adminVault.addPool(
-        'Fluid',
-        ethers.keccak256(alice.address).slice(0, 10),
-        alice.address
-      );
+      await adminVault.proposePool('Fluid', alice.address);
+      await adminVault.addPool('Fluid', alice.address);
       const tx = await adminVault.connect(owner).initializeFeeTimestamp(alice.address);
 
       const receipt = await tx.wait();
@@ -446,16 +378,8 @@ describe('AdminVault', function () {
     });
 
     it('should update fee timestamp correctly', async function () {
-      await adminVault.proposePool(
-        'Fluid',
-        ethers.keccak256(alice.address).slice(0, 10),
-        alice.address
-      );
-      await adminVault.addPool(
-        'Fluid',
-        ethers.keccak256(alice.address).slice(0, 10),
-        alice.address
-      );
+      await adminVault.proposePool('Fluid', alice.address);
+      await adminVault.addPool('Fluid', alice.address);
       await adminVault.connect(owner).initializeFeeTimestamp(alice.address);
       const tx = await adminVault.connect(owner).updateFeeTimestamp(alice.address);
       const receipt = await tx.wait();
@@ -494,16 +418,8 @@ describe('AdminVault', function () {
       );
       fluidSupplyAddress = await fluidSupplyContract.getAddress();
       fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.fUSDC.address);
-      await adminVault.proposePool(
-        'Fluid',
-        ethers.keccak256(await fUSDC.getAddress()).slice(0, 10),
-        await fUSDC.getAddress()
-      );
-      await adminVault.addPool(
-        'Fluid',
-        ethers.keccak256(await fUSDC.getAddress()).slice(0, 10),
-        await fUSDC.getAddress()
-      );
+      await adminVault.proposePool('Fluid', await fUSDC.getAddress());
+      await adminVault.addPool('Fluid', await fUSDC.getAddress());
     });
     it('should calculate fee correctly for a given period', async function () {
       const token = 'USDC';
@@ -534,13 +450,19 @@ describe('AdminVault', function () {
       const withdrawTx = await executeAction({
         type: 'FluidSupply',
         token,
-        feePercentage: 10,
+        feeBasis: 10,
         amount: '0',
       });
 
       const expectedFee = await calculateExpectedFee(
-        supplyTx,
-        withdrawTx,
+        (await supplyTx.wait()) ??
+          (() => {
+            throw new Error('Supply transaction failed');
+          })(),
+        (await withdrawTx.wait()) ??
+          (() => {
+            throw new Error('Withdraw transaction failed');
+          })(),
         10,
         fUSDCBalanceAfterSupply
       );
