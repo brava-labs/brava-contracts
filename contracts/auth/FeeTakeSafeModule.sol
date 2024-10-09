@@ -5,6 +5,11 @@ import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {ActionBase} from "../actions/ActionBase.sol";
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
 import {Enum} from "../libraries/Enum.sol";
+import {Errors} from "../Errors.sol";
+
+/// @title FeeTakeSafeModule
+/// @notice This is a safe module that will allow a bot (as permissioned by the admin vault) to take fees from the pools
+/// @notice It creates a sequence of deposit actions with 0 amounts to trigger the fee taking mechanism
 contract FeeTakeSafeModule {
     struct Sequence {
         bytes[] callData;
@@ -21,8 +26,6 @@ contract FeeTakeSafeModule {
     IAdminVault public immutable ADMIN_VAULT;
     bytes32 public constant FEE_TAKER_ROLE = keccak256("FEE_TAKER_ROLE");
     address public immutable SEQUENCE_EXECUTOR_ADDR;
-    error SenderNotFeeTaker(address);
-    error InvalidActionType(bytes4);
 
     constructor(address _adminVault, address _sequenceExecutor) {
         ADMIN_VAULT = IAdminVault(_adminVault);
@@ -35,10 +38,15 @@ contract FeeTakeSafeModule {
     /// @param _actionIds Array of action ids
     /// @param _poolIds Array of pool ids
     /// @param _feeBases Array of fee bases
-    function takeFees(address _safeAddr, bytes4[] memory _actionIds, bytes4[] memory _poolIds, uint16[] memory _feeBases) external payable {
+    function takeFees(
+        address _safeAddr,
+        bytes4[] memory _actionIds,
+        bytes4[] memory _poolIds,
+        uint16[] memory _feeBases
+    ) external payable {
         // check if the sender has the fee taker role
         if (!ADMIN_VAULT.hasRole(FEE_TAKER_ROLE, msg.sender)) {
-            revert SenderNotFeeTaker(msg.sender);
+            revert Errors.FeeTakeSafeModule_SenderNotFeeTaker(msg.sender);
         }
 
         // create a sequence of actions to take fees from the pools
@@ -53,7 +61,7 @@ contract FeeTakeSafeModule {
             ActionBase action = ActionBase(ADMIN_VAULT.getActionAddress(actionId));
             // check if the action is a deposit action
             if (action.actionType() != uint8(ActionBase.ActionType.DEPOSIT_ACTION)) {
-                revert InvalidActionType(actionId);
+                revert Errors.FeeTakeSafeModule_InvalidActionType(actionId);
             }
 
             // create the deposit action params
