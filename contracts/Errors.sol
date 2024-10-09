@@ -23,6 +23,10 @@ contract Errors {
     error AdminVault_NotAdded();
     error AdminVault_AlreadyAdded();
 
+    // FeeTakeSafeModule errors
+    error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);
+    error FeeTakeSafeModule_InvalidActionType(bytes4 _actionId);
+
     // Generic Action errors
     error Action_ZeroAmount(string _protocolName, uint8 _actionType);
     error Action_InsufficientSharesReceived(
