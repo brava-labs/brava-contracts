@@ -130,16 +130,30 @@ describe('FeeTakeSafeModule', function () {
     });
 
     it('should revert if an invalid action type is provided', async function () {
+      if (!this.test!.ctx!.proposed) this.skip();
       // deploy an invalid action (FluidWithdraw)
       const invalidAction = await deploy('FluidWithdraw', admin, await adminVault.getAddress(), await logger.getAddress());
       const invalidActionId = getBytes4(await invalidAction.getAddress());
       await adminVault.proposeAction(invalidActionId, await invalidAction.getAddress());
       await adminVault.addAction(invalidActionId, await invalidAction.getAddress());
 
-      if (!this.test!.ctx!.proposed) this.skip();
       await expect(
         feeTakeSafeModule.connect(alice).takeFees(safeAddr, [invalidActionId], [poolId], [100])
       ).to.be.revertedWithCustomError(feeTakeSafeModule, 'FeeTakeSafeModule_InvalidActionType');
+      this.test!.ctx!.proposed = true;
+    });
+
+    it('should revert if the fee basis is too high', async function () {
+      if (!this.test!.ctx!.proposed) this.skip();
+      // set max fee basis to 5%
+      await adminVault.setFeeRange(0, 500);
+      await expect(
+        feeTakeSafeModule.connect(alice).takeFees(safeAddr, [fluidSupplyId], [poolId], [501]) // 5.01%
+      ).to.be.revertedWithCustomError(feeTakeSafeModule, 'FeeTakeSafeModule_ExecutionFailed');
+
+      await expect(
+        feeTakeSafeModule.connect(alice).takeFees(safeAddr, [fluidSupplyId], [poolId], [500]) // 5%
+      ).to.not.be.reverted;
       this.test!.ctx!.proposed = true;
     });
 
@@ -174,7 +188,6 @@ describe('FeeTakeSafeModule', function () {
       const feeTakerBalance = await fUSDC.balanceOf(bob.address);
       expect(feeTakerBalance).to.be.greaterThan(0);
       expect(fUSDCBalanceAfterFee).to.be.lessThan(fUSDCBalanceBeforeFee);
-
       this.test!.ctx!.proposed = true;
     });
   });
