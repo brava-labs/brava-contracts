@@ -12,6 +12,7 @@ import {Errors} from "../Errors.sol";
 /// @notice It creates a sequence of deposit actions with 0 amounts to trigger the fee taking mechanism
 contract FeeTakeSafeModule {
     struct Sequence {
+        string name;
         bytes[] callData;
         bytes4[] actionIds;
     }
@@ -25,6 +26,8 @@ contract FeeTakeSafeModule {
 
     IAdminVault public immutable ADMIN_VAULT;
     bytes32 public constant FEE_TAKER_ROLE = keccak256("FEE_TAKER_ROLE");
+    bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint16)"));
+    bytes4 public constant EXECUTE_SEQUENCE_SELECTOR = bytes4(keccak256("executeSequence((string,bytes[],bytes4[]))"));
     address public immutable SEQUENCE_EXECUTOR_ADDR;
 
     constructor(address _adminVault, address _sequenceExecutor) {
@@ -51,6 +54,7 @@ contract FeeTakeSafeModule {
 
         // create a sequence of actions to take fees from the pools
         Sequence memory sequence;
+        sequence.name = "FeeTakingSequence";
         sequence.callData = new bytes[](_actionIds.length);
         sequence.actionIds = _actionIds;
 
@@ -72,22 +76,29 @@ contract FeeTakeSafeModule {
             depositParams.minSharesReceived = 0;
 
             // encode the call data
-            bytes memory callData = abi.encode(depositParams);
+            bytes memory paramsEncoded = abi.encode(depositParams);
+            bytes memory callData = abi.encodeWithSelector(
+                EXECUTE_ACTION_SELECTOR,
+                paramsEncoded,
+                0
+            );
             sequence.callData[i] = callData;
         }
 
         // encode the sequence data
         bytes memory sequenceData = abi.encodeWithSelector(
-            bytes4(keccak256("executeSequence(bytes[], bytes4[])")),
-            sequence.callData,
-            sequence.actionIds
+            EXECUTE_SEQUENCE_SELECTOR,
+            sequence
         );
         // execute the sequence
-        ISafe(_safeAddr).execTransactionFromModule(
+        bool success = ISafe(_safeAddr).execTransactionFromModule(
             SEQUENCE_EXECUTOR_ADDR,
             msg.value,
             sequenceData,
             Enum.Operation.DelegateCall
         );
+        if (!success) {
+            revert Errors.FeeTakeSafeModule_ExecutionFailed();
+        }
     }
 }

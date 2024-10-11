@@ -5,19 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug hardhat script on local network",
+            "name": "Debug hardhat tests in current file",
             "type": "node",
             "request": "launch",
             "console": "integratedTerminal",
-            "runtimeExecutable": "npm",
+            "runtimeExecutable": "npx",
             "runtimeArgs": [
-              "run",
-              "hardhat-run",
+              "hardhat",
+              "test",
               "${file}"
-            ],
-            "env": {
-              "HARDHAT_NETWORK": "localhost"
-            }
+            ]
         }
     ]
 }
