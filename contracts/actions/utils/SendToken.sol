@@ -26,6 +26,12 @@ contract SendToken is ActionBase {
         Params memory inputData = _parseInputs(_callData);
 
         _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
+
+        // Log event
+        LOGGER.logActionEvent(
+            "SendToken",
+            abi.encode(inputData.tokenAddr, inputData.to, inputData.amount)
+        );
     }
 
     /// @inheritdoc ActionBase
