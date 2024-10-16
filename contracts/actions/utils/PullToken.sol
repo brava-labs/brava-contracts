@@ -25,6 +25,12 @@ contract PullToken is ActionBase {
         Params memory inputData = _parseInputs(_callData);
 
         _pullToken(inputData.tokenAddr, inputData.from, inputData.amount);
+
+        // Log event
+        LOGGER.logActionEvent(
+            "PullToken",
+            abi.encode(inputData.tokenAddr, inputData.from, inputData.amount)
+        );
     }
 
     /// @inheritdoc ActionBase
