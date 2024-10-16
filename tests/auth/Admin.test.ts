@@ -449,7 +449,7 @@ describe('AdminVault', function () {
 
       const withdrawTx = await executeAction({
         type: 'FluidSupply',
-        token,
+        poolAddress: tokenConfig.fUSDC.address,
         feeBasis: 10,
         amount: '0',
       });
