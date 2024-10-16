@@ -1,17 +1,15 @@
-import { ethers, network } from 'hardhat';
+import { deploySafe, executeSafeTransaction } from 'athena-sdk';
 import {
-  Signer,
   BaseContract,
   Log,
-  TransactionResponse,
+  Signer,
   TransactionReceipt,
-  BytesLike,
+  TransactionResponse
 } from 'ethers';
-import { tokenConfig, ROLES, CURVE_3POOL_INDICES } from './constants';
-import { actionDefaults, ActionArgs } from './actions';
-import { deploySafe, executeSafeTransaction } from 'athena-sdk';
-import * as athenaSDK from 'athena-sdk';
-import { Logger, AdminVault, ISafe, SequenceExecutor } from '../typechain-types';
+import { ethers, network } from 'hardhat';
+import { AdminVault, ISafe, Logger, Proxy, SequenceExecutor } from '../typechain-types';
+import { ActionArgs, actionDefaults } from './actions';
+import { CURVE_3POOL_INDICES, ROLES, SAFE_PROXY_FACTORY_ADDRESS, tokenConfig } from './constants';
 import { BalanceUpdateLog, BuyCoverLog } from './logs';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
@@ -146,7 +144,8 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
     0,
     logger.getAddress()
   );
-  const safeAddress = await deploySafe(deploySigner);
+  const safeFactoryProxy = await deploy<Proxy>('Proxy', deploySigner, SAFE_PROXY_FACTORY_ADDRESS);
+  const safeAddress = await deploySafe(deploySigner, await safeFactoryProxy.getAddress());
   const safe = await ethers.getContractAt('ISafe', safeAddress);
   log('Safe deployed at:', safeAddress);
   return { logger, adminVault, safe, signer: deploySigner };
