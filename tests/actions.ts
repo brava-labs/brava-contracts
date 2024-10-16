@@ -25,6 +25,8 @@ interface BaseActionArgs {
   };
   sdkArgs?: string[];
   safeTxGas?: number;
+  gasPrice?: number;
+  baseGas?: number;
   debug?: boolean;
 }
 
