@@ -1,5 +1,7 @@
 import { tokenConfig } from './constants';
 import { ethers } from 'ethers';
+import { CoverAsset } from '@nexusmutual/sdk';
+
 export const actionTypes = {
   DEPOSIT_ACTION: 0,
   WITHDRAW_ACTION: 1,
@@ -10,11 +12,66 @@ export const actionTypes = {
   CUSTOM_ACTION: 6,
 };
 
-// Define default values for each action type
-export interface ActionEncoding {
-  inputParams: string[];
-  encodingVariables: string[];
+// Base interface for common properties
+interface BaseActionArgs {
+  useSDK?: boolean;
+  value?: number;
+  safeOperation?: number;
+  safeAddress?: string;
+  signer?: ethers.Signer;
+  encoding?: {
+    inputParams: string[];
+    encodingVariables: string[];
+  };
+  sdkArgs?: string[];
+  safeTxGas?: number;
+  debug?: boolean;
 }
+
+// Specific interfaces for each action type
+interface SupplyArgs extends BaseActionArgs {
+  type: 'FluidSupply' | 'YearnSupply';
+  poolAddress?: string;
+  feeBasis?: number;
+  amount?: string | BigInt;
+  minSharesReceived?: string;
+}
+
+interface WithdrawArgs extends BaseActionArgs {
+  type: 'FluidWithdraw' | 'YearnWithdraw';
+  poolAddress?: string;
+  feeBasis?: number;
+  amount?: string | BigInt;
+  maxSharesBurned?: string;
+}
+
+interface SwapArgs extends BaseActionArgs {
+  type: 'Curve3PoolSwap';
+  tokenIn: keyof typeof tokenConfig;
+  tokenOut: keyof typeof tokenConfig;
+  amount: string | BigInt;
+  minAmount?: string;
+}
+
+interface TokenTransferArgs extends BaseActionArgs {
+  type: 'PullToken' | 'SendToken';
+  token: keyof typeof tokenConfig;
+  amount: string | BigInt;
+  from?: string;
+  to?: string;
+}
+
+export interface BuyCoverArgs extends BaseActionArgs {
+  type: 'BuyCover';
+  productId: number;
+  amountToInsure: string;
+  daysToInsure: number;
+  coverAddress?: string;
+  coverAsset: CoverAsset;
+}
+
+// Union type for all action args
+export type ActionArgs = SupplyArgs | WithdrawArgs | SwapArgs | TokenTransferArgs | BuyCoverArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
@@ -31,6 +88,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
+    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
   },
   FluidWithdraw: {
     type: 'FluidWithdraw',
@@ -67,7 +125,6 @@ export const actionDefaults: Record<string, ActionArgs> = {
     safeOperation: 1,
     poolAddress: tokenConfig.USDC.pools.yearn,
     feeBasis: 0,
-    minAmount: '0',
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
     encoding: {
@@ -77,7 +134,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   Curve3PoolSwap: {
     type: 'Curve3PoolSwap',
-    useSDK: true,
+    useSDK: false,
     tokenIn: 'USDC',
     tokenOut: 'USDT',
     amount: '0',
@@ -113,34 +170,14 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['tokenAddress', 'to', 'amount'],
     },
   },
-  // Add more action types and their defaults as needed
+  BuyCover: {
+    type: 'BuyCover',
+    useSDK: true,
+    productId: 152, // this pool allows all payment types
+    amountToInsure: '1.0',
+    daysToInsure: 28,
+    coverAsset: CoverAsset.DAI,
+    value: 0,
+    safeOperation: 1,
+  },
 };
-
-import { Signer } from 'ethers';
-
-// We only need to know the type, everything else could be set to default values
-export interface ActionArgs {
-  useSDK?: boolean;
-  protocol?: 'fluid' | 'yearn';
-  type: string;
-  safeAddress?: string;
-  value?: number;
-  actionAddress?: string;
-  safeOperation?: number;
-  token?: keyof typeof tokenConfig;
-  tokenIn?: keyof typeof tokenConfig;
-  tokenOut?: keyof typeof tokenConfig;
-  amount?: BigInt | string;
-  feeBasis?: number;
-  minAmount?: string;
-  signer?: Signer;
-  inputParams?: string[];
-  minSharesReceived?: string;
-  maxSharesBurned?: string;
-  encoding?: ActionEncoding;
-  poolId?: string;
-  poolAddress?: string;
-  tokenAddress?: string;
-  from?: string;
-  to?: string;
-}
