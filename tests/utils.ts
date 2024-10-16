@@ -7,7 +7,7 @@ import {
   TransactionResponse
 } from 'ethers';
 import { ethers, network } from 'hardhat';
-import { AdminVault, ISafe, Logger, Proxy, SequenceExecutor } from '../typechain-types';
+import { AdminVault, ISafe, ISafeProxyFactory, Logger, Proxy, SequenceExecutor } from '../typechain-types';
 import { ActionArgs, actionDefaults } from './actions';
 import { CURVE_3POOL_INDICES, ROLES, SAFE_PROXY_FACTORY_ADDRESS, tokenConfig } from './constants';
 import { BalanceUpdateLog, BuyCoverLog } from './logs';
@@ -144,11 +144,12 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
     0,
     logger.getAddress()
   );
-  const safeFactoryProxy = await deploy<Proxy>('Proxy', deploySigner, SAFE_PROXY_FACTORY_ADDRESS);
-  const safeAddress = await deploySafe(deploySigner, await safeFactoryProxy.getAddress());
+  const proxy = await deploy<Proxy>('Proxy', deploySigner, SAFE_PROXY_FACTORY_ADDRESS);
+  const safeProxyFactory = await ethers.getContractAt('ISafeProxyFactory', await proxy.getAddress());
+  const safeAddress = await deploySafe(deploySigner, await safeProxyFactory.getAddress());
   const safe = await ethers.getContractAt('ISafe', safeAddress);
   log('Safe deployed at:', safeAddress);
-  return { logger, adminVault, safe, signer: deploySigner };
+  return { logger, adminVault, safeProxyFactory, safe, signer: deploySigner };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
@@ -196,6 +197,7 @@ let globalSetup:
   | {
       logger: Logger;
       adminVault: AdminVault;
+      safeProxyFactory: ISafeProxyFactory;
       safe: ISafe;
       signer: Signer;
     }
@@ -204,6 +206,7 @@ let globalSetup:
 export function setGlobalSetup(params: {
   logger: Logger;
   adminVault: AdminVault;
+  safeProxyFactory: ISafeProxyFactory;
   safe: ISafe;
   signer: Signer;
 }) {
