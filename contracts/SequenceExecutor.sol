@@ -45,7 +45,7 @@ contract SequenceExecutor {
     /// @notice Called directly through user wallet to execute a sequence
     /// @dev This is the main entry point for Sequences executed manually
     /// @param _currSequence Sequence to be executed
-    function executeSequence(Sequence calldata _currSequence) public payable {
+    function executeSequence(Sequence calldata _currSequence) public payable virtual {
         _executeActions(_currSequence);
     }
 
@@ -61,7 +61,7 @@ contract SequenceExecutor {
     /// @dev We delegate context of user's wallet to action contract
     /// @param _currSequence Sequence to be executed
     /// @param _index Index of the action in the sequence array
-    function _executeAction(Sequence memory _currSequence, uint256 _index) internal {
+    function _executeAction(Sequence memory _currSequence, uint256 _index) internal virtual {
         address actionAddr = ADMIN_VAULT.getActionAddress(_currSequence.actionIds[_index]);
         delegateCall(actionAddr, _currSequence.callData[_index]);
     }
