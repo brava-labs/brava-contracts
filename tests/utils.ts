@@ -7,7 +7,7 @@ import {
   TransactionReceipt,
   BytesLike,
 } from 'ethers';
-import { tokenConfig, ROLES, CURVE_3POOL_INDICES } from './constants';
+import { tokenConfig, ROLES, CURVE_3POOL_INDICES, NEXUS_QUOTES } from './constants';
 import { actionDefaults, ActionArgs, BuyCoverArgs } from './actions';
 import { deploySafe, executeSafeTransaction } from 'athena-sdk';
 import * as athenaSdk from 'athena-sdk';
@@ -19,7 +19,7 @@ import {
   SequenceExecutorDebug,
 } from '../typechain-types';
 import { BalanceUpdateLog, BuyCoverLog } from './logs';
-import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
+import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
 import {
   BuyCoverInputTypes,
   NexusMutualBuyCoverParamTypes,
@@ -255,37 +255,44 @@ async function prepareNexusMutualCoverPurchase(args: Partial<BuyCoverArgs>): Pro
   const safeAddress = await globalSetup.safe.getAddress();
 
   const { productId, amountToInsure, daysToInsure, coverAsset, coverAddress } = mergedArgs;
+  let response: GetQuoteApiResponse | ErrorApiResponse;
 
   // Use destinationAddress if provided, otherwise fall back to safeAddress
   const coverOwnerAddress = coverAddress || safeAddress;
   log('Cover owner address:', coverOwnerAddress);
 
-  // get the token decimals, if coverAsset is ETH, use 18
-  // If cover asset = 0, use 18
-  // if cover asset = 1, use tokenConfig[DAI].decimals
-  // if cover asset = 6, use tokenConfig[USDC].decimals
-  let decimals = 18;
-  switch (coverAsset) {
-    case CoverAsset.ETH:
-      decimals = 18;
-      break;
-    case CoverAsset.DAI:
-      decimals = tokenConfig.DAI.decimals;
-      break;
-    case CoverAsset.USDC:
-      decimals = tokenConfig.USDC.decimals;
-      break;
+  // Check if we're using an old block timestamp, if so use the saved quote
+  const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp;
+  if (blockTimestamp && blockTimestamp < Date.now() / 1000 - 3600) {
+    log('Using saved quote for Nexus Mutual cover purchase');
+    response = NEXUS_QUOTES[coverAsset as keyof typeof NEXUS_QUOTES];
+    response.result!.buyCoverInput.buyCoverParams.owner = coverOwnerAddress;
+  } else {
+    // get the token decimals, if coverAsset is ETH, use 18
+    // If cover asset = 0, use 18
+    // if cover asset = 1, use tokenConfig[DAI].decimals
+    // if cover asset = 6, use tokenConfig[USDC].decimals
+    let decimals = 18;
+    switch (coverAsset) {
+      case CoverAsset.ETH:
+        decimals = 18;
+        break;
+      case CoverAsset.DAI:
+        decimals = tokenConfig.DAI.decimals;
+        break;
+      case CoverAsset.USDC:
+        decimals = tokenConfig.USDC.decimals;
+        break;
+    }
+
+    response = await nexusSdk.getQuoteAndBuyCoverInputs(
+      productId,
+      ethers.parseUnits(amountToInsure, decimals).toString(),
+      daysToInsure,
+      coverAsset,
+      coverOwnerAddress
+    );
   }
-
-  const response = await nexusSdk.getQuoteAndBuyCoverInputs(
-    productId,
-    ethers.parseUnits(amountToInsure, decimals).toString(),
-    daysToInsure,
-    coverAsset,
-    coverOwnerAddress
-  );
-
-  log('Response:', response);
 
   if (!response.result) {
     throw new Error(
