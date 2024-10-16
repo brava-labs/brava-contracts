@@ -58,12 +58,12 @@ export const tokenConfig = {
   },
   fUSDC: {
     address: '0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33',
-    whale: '0xfa04D62d625f67a1bD750746C06a7064ee1BC005',
+    whale: '0x2fA6c95B69c10f9F52b8990b6C03171F13C46225',
     decimals: 6,
   },
   fUSDT: {
     address: '0x5c20b550819128074fd538edf79791733ccedd18',
-    whale: '0xfa04D62d625f67a1bD750746C06a7064ee1BC005',
+    whale: '0x490681095ed277B45377d28cA15Ac41d64583048',
     decimals: 6,
   },
   yUSDC: {
