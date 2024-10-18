@@ -86,18 +86,20 @@ abstract contract AccessControlDelayed is AccessControl {
     //   -- Adjust the delay back to a suitable value
     //   -- Cancel any proposals made during this period
     function changeDelay(uint256 _newDelay) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        // Delay must be different and not more than 5 days (to avoid costly mistakes)
-        if (_newDelay == delay || _newDelay > 5 days) {
+        // Only overwrite the same delay if there is a proposal we want to cancel
+        // Delay must not more than 5 days (to avoid costly mistakes)
+        if ((_newDelay == delay && proposedDelay != 0) || _newDelay > 5 days) {
             revert Errors.AccessControlDelayed_InvalidDelay();
         }
 
         if (block.timestamp < delayReductionLockTime) {
             // The delay must already have been reduced because delayReductionLockTime is in the future
             // We can't have set the delay to proposedDelay yet, so we can just delete it
+            delete delayReductionLockTime;
             delete proposedDelay;
         }
 
-        if (_newDelay > delay) {
+        if (_newDelay >= delay) {
             // New delay is longer, just set it
             delay = _newDelay;
         } else {
