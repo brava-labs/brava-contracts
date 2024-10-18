@@ -2,6 +2,8 @@
 pragma solidity =0.8.24;
 
 import {ActionBase} from "../ActionBase.sol";
+import {Errors} from "../../Errors.sol";
+import {IOwnerManager} from "../../interfaces/safe/IOwnerManager.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -24,7 +26,10 @@ contract SendToken is ActionBase {
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable override {
         Params memory inputData = _parseInputs(_callData);
-
+        IOwnerManager ownerManager = IOwnerManager(address(this));
+        if (!ownerManager.isOwner(inputData.to)) {
+            revert Errors.Action_InvalidRecipient(protocolName(), actionType());
+        }
         _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
     }
 
@@ -41,6 +46,9 @@ contract SendToken is ActionBase {
     /// @param _to Where the tokens are sent
     /// @param _amount Amount of tokens, can be type(uint).max
     function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal {
+        if (_amount == type(uint256).max) {
+            _amount = IERC20(_tokenAddr).balanceOf(address(this));
+        }
         IERC20(_tokenAddr).safeTransfer(_to, _amount);
     }
 

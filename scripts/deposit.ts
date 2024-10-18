@@ -4,6 +4,7 @@ import { ethers } from 'hardhat';
 import { constants } from '../tests';
 import { approveTokenForSafe, deploySafeForSigner } from './safe-setup';
 import { deployAndFundTestnet } from './testnet-deploy-and-fund';
+import { withdraw } from './withdraw';
 
 async function deposit(signer: Signer, safeAddress: string, sequenceExecutorAddress: string, pool: Pool, amount: bigint, strategyId: number) {
 
@@ -20,7 +21,7 @@ async function deposit(signer: Signer, safeAddress: string, sequenceExecutorAddr
     }
 
     const deposits = await portfolioUpdateToBalanceUpdates({positions: []}, targetPortfolio, []);
-    const sequence = await getPortfolioUpdateTx(deposits, {positions: []}, targetPortfolio, [], safeAddress);
+    const sequence = await getPortfolioUpdateTx(deposits, {positions: []}, targetPortfolio, [], await signer.getAddress());
 
     const sequenceExecutor = await ethers.getContractAt('SequenceExecutor', sequenceExecutorAddress);
     if (!sequenceExecutor) {
@@ -36,6 +37,7 @@ async function main() {
     const safeAddress = await deploySafeForSigner(testAccount1, await contracts.baseSetup.safeProxyFactory.getAddress());
     await approveTokenForSafe(testAccount1, safeAddress, constants.tokenConfig.USDC.address, ethers.MaxUint256);
     await deposit(testAccount1, safeAddress, await contracts.sequenceExecutor.getAddress(), Pool.FluidUSDC, 1000000000n, 1);
+    await withdraw(testAccount1, safeAddress, await contracts.sequenceExecutor.getAddress(), Pool.FluidUSDC, 1000000000n, 1);
 }
 
 main()
