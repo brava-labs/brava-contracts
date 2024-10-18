@@ -5,7 +5,6 @@ import {
   Log,
   TransactionResponse,
   TransactionReceipt,
-  BytesLike,
 } from 'ethers';
 import { tokenConfig, ROLES, CURVE_3POOL_INDICES, NEXUS_QUOTES } from './constants';
 import { actionDefaults, ActionArgs, BuyCoverArgs } from './actions';
@@ -18,7 +17,7 @@ import {
   SequenceExecutor,
   SequenceExecutorDebug,
 } from '../typechain-types';
-import { BalanceUpdateLog, BuyCoverLog } from './logs';
+import { LogDefinitions, BaseLog } from './logs';
 import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
 import {
   BuyCoverInputTypes,
@@ -39,77 +38,63 @@ export function formatAmount(amount: bigint, decimals: number): string {
   return (amount / BigInt(10 ** decimals)).toString();
 }
 
-async function processLoggerInput(
-  input: TransactionResponse | TransactionReceipt | Log[]
-): Promise<readonly Log[]> {
-  if (Array.isArray(input)) {
-    return input; // It's already Log[]
-  } else if ('wait' in input) {
-    const receipt = await input.wait();
-    return receipt?.logs ?? []; // It's TransactionResponse
-  } else if ('logs' in input) {
-    return input.logs; // It's TransactionReceipt
-  }
-  throw new Error('Invalid input type');
-}
-
-/// takes a hash and returns the event name if it matches one of the known events
-/// we need to do this because in events an indexed string is only emitted as a hash
-function matchHashToEvent(hash: string): string | null {
-  const knownEvents = ['BalanceUpdate', 'BuyCover'];
-  return knownEvents.find((event) => ethers.keccak256(ethers.toUtf8Bytes(event)) === hash) ?? hash;
-}
-
-// give me a transaction response, a transaction receipt, or an array of logs
-// I don't care which, just point me at the logger and I'll decode the logs for you
+// Decode a log from the logger
+// This function will take in a TransactionResponse, TransactionReceipt or an array of logs
+// and return an array of decoded logs
 export async function decodeLoggerLog(
-  input: TransactionResponse | TransactionReceipt | Log[],
-  loggerAddress: string
-): Promise<(BalanceUpdateLog | BuyCoverLog)[]> {
-  const logs = await processLoggerInput(input);
+  input: TransactionResponse | TransactionReceipt | Log[]
+): Promise<BaseLog[]> {
+  log('Decoding logger log');
+
+  let logs: Log[];
+  if (Array.isArray(input)) {
+    logs = input;
+  } else if ('wait' in input) {
+    // It's a TransactionResponse, wait for the receipt
+    const receipt = await input.wait();
+    if (!receipt) {
+      throw new Error('Problem decoding log: Transaction receipt not found');
+    }
+    logs = receipt.logs as Log[];
+  } else {
+    // It's a TransactionReceipt
+    logs = input.logs as Log[];
+  }
+
   const abiCoder = new ethers.AbiCoder();
-  const logger = await ethers.getContractAt('Logger', loggerAddress);
+  const loggerInterface = new ethers.Interface([
+    'event ActionEvent(address indexed caller, uint256 indexed logId, bytes data)',
+    'event AdminVaultEvent(string indexed logName, bytes data)',
+  ]);
 
-  const relevantLogs = logs.filter(
-    (log: any) => log.address.toLowerCase() === loggerAddress.toLowerCase()
-  );
+  // TODO: Deal with the AdminVaultEvent logs
 
-  return relevantLogs.map((log: any) => {
-    const decodedLog = logger.interface.parseLog(log)!;
-    const eventName = matchHashToEvent(decodedLog.args[1].hash);
+  // The event signature for ActionEvent
+  const actionEventTopic = loggerInterface.getEvent('ActionEvent')!.topicHash;
 
+  const relevantLogs = logs.filter((log: Log) => log.topics[0] === actionEventTopic);
+
+  return relevantLogs.map((log: Log) => {
+    const parsedLog = loggerInterface.parseLog({
+      topics: log.topics as string[],
+      data: log.data,
+    })!;
+
+    const eventId = parsedLog.args.logId;
     const baseLog = {
-      eventName,
-      safeAddress: decodedLog.args[0],
+      eventId,
+      safeAddress: parsedLog.args.caller,
     };
 
-    if (eventName === 'BalanceUpdate') {
-      const decodedBytes = abiCoder.decode(
-        ['uint16', 'bytes4', 'uint256', 'uint256', 'uint256'],
-        decodedLog.args[2]
-      );
-      return {
-        ...baseLog,
-        strategyId: decodedBytes[0],
-        poolId: decodedBytes[1].toString(),
-        balanceBefore: decodedBytes[2],
-        balanceAfter: decodedBytes[3],
-        feeInTokens: decodedBytes[4],
-      } as BalanceUpdateLog;
-    } else if (eventName === 'BuyCover') {
-      const decodedBytes = abiCoder.decode(
-        ['uint16', 'bytes4', 'uint32', 'uint256'],
-        decodedLog.args[2]
-      );
-      return {
-        ...baseLog,
-        strategyId: decodedBytes[0],
-        poolId: decodedBytes[1].toString(),
-        coverId: decodedBytes[2].toString(),
-      } as BuyCoverLog;
-    } else {
-      throw new Error(`Unknown event type: ${eventName}`);
+    const logDefinition = LogDefinitions[eventId];
+    if (!logDefinition) {
+      throw new Error(`Problem decoding log: Unknown event type: ${eventId}`);
     }
+
+    const decodedBytes = abiCoder.decode(logDefinition.types, parsedLog.args.data);
+    const extendedLog = logDefinition.decode(baseLog, decodedBytes);
+
+    return extendedLog;
   });
 }
 
@@ -148,7 +133,14 @@ export async function deploy<T extends BaseContract>(
   return contract.waitForDeployment() as Promise<T>;
 }
 
-export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSetup> {
+type BaseSetup = {
+  logger: Logger;
+  adminVault: AdminVault;
+  safe: ISafe;
+  signer: Signer;
+};
+
+export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
   const logger = await deploy<Logger>('Logger', deploySigner);
   const adminVault = await deploy<AdminVault>(
@@ -167,7 +159,7 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
 let baseSetupSnapshotId: string | null = null;
 
-export async function getBaseSetup(signer?: Signer): Promise<typeof globalSetup> {
+export async function getBaseSetup(signer?: Signer): Promise<BaseSetup> {
   if (baseSetupCache && baseSetupSnapshotId) {
     log('Reverting to snapshot');
     await network.provider.send('evm_revert', [baseSetupSnapshotId]);
