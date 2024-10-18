@@ -16,7 +16,7 @@ import {
   calculateExpectedFee,
   executeAction,
 } from '../../utils';
-import { BalanceUpdateLog } from '../../logs';
+import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import { fundAccountWithToken, getUSDC } from '../../utils-stable';
 import { tokenConfig } from '../../constants';
 import { actionTypes } from '../../actions';
@@ -123,11 +123,11 @@ describe('Yearn tests', () => {
         amount,
       });
 
-      const logs = await decodeLoggerLog(tx, loggerAddress);
+      const logs = await decodeLoggerLog(tx);
       log('Logs:', logs);
 
       expect(logs).to.have.length(1);
-      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
+      expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
 
       const txLog = logs[0] as BalanceUpdateLog;
       expect(txLog).to.have.property('safeAddress', safeAddr);
@@ -205,11 +205,11 @@ describe('Yearn tests', () => {
         amount,
       });
 
-      const logs = await decodeLoggerLog(tx, loggerAddress);
+      const logs = await decodeLoggerLog(tx);
       log('Logs:', logs);
 
       expect(logs).to.have.length(1);
-      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
+      expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
 
       const txLog = logs[0] as BalanceUpdateLog;
       expect(txLog).to.have.property('safeAddress', safeAddr);

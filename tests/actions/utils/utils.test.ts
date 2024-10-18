@@ -96,6 +96,9 @@ describe('Utils tests', () => {
         })
       ).to.be.revertedWith('GS013');
     });
+    it.skip('should emit the correct log', async () => {
+      // TODO: Implement this test
+    });
   });
 
   describe('SendToken', () => {
@@ -133,6 +136,9 @@ describe('Utils tests', () => {
           to: await signer.getAddress(),
         })
       ).to.be.revertedWith('GS013');
+    });
+    it.skip('should emit the correct log', async () => {
+      // TODO: Implement this test
     });
   });
 });

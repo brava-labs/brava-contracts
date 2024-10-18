@@ -236,6 +236,9 @@ describe('Curve3PoolSwap tests', () => {
         'Curve3Pool__InvalidTokenIndices'
       );
     });
+    it.skip('should emit the correct log', async () => {
+      // TODO: Implement this test
+    });
   });
 });
 

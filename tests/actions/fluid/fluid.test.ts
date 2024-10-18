@@ -17,7 +17,7 @@ import {
   executeAction,
   getBytes4,
 } from '../../utils';
-import { BalanceUpdateLog } from '../../logs';
+import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
 import { tokenConfig } from '../../../tests/constants';
 import { actionTypes } from '../../../tests/actions';
@@ -162,12 +162,12 @@ describe('Fluid tests', () => {
         amount,
       });
 
-      const logs = await decodeLoggerLog(tx, loggerAddress);
+      const logs = await decodeLoggerLog(tx);
       log('Logs:', logs);
 
       // we should expect 1 log, with the correct args
       expect(logs).to.have.length(1);
-      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
+      expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
 
       // we know it's a BalanceUpdateLog because of the eventName
       // now we can typecast and check specific properties
@@ -284,12 +284,12 @@ describe('Fluid tests', () => {
         amount,
       });
 
-      const logs = await decodeLoggerLog(tx, loggerAddress);
+      const logs = await decodeLoggerLog(tx);
       log('Logs:', logs);
 
       // we should expect 1 log, with the correct args
       expect(logs).to.have.length(1);
-      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
+      expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
 
       // we know it's a BalanceUpdateLog because of the eventName
       // now we can typecast and check specific properties
