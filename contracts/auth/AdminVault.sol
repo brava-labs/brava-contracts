@@ -82,7 +82,7 @@ contract AdminVault is AccessControlDelayed {
         if (_recipient == address(0)) {
             revert Errors.InvalidInput("AdminVault", "proposeFeeRecipient");
         }
-        feeRecipientProposal[_recipient] = block.timestamp + delay;
+        feeRecipientProposal[_recipient] = _getDelayTimestamp();
         LOGGER.logAdminVaultEvent("FeeRecipientProposed", abi.encode(_recipient));
     }
 
@@ -114,6 +114,7 @@ contract AdminVault is AccessControlDelayed {
     ///  - Propose
     ///  - Cancel
     ///  - Add
+    ///  - Remove
 
     /// @notice Proposes a new pool for a protocol.
     /// @param _protocolName The name of the protocol.
@@ -124,7 +125,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_AlreadyAdded();
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
-        poolProposals[proposalId] = block.timestamp + delay;
+        poolProposals[proposalId] = _getDelayTimestamp();
         LOGGER.logAdminVaultEvent("PoolProposed", abi.encode(_protocolName, _poolAddress));
     }
 
@@ -163,10 +164,17 @@ contract AdminVault is AccessControlDelayed {
         LOGGER.logAdminVaultEvent("PoolAdded", abi.encode(_protocolName, _poolAddress));
     }
 
+    function removePool(string calldata _protocolName, address _poolAddress) external onlyRole(ADMIN_ROLE) {
+        bytes4 poolId = _poolIdFromAddress(_poolAddress);
+        delete protocolPools[_protocolName][poolId];
+        LOGGER.logAdminVaultEvent("PoolRemoved", abi.encode(_protocolName, _poolAddress));
+    }
+
     /// Action management
     ///  - Propose
     ///  - Cancel
     ///  - Add
+    ///  - Remove
 
     /// @notice Proposes a new action.
     /// @param _actionId The identifier of the action.
@@ -179,7 +187,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.InvalidInput("AdminVault", "proposeAction");
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
-        actionProposals[proposalId] = block.timestamp + delay;
+        actionProposals[proposalId] = _getDelayTimestamp();
         LOGGER.logAdminVaultEvent("ActionProposed", abi.encode(_actionId, _actionAddress));
     }
 
@@ -208,6 +216,11 @@ contract AdminVault is AccessControlDelayed {
         }
         actionAddresses[_actionId] = _actionAddress;
         LOGGER.logAdminVaultEvent("ActionAdded", abi.encode(_actionId, _actionAddress));
+    }
+
+    function removeAction(bytes4 _actionId) external onlyRole(ADMIN_ROLE) {
+        delete actionAddresses[_actionId];
+        LOGGER.logAdminVaultEvent("ActionRemoved", abi.encode(_actionId));
     }
 
     /// Fee timestamp management
