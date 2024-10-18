@@ -40,7 +40,7 @@ contract FluidWithdraw is ActionBase {
 
         // Log event
         LOGGER.logActionEvent(
-            "BalanceUpdate",
+            1,
             _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
         );
     }
@@ -83,7 +83,7 @@ contract FluidWithdraw is ActionBase {
                 : _inputData.withdrawRequest;
 
             if (amountToWithdraw == 0) {
-                revert Errors.Action_ZeroAmount(protocolName(), actionType());
+                revert Errors.Action_ZeroAmount(protocolName(), uint8(actionType()));
             }
             fToken.withdraw(amountToWithdraw, address(this), address(this), _inputData.maxSharesBurned);
         }
