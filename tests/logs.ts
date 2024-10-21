@@ -42,10 +42,11 @@ export interface BuyCoverLog extends BaseLog {
 }
 
 export interface Curve3PoolSwapLog extends BaseLog {
-  poolId: string;
-  balanceBefore: bigint;
-  balanceAfter: bigint;
-  feeInTokens: bigint;
+  fromToken: bigint;
+  toToken: bigint;
+  amountIn: bigint;
+  minAmountOut: bigint;
+  actualAmountOut: bigint;
 }
 
 export interface SendTokenLog extends BaseLog {
@@ -90,13 +91,14 @@ export const LogDefinitions: { [key: number]: LogDefinition<any> } = {
     }),
   },
   [ACTION_LOG_IDS.CURVE_3POOL_SWAP]: {
-    types: ['bytes4', 'uint256', 'uint256', 'uint256'],
+    types: ['int256', 'int256', 'uint256', 'uint256', 'uint256'],
     decode: (baseLog, decodedBytes): Curve3PoolSwapLog => ({
       ...baseLog,
-      poolId: decodedBytes[0].toString(),
-      balanceBefore: decodedBytes[1],
-      balanceAfter: decodedBytes[2],
-      feeInTokens: decodedBytes[3],
+      fromToken: decodedBytes[0],
+      toToken: decodedBytes[1],
+      amountIn: decodedBytes[2],
+      minAmountOut: decodedBytes[3],
+      actualAmountOut: decodedBytes[4],
     }),
   },
   [ACTION_LOG_IDS.SEND_TOKEN]: {
