@@ -1,23 +1,23 @@
-import { ethers, network } from 'hardhat';
-import {
-  Signer,
-  BaseContract,
-  Log,
-  TransactionResponse,
-  TransactionReceipt,
-  BytesLike,
-} from 'ethers';
-import { tokenConfig, ROLES, CURVE_3POOL_INDICES, NEXUS_QUOTES } from './constants';
-import { actionDefaults, ActionArgs, BuyCoverArgs } from './actions';
 import { deploySafe, executeSafeTransaction } from 'athena-sdk';
+import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
+import {
+  tokenConfig,
+  ROLES,
+  CURVE_3POOL_INDICES,
+  NEXUS_QUOTES,
+  SAFE_PROXY_FACTORY_ADDRESS,
+} from './constants';
+import { actionDefaults, ActionArgs, BuyCoverArgs } from './actions';
 import * as athenaSdk from 'athena-sdk';
 import {
   Logger,
   AdminVault,
   ISafe,
+  Proxy,
   SequenceExecutor,
   SequenceExecutorDebug,
 } from '../typechain-types';
+import { ethers, network } from 'hardhat';
 import { BalanceUpdateLog, BuyCoverLog } from './logs';
 import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
 import {
@@ -76,7 +76,7 @@ export async function decodeLoggerLog(
 
   return relevantLogs.map((log: any) => {
     const decodedLog = logger.interface.parseLog(log)!;
-    const eventName = matchHashToEvent(decodedLog.args[1].hash);
+    const eventName = decodedLog.args[1];
 
     const baseLog = {
       eventName,
@@ -158,7 +158,8 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
     0,
     logger.getAddress()
   );
-  const safeAddress = await deploySafe(deploySigner);
+  const safeFactoryProxy = await deploy<Proxy>('Proxy', deploySigner, SAFE_PROXY_FACTORY_ADDRESS);
+  const safeAddress = await deploySafe(deploySigner, await safeFactoryProxy.getAddress());
   const safe = await ethers.getContractAt('ISafe', safeAddress);
   log('Safe deployed at:', safeAddress);
   return { logger, adminVault, safe, signer: deploySigner };
