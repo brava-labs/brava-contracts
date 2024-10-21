@@ -17,6 +17,17 @@ contract SequenceExecutorDebug is SequenceExecutor {
     function executeSequence(Sequence calldata _currSequence) public payable virtual override {
         console.log("Executing sequence:", _currSequence.name);
         console.log("Number of actions:", _currSequence.actionIds.length);
+
+        // Add check that the sequence is valid
+        for (uint256 i = 0; i < _currSequence.actionIds.length; ++i) {
+            try ADMIN_VAULT.getActionAddress(_currSequence.actionIds[i]) returns (address actionAddr) {
+                console.log("Action address from vault:", actionAddr);
+            } catch {
+                console.log("Action not found in vault");
+                revert("Invalid sequence");
+            }
+        }
+
         super.executeSequence(_currSequence);
     }
 
