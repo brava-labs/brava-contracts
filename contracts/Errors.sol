@@ -45,4 +45,7 @@ contract Errors {
 
     // Curve3PoolSwap errors
     error Curve3Pool__InvalidTokenIndices(int128 _fromToken, int128 _toToken);
+
+    // SendToken errors
+    error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
 }

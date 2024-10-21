@@ -78,6 +78,13 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
     console.log(`Funded ${await account.getAddress()} with ${ethers.formatUnits(fundAmount, constants.tokenConfig.USDC.decimals)} USDC`);
   }
 
+  // Fund test accounts with USDT
+  const fundAmountUSDT = ethers.parseUnits('100000', constants.tokenConfig.USDT.decimals);
+  for (const account of testAccounts) {
+    await stable.fundAccountWithToken(await account.getAddress(), 'USDT', fundAmountUSDT);
+    console.log(`Funded ${await account.getAddress()} with ${ethers.formatUnits(fundAmountUSDT, constants.tokenConfig.USDT.decimals)} USDT`);
+  }
+
   console.log('Deployment and account setup completed');
 
   return { baseSetup, ...contracts };
