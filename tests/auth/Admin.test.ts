@@ -14,6 +14,7 @@ import {
   getBytes4,
 } from '../utils';
 import { tokenConfig } from '../constants';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('AdminVault', function () {
   let adminVault: AdminVault;
@@ -388,6 +389,109 @@ describe('AdminVault', function () {
         blockTimestamp
       );
     });
+    describe('Governance delay adjustments', function () {
+      const oneDay = 86400n; // 1 day in seconds
+      const halfDay = 43200n; // 12 hours in seconds
+
+      beforeEach(async function () {
+        // Set initial delay to one day before each test
+        await adminVault.connect(admin).changeDelay(oneDay);
+        expect(await adminVault.delay()).to.equal(oneDay);
+      });
+
+      it('should increase the delay', async function () {
+        const newDelay = oneDay + halfDay; // Increase to 1.5 days
+        await adminVault.connect(admin).changeDelay(newDelay);
+        expect(await adminVault.delay()).to.equal(newDelay);
+      });
+
+      it('should reduce the delay', async function () {
+        const newDelay = halfDay; // Decrease to 12 hours
+        await adminVault.connect(admin).changeDelay(newDelay);
+
+        // Check that proposedDelay is set
+        expect(await adminVault.proposedDelay()).to.equal(newDelay);
+
+        // Check that delayReductionLockTime is set
+        const lockTime = await adminVault.delayReductionLockTime();
+        expect(lockTime).to.be.gt(0);
+
+        // Fast forward time to after the lock time
+        await time.increaseTo(lockTime);
+
+        // Trigger the delay update by proposing a role
+        await adminVault.proposeRole(getRoleBytes('ADMIN_ROLE'), alice.address);
+
+        // Check that the delay has been updated
+        expect(await adminVault.delay()).to.equal(newDelay);
+      });
+
+      it('should not set the delay beyond 5 days', async function () {
+        const fiveDaysAndOneSecond = 5n * 86400n + 1n;
+        await expect(
+          adminVault.connect(admin).changeDelay(fiveDaysAndOneSecond)
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlDelayed_InvalidDelay');
+      });
+
+      it('should handle reducing the delay twice in succession', async function () {
+        const firstReduction = halfDay; // Decrease to 12 hours
+        await adminVault.connect(admin).changeDelay(firstReduction);
+
+        const firstLockTime = await adminVault.delayReductionLockTime();
+
+        // Attempt second reduction before lock time
+        const secondReduction = halfDay / 2n; // Decrease to 6 hours
+        await adminVault.connect(admin).changeDelay(secondReduction);
+
+        // Check that the lock time has been increased
+        // This will be enforcing the old delay, so will be one second (one simulated block) after the first lock time
+        expect(await adminVault.delayReductionLockTime()).to.equal(firstLockTime + 1n);
+
+        // Fast forward time to after the lock time
+        await time.increaseTo(firstLockTime);
+
+        // Trigger the delay update
+        await adminVault.proposeRole(getRoleBytes('ADMIN_ROLE'), alice.address);
+
+        // Check that the delay has been updated to the second reduction
+        expect(await adminVault.delay()).to.equal(secondReduction);
+      });
+
+      it('should allow resetting the delay immediately after an attacker attempts to remove it', async function () {
+        const attackerDelay = 0n; // Attacker tries to set delay to zero
+
+        // Simulate attacker trying to remove the delay
+        await adminVault.connect(admin).changeDelay(attackerDelay);
+
+        // Check that proposedDelay is set to zero
+        expect(await adminVault.proposedDelay()).to.equal(attackerDelay);
+
+        // Check that delayReductionLockTime is set
+        const lockTime = await adminVault.delayReductionLockTime();
+        expect(lockTime).to.be.gt(0);
+
+        // Immediately reset the delay back to one day (simulating defensive action)
+        await adminVault.connect(admin).changeDelay(oneDay);
+
+        // This reset should take effect immediately
+        expect(await adminVault.delay()).to.equal(oneDay);
+
+        // The proposedDelay should be cleared
+        expect(await adminVault.proposedDelay()).to.equal(0);
+
+        // The delayReductionLockTime should be cleared
+        expect(await adminVault.delayReductionLockTime()).to.equal(0);
+
+        // Fast forward time to after the original lock time
+        await time.increaseTo(lockTime);
+
+        // Trigger a delay check by proposing a role
+        await adminVault.proposeRole(getRoleBytes('ADMIN_ROLE'), carol.address);
+
+        // The delay should still be one day
+        expect(await adminVault.delay()).to.equal(oneDay);
+      });
+    });
   });
   // tests that need to be run via inheritance
   // lets deploy an action contract and test via that
@@ -449,7 +553,7 @@ describe('AdminVault', function () {
 
       const withdrawTx = await executeAction({
         type: 'FluidSupply',
-        token,
+        poolAddress: tokenConfig.fUSDC.address,
         feeBasis: 10,
         amount: '0',
       });

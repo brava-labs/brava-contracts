@@ -31,6 +31,12 @@ contract SendToken is ActionBase {
             revert Errors.Action_InvalidRecipient(protocolName(), actionType());
         }
         _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
+
+        // Log event
+        LOGGER.logActionEvent(
+            "SendToken",
+            abi.encode(inputData.tokenAddr, inputData.to, inputData.amount)
+        );
     }
 
     /// @inheritdoc ActionBase

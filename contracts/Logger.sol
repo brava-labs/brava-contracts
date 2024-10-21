@@ -3,8 +3,8 @@
 pragma solidity =0.8.24;
 
 contract Logger {
-    event ActionEvent(address indexed caller, string indexed logName, bytes data);
-    event AdminVaultEvent(string indexed logName, bytes data);
+    event ActionEvent(address caller, string logName, bytes data);
+    event AdminVaultEvent(string logName, bytes data);
 
     /// @notice Logs an event from an action
     /// @param _logName The name of the log
