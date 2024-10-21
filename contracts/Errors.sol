@@ -26,6 +26,7 @@ contract Errors {
     // FeeTakeSafeModule errors
     error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);
     error FeeTakeSafeModule_InvalidActionType(bytes4 _actionId);
+    error FeeTakeSafeModule_ExecutionFailed();
 
     // Generic Action errors
     error Action_ZeroAmount(string _protocolName, uint8 _actionType);

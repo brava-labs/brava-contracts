@@ -82,7 +82,7 @@ contract AdminVault is AccessControlDelayed {
         if (_recipient == address(0)) {
             revert Errors.InvalidInput("AdminVault", "proposeFeeRecipient");
         }
-        feeRecipientProposal[_recipient] = block.timestamp + delay;
+        feeRecipientProposal[_recipient] = _getDelayTimestamp();
         LOGGER.logAdminVaultEvent(103, abi.encode(_recipient));
     }
 
@@ -125,7 +125,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_AlreadyAdded();
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
-        poolProposals[proposalId] = block.timestamp + delay;
+        poolProposals[proposalId] = _getDelayTimestamp();
         LOGGER.logAdminVaultEvent(102, abi.encode(_protocolName, _poolAddress));
     }
 
@@ -187,7 +187,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.InvalidInput("AdminVault", "proposeAction");
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
-        actionProposals[proposalId] = block.timestamp + delay;
+        actionProposals[proposalId] = _getDelayTimestamp();
         LOGGER.logAdminVaultEvent(101, abi.encode(_actionId, _actionAddress));
     }
 
