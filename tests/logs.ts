@@ -7,6 +7,11 @@
 //     - The types array should contain the expected types in the order they appear in the log
 //     - The decode function should take in the baseLog and the decodedBytes and return the log
 
+export const LOGGER_INTERFACE = [
+  'event ActionEvent(address caller, uint256 logId, bytes data)',
+  'event AdminVaultEvent(string logName, bytes data)',
+];
+
 export const ACTION_LOG_IDS = {
   BALANCE_UPDATE: 1,
   BUY_COVER: 2,

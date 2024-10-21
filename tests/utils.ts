@@ -1,11 +1,5 @@
 import { ethers, network } from 'hardhat';
-import {
-  Signer,
-  BaseContract,
-  Log,
-  TransactionResponse,
-  TransactionReceipt,
-} from 'ethers';
+import { Signer, BaseContract, Log, TransactionResponse, TransactionReceipt } from 'ethers';
 import { tokenConfig, ROLES, CURVE_3POOL_INDICES, NEXUS_QUOTES } from './constants';
 import { actionDefaults, ActionArgs, BuyCoverArgs } from './actions';
 import { deploySafe, executeSafeTransaction } from 'athena-sdk';
@@ -17,7 +11,7 @@ import {
   SequenceExecutor,
   SequenceExecutorDebug,
 } from '../typechain-types';
-import { LogDefinitions, BaseLog } from './logs';
+import { LogDefinitions, BaseLog, LOGGER_INTERFACE } from './logs';
 import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
 import {
   BuyCoverInputTypes,
@@ -62,10 +56,7 @@ export async function decodeLoggerLog(
   }
 
   const abiCoder = new ethers.AbiCoder();
-  const loggerInterface = new ethers.Interface([
-    'event ActionEvent(address indexed caller, uint256 indexed logId, bytes data)',
-    'event AdminVaultEvent(string indexed logName, bytes data)',
-  ]);
+  const loggerInterface = new ethers.Interface(LOGGER_INTERFACE);
 
   // TODO: Deal with the AdminVaultEvent logs
 
