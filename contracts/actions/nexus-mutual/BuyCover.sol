@@ -75,12 +75,11 @@ contract BuyCover is ActionBase {
             poolAllocationRequests[i] = abi.decode(_inputData.poolAllocationRequests[i], (PoolAllocationRequest));
         }
 
-        IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
-        paymentAsset.safeIncreaseAllowance(address(COVER_BROKER), params.maxPremiumInAsset);
-
         if (params.paymentAsset == 0) {
             coverId = COVER_BROKER.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
         } else {
+            IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
+            paymentAsset.safeIncreaseAllowance(address(COVER_BROKER), params.maxPremiumInAsset);
             coverId = COVER_BROKER.buyCover(params, poolAllocationRequests);
         }
 
