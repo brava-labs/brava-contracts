@@ -16,6 +16,8 @@ export const ACTION_LOG_IDS = {
   BALANCE_UPDATE: 1,
   BUY_COVER: 2,
   CURVE_3POOL_SWAP: 3,
+  SEND_TOKEN: 4,
+  PULL_TOKEN: 5,
   // Add more log IDs as needed
 };
 
@@ -44,6 +46,18 @@ export interface Curve3PoolSwapLog extends BaseLog {
   balanceBefore: bigint;
   balanceAfter: bigint;
   feeInTokens: bigint;
+}
+
+export interface SendTokenLog extends BaseLog {
+  tokenAddr: string;
+  to: string;
+  amount: string;
+}
+
+export interface PullTokenLog extends BaseLog {
+  tokenAddr: string;
+  from: string;
+  amount: string;
 }
 
 type LogDecoder<T extends BaseLog> = (baseLog: BaseLog, decodedBytes: any[]) => T;
@@ -83,6 +97,24 @@ export const LogDefinitions: { [key: number]: LogDefinition<any> } = {
       balanceBefore: decodedBytes[1],
       balanceAfter: decodedBytes[2],
       feeInTokens: decodedBytes[3],
+    }),
+  },
+  [ACTION_LOG_IDS.SEND_TOKEN]: {
+    types: ['address', 'address', 'uint256'],
+    decode: (baseLog, decodedBytes): SendTokenLog => ({
+      ...baseLog,
+      tokenAddr: decodedBytes[0].toString(),
+      to: decodedBytes[1].toString(),
+      amount: decodedBytes[2].toString(),
+    }),
+  },
+  [ACTION_LOG_IDS.PULL_TOKEN]: {
+    types: ['address', 'address', 'uint256'],
+    decode: (baseLog, decodedBytes): PullTokenLog => ({
+      ...baseLog,
+      tokenAddr: decodedBytes[0].toString(),
+      from: decodedBytes[1].toString(),
+      amount: decodedBytes[2].toString(),
     }),
   },
 };
