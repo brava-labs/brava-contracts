@@ -170,12 +170,6 @@ contract AdminVault is AccessControlDelayed {
         LOGGER.logAdminVaultEvent(402, abi.encode(_protocolName, _poolAddress));
     }
 
-    function removePool(string calldata _protocolName, address _poolAddress) external onlyRole(ADMIN_ROLE) {
-        bytes4 poolId = _poolIdFromAddress(_poolAddress);
-        delete protocolPools[_protocolName][poolId];
-        LOGGER.logAdminVaultEvent("PoolRemoved", abi.encode(_protocolName, _poolAddress));
-    }
-
     /// Action management
     ///  - Propose
     ///  - Cancel
@@ -227,11 +221,6 @@ contract AdminVault is AccessControlDelayed {
     function removeAction(bytes4 _actionId) external onlyRole(ADMIN_ROLE) {
         delete actionAddresses[_actionId];
         LOGGER.logAdminVaultEvent(401, abi.encode(_actionId));
-    }
-
-    function removeAction(bytes4 _actionId) external onlyRole(ADMIN_ROLE) {
-        delete actionAddresses[_actionId];
-        LOGGER.logAdminVaultEvent("ActionRemoved", abi.encode(_actionId));
     }
 
     /// Fee timestamp management
