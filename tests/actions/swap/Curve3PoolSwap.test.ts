@@ -1,13 +1,12 @@
-import { executeSafeTransaction } from 'athena-sdk';
 import { BigNumberish } from 'ethers';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
-import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../constants';
 import { Curve3PoolSwap, IERC20Metadata } from '../../../typechain-types';
+import { actionTypes } from '../../actions';
+import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../constants';
 import { Curve3PoolSwapParams } from '../../params';
 import { deploy, executeAction, getBaseSetup, log } from '../../utils';
 import { fundAccountWithToken, getStables } from '../../utils-stable';
-import { actionTypes } from '../../actions';
 
 interface SwapParams {
   fromToken: number;
@@ -75,7 +74,7 @@ describe('Curve3PoolSwap tests', () => {
       'Curve3PoolSwap',
       signer,
       await adminVault.getAddress(),
-      baseSetup.logger.getAddress(),
+      await baseSetup.logger.getAddress(),
       CURVE_3POOL_ADDRESS
     );
     ({ USDC, USDT, DAI } = await getStables());
@@ -239,4 +238,5 @@ describe('Curve3PoolSwap tests', () => {
   });
 });
 
-export {};
+export { };
+

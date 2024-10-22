@@ -14,6 +14,7 @@ import {
 } from '../typechain-types';
 import { ActionArgs, actionDefaults, BuyCoverArgs } from './actions';
 import {
+  CREATE_X_ADDRESS,
   CURVE_3POOL_INDICES,
   NEXUS_QUOTES,
   ROLES,
@@ -122,14 +123,30 @@ export async function deploy<T extends BaseContract>(
   log(`Deploying ${contractName} with args:`, ...args);
   const feeData = await ethers.provider.getFeeData();
   const factory = await ethers.getContractFactory(contractName, signer);
+  const bytecode = factory.bytecode;
+  let initCode = '';
+  const contractAbi = factory.interface.formatJson();
+  const constructorAbi = JSON.parse(contractAbi).find((item: any) => item.type === 'constructor');
+  if (constructorAbi) {
+    const constructorTypes = constructorAbi.inputs.map((input: any) => input.type);
+    const abiCoder = new ethers.AbiCoder();
+    const constructorArgs = abiCoder.encode(constructorTypes, args);
+    initCode = ethers.concat([bytecode, constructorArgs]);
+  } else {
+    initCode = bytecode;
+  }
+  const salt = ethers.randomBytes(32);
+  const createXFactory = await ethers.getContractAt('ICreateX', CREATE_X_ADDRESS, signer);
   let contract: T;
+  let receipt: TransactionReceipt | null = null;
   try {
     // By default try and deploy with gasOverrides from the provider
     const gasOverrides = {
       maxFeePerGas: feeData.maxFeePerGas,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
     };
-    contract = (await factory.deploy(...args, gasOverrides)) as T;
+    const tx = await createXFactory['deployCreate2(bytes32,bytes)'](salt, initCode, gasOverrides);
+    receipt = await tx.wait();
   } catch (error) {
     // If the deployment fails, try and deploy with 0 gas
     const gasOverrides = {
@@ -137,16 +154,23 @@ export async function deploy<T extends BaseContract>(
       maxPriorityFeePerGas: '0',
     };
     try {
-      contract = (await factory.deploy(...args, gasOverrides)) as T;
+      const tx = await createXFactory['deployCreate2(bytes32,bytes)'](salt, initCode, gasOverrides);
+      receipt = await tx.wait();
     } catch (error) {
       // now we really are out of options
       log(`Error deploying ${contractName} with gas overrides:`, error);
       throw error;
     }
   }
-  log(`${contractName} deployed at:`, await contract.getAddress());
-  deployedContracts[contractName] = { address: await contract.getAddress(), contract };
-  return contract.waitForDeployment() as Promise<T>;
+  const contractCreationEvent = receipt?.logs.find((log: any) => log.eventName === 'ContractCreation');
+  if (!contractCreationEvent) {
+    throw new Error(`Contract creation event not found for ${contractName}`);
+  }
+  const addr = ethers.getAddress(contractCreationEvent.topics[1].slice(26));
+  contract = await ethers.getContractAt(contractName, addr, signer) as unknown as T;
+  log(`${contractName} deployed at:`, addr);
+  deployedContracts[contractName] = { address: addr, contract };
+  return contract;
 }
 
 export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSetup> {
@@ -157,7 +181,7 @@ export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSet
     deploySigner,
     await deploySigner.getAddress(),
     0,
-    logger.getAddress()
+    await logger.getAddress()
   );
   const proxy = await deploy<Proxy>('Proxy', deploySigner, SAFE_PROXY_FACTORY_ADDRESS);
   const safeProxyFactory = await ethers.getContractAt('ISafeProxyFactory', await proxy.getAddress());
