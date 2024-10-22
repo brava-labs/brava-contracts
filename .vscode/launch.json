@@ -15,6 +15,20 @@
               "test",
               "${file}"
             ]
+        },
+        {
+            "name": "Debug script",
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "runtimeExecutable": "npx",
+            "runtimeArgs": [
+              "hardhat",
+              "run",
+              "${file}",
+              "--network",
+              "localhost"
+            ]
         }
     ]
 }

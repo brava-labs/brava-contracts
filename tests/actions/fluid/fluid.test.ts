@@ -1,27 +1,26 @@
-import { expect, ethers, Signer } from '../..';
+import { BytesLike } from 'ethers';
 import { network } from 'hardhat';
+import { ethers, expect, Signer } from '../..';
+import { actionTypes } from '../../../tests/actions';
+import { tokenConfig } from '../../../tests/constants';
 import {
-  IERC20,
+  AdminVault,
   FluidSupply,
   FluidWithdraw,
+  IERC20,
   IFluidLending,
   Logger,
-  AdminVault,
 } from '../../../typechain-types';
+import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
+  calculateExpectedFee,
+  decodeLoggerLog,
   deploy,
+  executeAction,
   getBaseSetup,
   log,
-  decodeLoggerLog,
-  calculateExpectedFee,
-  executeAction,
-  getBytes4,
 } from '../../utils';
-import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
-import { tokenConfig } from '../../../tests/constants';
-import { actionTypes } from '../../../tests/actions';
-import { BytesLike } from 'ethers';
 
 describe('Fluid tests', () => {
   let signer: Signer;
@@ -78,10 +77,6 @@ describe('Fluid tests', () => {
     await adminVault.proposePool('Fluid', FLUID_USDT_ADDRESS);
     await adminVault.addPool('Fluid', FLUID_USDC_ADDRESS);
     await adminVault.addPool('Fluid', FLUID_USDT_ADDRESS);
-    await adminVault.proposeAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
-    await adminVault.proposeAction(getBytes4(fluidWithdrawAddress), fluidWithdrawAddress);
-    await adminVault.addAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
-    await adminVault.addAction(getBytes4(fluidWithdrawAddress), fluidWithdrawAddress);
   });
 
   beforeEach(async () => {
@@ -280,7 +275,7 @@ describe('Fluid tests', () => {
 
       const tx = await executeAction({
         type: 'FluidWithdraw',
-        poolAddress: tokenConfig[token].pools.fluid,
+        token,
         amount,
       });
 
@@ -327,7 +322,7 @@ describe('Fluid tests', () => {
 
       await executeAction({
         type: 'FluidWithdraw',
-        poolAddress: tokenConfig[token].pools.fluid,
+        token,
         amount: ethers.MaxUint256,
       });
 
@@ -361,7 +356,7 @@ describe('Fluid tests', () => {
 
       const withdrawTx = await executeAction({
         type: 'FluidWithdraw',
-        poolAddress: tokenConfig[token].pools.fluid,
+        token,
         feeBasis: 10,
         amount: '0',
       });
@@ -402,4 +397,5 @@ describe('Fluid tests', () => {
   });
 });
 
-export {};
+export { };
+
