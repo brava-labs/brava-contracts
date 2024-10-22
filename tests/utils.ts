@@ -1,5 +1,6 @@
 import { ethers, network } from 'hardhat';
-import { Signer, BaseContract, Log, TransactionResponse, TransactionReceipt } from 'ethers';
+import { deploySafe, executeSafeTransaction } from 'athena-sdk';
+import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
 import {
   tokenConfig,
   ROLES,
@@ -8,7 +9,6 @@ import {
   SAFE_PROXY_FACTORY_ADDRESS,
 } from './constants';
 import { actionDefaults, ActionArgs, BuyCoverArgs } from './actions';
-import { deploySafe, executeSafeTransaction } from 'athena-sdk';
 import * as athenaSdk from 'athena-sdk';
 import {
   Logger,
@@ -18,7 +18,7 @@ import {
   SequenceExecutor,
   SequenceExecutorDebug,
 } from '../typechain-types';
-import { LogDefinitions, BaseLog, LOGGER_INTERFACE } from './logs';
+import { LogDefinitions, BaseLog, LOGGER_INTERFACE, BalanceUpdateLog, BuyCoverLog } from './logs';
 import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
 import {
   BuyCoverInputTypes,
