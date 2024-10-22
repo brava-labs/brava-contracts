@@ -47,7 +47,7 @@ contract YearnSupply is ActionBase {
 
         // Log event
         LOGGER.logActionEvent(
-            "BalanceUpdate",
+            1,
             _encodeBalanceUpdate(_strategyId, inputData.poolId, yBalanceBefore, yBalanceAfter, feeInTokens)
         );
     }

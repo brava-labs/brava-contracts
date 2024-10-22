@@ -75,7 +75,7 @@ contract Curve3PoolSwap is ActionBase {
         uint256 balanceAfter = tokenOut.balanceOf(address(this));
         uint256 amountOut = balanceAfter - balanceBefore;
 
-        LOGGER.logActionEvent("Curve3PoolSwap", abi.encode(_params, amountOut));
+        LOGGER.logActionEvent(3, abi.encode(_params, amountOut));
     }
 
     /// @notice Parses the input data from bytes to Params struct

@@ -9,7 +9,6 @@ import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
 /// @notice This contract allows users to withdraw tokens from a Yearn vault
 /// @dev Inherits from ActionBase and implements the withdraw functionality for Yearn protocol
 contract YearnWithdraw is ActionBase {
-
     /// @notice Parameters for the withdraw action
     /// @param poolId ID of yToken vault contract
     /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
@@ -28,20 +27,20 @@ contract YearnWithdraw is ActionBase {
     constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
-    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {    
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
         // Parse inputs
         Params memory inputData = _parseInputs(_callData);
 
         // Check inputs
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
         address yToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
-    
+
         // Execute action
         (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) = _yearnWithdraw(inputData, yToken);
 
         // Log event
         LOGGER.logActionEvent(
-            "BalanceUpdate",
+            1,
             _encodeBalanceUpdate(_strategyId, inputData.poolId, yBalanceBefore, yBalanceAfter, feeInTokens)
         );
     }
@@ -88,7 +87,12 @@ contract YearnWithdraw is ActionBase {
             }
 
             if (sharesBurned > _inputData.maxSharesBurned) {
-                revert Errors.Action_MaxSharesBurnedExceeded(protocolName(), actionType(), sharesBurned, _inputData.maxSharesBurned);
+                revert Errors.Action_MaxSharesBurnedExceeded(
+                    protocolName(),
+                    actionType(),
+                    sharesBurned,
+                    _inputData.maxSharesBurned
+                );
             }
         }
 
