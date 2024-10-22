@@ -15,7 +15,6 @@ export async function deposit(signer: Signer, safeAddress: string, sequenceExecu
             }
         ]
     }
-    // How is it going to work exactly with the frontend? What do I have to return? Amount of tokens of USD?
     const deposits = await portfolioUpdateToBalanceUpdates({positions: []}, targetPortfolio, []);
     const sequence = await getPortfolioUpdateTx(deposits, {positions: []}, targetPortfolio, [], await signer.getAddress());
 
