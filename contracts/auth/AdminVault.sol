@@ -23,8 +23,9 @@ contract AdminVault is AccessControlDelayed {
     // Timestamp tracking for fee collection: user => vault => timestamp
     mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
 
+    // TODO improve mapping ID
     // Protocol and pool management: protocol => poolId => poolAddress
-    mapping(string => mapping(bytes4 => address)) public protocolPools;
+    mapping(uint256 => mapping(bytes4 => address)) public protocolPools;
 
     // Proposal tracking: proposalId => timestamp
     mapping(bytes32 => uint256) public poolProposals;
@@ -121,12 +122,13 @@ contract AdminVault is AccessControlDelayed {
     /// @param _poolAddress The address of the pool.
     function proposePool(string calldata _protocolName, address _poolAddress) external onlyRole(OWNER_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
-        if (protocolPools[_protocolName][poolId] != address(0)) {
+        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        if (protocolPools[protocolId][poolId] != address(0)) {
             revert Errors.AdminVault_AlreadyAdded();
         }
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
         poolProposals[proposalId] = _getDelayTimestamp();
-        LOGGER.logAdminVaultEvent(102, abi.encode(_protocolName, _poolAddress));
+        LOGGER.logAdminVaultEvent(102, abi.encode(protocolId, _poolAddress));
     }
 
     /// @notice Cancels a pool proposal.
@@ -134,12 +136,13 @@ contract AdminVault is AccessControlDelayed {
     /// @param _poolAddress The address of the proposed pool.
     function cancelPoolProposal(string calldata _protocolName, address _poolAddress) external onlyRole(OWNER_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
+        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
         if (poolProposals[proposalId] == 0) {
             revert Errors.AdminVault_NotProposed();
         }
         poolProposals[proposalId] = 0;
-        LOGGER.logAdminVaultEvent(302, abi.encode(_protocolName, _poolAddress));
+        LOGGER.logAdminVaultEvent(302, abi.encode(protocolId, _poolAddress));
     }
 
     /// @notice Adds a new pool after the proposal delay has passed.
@@ -147,7 +150,8 @@ contract AdminVault is AccessControlDelayed {
     /// @param _poolAddress The address of the pool to add.
     function addPool(string calldata _protocolName, address _poolAddress) external onlyRole(ADMIN_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
-        if (protocolPools[_protocolName][poolId] != address(0)) {
+        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        if (protocolPools[protocolId][poolId] != address(0)) {
             revert Errors.AdminVault_AlreadyAdded();
         }
         if (bytes(_protocolName).length == 0 || _poolAddress == address(0)) {
@@ -160,14 +164,15 @@ contract AdminVault is AccessControlDelayed {
         if (block.timestamp < poolProposals[proposalId]) {
             revert Errors.AdminVault_DelayNotPassed(block.timestamp, poolProposals[proposalId]);
         }
-        protocolPools[_protocolName][poolId] = _poolAddress;
-        LOGGER.logAdminVaultEvent(202, abi.encode(_protocolName, _poolAddress));
+        protocolPools[protocolId][poolId] = _poolAddress;
+        LOGGER.logAdminVaultEvent(202, abi.encode(protocolId, _poolAddress));
     }
 
     function removePool(string calldata _protocolName, address _poolAddress) external onlyRole(ADMIN_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
-        delete protocolPools[_protocolName][poolId];
-        LOGGER.logAdminVaultEvent(402, abi.encode(_protocolName, _poolAddress));
+        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        delete protocolPools[protocolId][poolId];
+        LOGGER.logAdminVaultEvent(402, abi.encode(protocolId, _poolAddress));
     }
 
     /// Action management
@@ -249,7 +254,8 @@ contract AdminVault is AccessControlDelayed {
     /// @param _poolId The identifier of the pool.
     /// @return The address of the pool.
     function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address) {
-        address poolAddress = protocolPools[_protocolName][_poolId];
+        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        address poolAddress = protocolPools[protocolId][_poolId];
         if (poolAddress == address(0)) {
             revert Errors.AdminVault_NotFound(_protocolName, _poolId);
         }
