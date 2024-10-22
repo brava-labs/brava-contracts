@@ -188,15 +188,7 @@ describe('BuyCover tests', () => {
   });
 
   it('Should have cover action type', async () => {
-    console.log('BuyCover contract address:', await buyCover.getAddress());
-
-    try {
-      const actionType = (await buyCover.actionType()) as bigint;
-      console.log('Action type:', actionType);
-      expect(actionType).to.equal(BigInt(actionTypes.COVER_ACTION));
-    } catch (error) {
-      console.error('Error calling actionType():', error);
-      throw error;
-    }
+    const actionType = (await buyCover.actionType()) as bigint;
+    expect(actionType).to.equal(BigInt(actionTypes.COVER_ACTION));
   });
 });
