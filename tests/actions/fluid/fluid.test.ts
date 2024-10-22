@@ -1,26 +1,26 @@
-import { expect, ethers, Signer } from '../..';
+import { BytesLike } from 'ethers';
 import { network } from 'hardhat';
+import { ethers, expect, Signer } from '../..';
+import { actionTypes } from '../../../tests/actions';
+import { tokenConfig } from '../../../tests/constants';
 import {
-  IERC20,
+  AdminVault,
   FluidSupply,
   FluidWithdraw,
+  IERC20,
   IFluidLending,
   Logger,
-  AdminVault,
 } from '../../../typechain-types';
+import { BalanceUpdateLog } from '../../logs';
 import {
+  calculateExpectedFee,
+  decodeLoggerLog,
   deploy,
+  executeAction,
   getBaseSetup,
   log,
-  decodeLoggerLog,
-  calculateExpectedFee,
-  executeAction,
 } from '../../utils';
-import { BalanceUpdateLog } from '../../logs';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
-import { tokenConfig } from '../../../tests/constants';
-import { actionTypes } from '../../../tests/actions';
-import { BytesLike } from 'ethers';
 
 describe('Fluid tests', () => {
   let signer: Signer;
@@ -397,4 +397,5 @@ describe('Fluid tests', () => {
   });
 });
 
-export {};
+export { };
+
