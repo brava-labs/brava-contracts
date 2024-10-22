@@ -135,7 +135,7 @@ export async function deploy<T extends BaseContract>(
   } else {
     initCode = bytecode;
   }
-  const salt = ethers.randomBytes(32);
+  const salt = ethers.keccak256(ethers.toUtf8Bytes("AthenaFi"));
   const createXFactory = await ethers.getContractAt('ICreateX', CREATE_X_ADDRESS, signer);
   let contract: T;
   let receipt: TransactionReceipt | null = null;
