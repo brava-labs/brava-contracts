@@ -47,7 +47,7 @@ contract FluidSupply is ActionBase {
 
         // Log event
         LOGGER.logActionEvent(
-            "BalanceUpdate",
+            1,
             _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
         );
     }
@@ -88,7 +88,7 @@ contract FluidSupply is ActionBase {
 
             if (amountToDeposit == 0) {
                 // We wanted to input max, but have zero stable balance
-                revert Errors.Action_ZeroAmount(protocolName(), actionType());
+                revert Errors.Action_ZeroAmount(protocolName(), uint8(actionType()));
             }
 
             stableToken.safeIncreaseAllowance(_fTokenAddress, amountToDeposit);

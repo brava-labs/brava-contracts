@@ -34,7 +34,7 @@ contract SendToken is ActionBase {
 
         // Log event
         LOGGER.logActionEvent(
-            "SendToken",
+            4,
             abi.encode(inputData.tokenAddr, inputData.to, inputData.amount)
         );
     }

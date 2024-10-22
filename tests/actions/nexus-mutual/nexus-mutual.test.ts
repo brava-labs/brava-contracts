@@ -1,12 +1,12 @@
-import { executeSafeTransaction } from 'athena-sdk';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { BuyCover } from '../../../typechain-types';
 import { NEXUS_MUTUAL_NFT_ADDRESS } from '../../constants';
-import { deploy, getBaseSetup, log, encodeAction, executeAction, getBytes4 } from '../../utils';
+import { deploy, getBaseSetup, log, executeAction, getBytes4, decodeLoggerLog } from '../../utils';
 import { fundAccountWithToken } from '../../utils-stable';
 import { CoverAsset } from '@nexusmutual/sdk';
 import { actionTypes, ActionArgs } from '../../actions';
+import { ACTION_LOG_IDS } from '../../logs';
 
 describe('BuyCover tests', () => {
   let signer: Signer;
@@ -35,14 +35,13 @@ describe('BuyCover tests', () => {
   });
 
   beforeEach(async () => {
+    log('Taking local snapshot');
     snapshotId = await network.provider.send('evm_snapshot');
   });
 
   afterEach(async () => {
+    log('Reverting to local snapshot');
     await network.provider.send('evm_revert', [snapshotId]);
-
-    // IMPORTANT: take a new snapshot, they can't be reused!
-    snapshotId = await network.provider.send('evm_snapshot');
   });
 
   it('should buy cover from Nexus Mutual using ETH', async () => {
@@ -160,8 +159,36 @@ describe('BuyCover tests', () => {
     // );
   });
 
+  it('Should emit the correct log', async () => {
+    const fundAmount = 1000; // 1000 DAI
+    await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
+
+    const buyCoverArgs: ActionArgs = {
+      type: 'BuyCover',
+      productId: 231,
+      amountToInsure: '1.0',
+      daysToInsure: 28,
+      coverAsset: CoverAsset.DAI,
+      coverAddress: safeAddr,
+    };
+
+    log('Executing action...');
+    const tx = await executeAction({ ...buyCoverArgs });
+    const receipt = await tx.wait();
+    log('Tx executed', receipt);
+    const logs = await decodeLoggerLog(receipt!);
+    log('Logs:', logs);
+
+    expect(logs).to.have.length(1);
+    expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BUY_COVER));
+    expect(logs[0]).to.have.property('strategyId', BigInt(1));
+    expect(logs[0]).to.have.property('period', (28 * 24 * 60 * 60).toString());
+    expect(logs[0]).to.have.property('amount', ethers.parseUnits('1.0', 18).toString());
+    expect(logs[0]).to.have.property('coverId');
+  });
+
   it('Should have cover action type', async () => {
-    const actionType = await buyCover.actionType();
-    expect(actionType).to.equal(actionTypes.COVER_ACTION);
+    const actionType = (await buyCover.actionType()) as bigint;
+    expect(actionType).to.equal(BigInt(actionTypes.COVER_ACTION));
   });
 });

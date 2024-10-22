@@ -1,9 +1,10 @@
 import { expect, ethers, Signer } from '../..';
 import { AdminVault, Logger, PullToken, SendToken, IERC20Metadata } from '../../../typechain-types';
 // import { IERC20Metadata } from '../../../typechain-types/contracts/interfaces/IERC20Metadata';
-import { getBaseSetup, deploy, executeAction } from '../../utils';
+import { getBaseSetup, deploy, executeAction, decodeLoggerLog } from '../../utils';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
 import { tokenConfig } from '../../constants';
+import { ACTION_LOG_IDS } from '../../logs';
 
 describe('Utils tests', () => {
   let signer: Signer;
@@ -96,6 +97,33 @@ describe('Utils tests', () => {
         })
       ).to.be.revertedWith('GS013');
     });
+    it.skip('should emit the correct log', async () => {
+      // TODO: Implement this test
+    });
+    it('Should emit the correct log when pulling USDC', async () => {
+      const pullAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(await signer.getAddress(), 'USDC', pullAmount);
+
+      await USDC.connect(signer).approve(safeAddr, pullAmount);
+
+      const tx = await executeAction({
+        type: 'PullToken',
+        token: 'USDC',
+        amount: pullAmount,
+        from: await signer.getAddress(),
+      });
+
+      const logs = await decodeLoggerLog(tx);
+      expect(logs).to.deep.equal([
+        {
+          eventId: BigInt(ACTION_LOG_IDS.PULL_TOKEN),
+          safeAddress: safeAddr,
+          tokenAddr: await USDC.getAddress(),
+          from: await signer.getAddress(),
+          amount: pullAmount.toString(),
+        },
+      ]);
+    });
   });
 
   describe('SendToken', () => {
@@ -133,6 +161,28 @@ describe('Utils tests', () => {
           to: await signer.getAddress(),
         })
       ).to.be.revertedWith('GS013');
+    });
+    it('Should emit the correct log when sending USDT', async () => {
+      const sendAmount = ethers.parseUnits('1000', tokenConfig.USDT.decimals);
+      await fundAccountWithToken(safeAddr, 'USDT', sendAmount);
+
+      const tx = await executeAction({
+        type: 'SendToken',
+        token: 'USDT',
+        amount: sendAmount,
+        to: await signer.getAddress(),
+      });
+
+      const logs = await decodeLoggerLog(tx);
+      expect(logs).to.deep.equal([
+        {
+          eventId: BigInt(ACTION_LOG_IDS.SEND_TOKEN),
+          safeAddress: safeAddr,
+          tokenAddr: await USDT.getAddress(),
+          to: await signer.getAddress(),
+          amount: sendAmount.toString(),
+        },
+      ]);
     });
   });
 });
