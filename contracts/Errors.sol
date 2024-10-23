@@ -42,6 +42,7 @@ contract Errors {
         uint256 _sharesBurned,
         uint256 _maxAllowed
     );
+    error Action_InvalidPool(string _protocolName, uint8 _actionType);
 
     // Curve3PoolSwap errors
     error Curve3Pool__InvalidTokenIndices(int128 _fromToken, int128 _toToken);
