@@ -5,6 +5,7 @@ pragma solidity =0.8.24;
 import {AccessControlDelayed} from "./AccessControlDelayed.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
 import {Errors} from "../Errors.sol";
+
 /// @title AdminVault
 /// @notice A stateful contract that manages global variables and permissions for the protocol.
 /// @dev This contract handles fee management, pool and action registrations, and role-based access control.
@@ -14,11 +15,6 @@ contract AdminVault is AccessControlDelayed {
     // Role definitions
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-
-    // Fee configuration
-    uint256 public minFeeBasis;
-    uint256 public maxFeeBasis;
-    address public feeRecipient;
 
     // Timestamp tracking for fee collection: user => vault => timestamp
     mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
@@ -30,7 +26,17 @@ contract AdminVault is AccessControlDelayed {
     // Proposal tracking: proposalId => timestamp
     mapping(bytes32 => uint256) public poolProposals;
     mapping(bytes32 => uint256) public actionProposals;
-    mapping(address => uint256) public feeRecipientProposal;
+    // Fee configuration structure
+    struct FeeConfig {
+        address recipient;
+        uint256 minBasis;
+        uint256 maxBasis;
+        uint256 proposalTime; // Used only for proposals, 0 for active config
+    }
+    // Current active fee configuration
+    FeeConfig public feeConfig;
+    // Pending fee configuration proposal
+    FeeConfig public pendingFeeConfig;
 
     // Action management: actionId => actionAddress
     mapping(bytes4 => address) public actionAddresses;
@@ -47,9 +53,12 @@ contract AdminVault is AccessControlDelayed {
         LOGGER = ILogger(_logger);
 
         // Set initial fee configuration
-        minFeeBasis = 0;
-        maxFeeBasis = 10000; // 100% in basis points
-        feeRecipient = _initialOwner;
+        feeConfig = FeeConfig({
+            recipient: _initialOwner,
+            minBasis: 0,
+            maxBasis: 10000, // 100% in basis points
+            proposalTime: 0
+        });
 
         _grantRole(DEFAULT_ADMIN_ROLE, _initialOwner);
         _grantRole(OWNER_ROLE, _initialOwner);
@@ -60,55 +69,64 @@ contract AdminVault is AccessControlDelayed {
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE); // Owner is admin of admin role
     }
 
-    /// @notice Sets the allowable fee range.
-    /// @param _min The minimum fee in basis points.
-    /// @param _max The maximum fee in basis points.
-    function setFeeRange(uint256 _min, uint256 _max) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_min >= _max) {
-            revert Errors.AdminVault_InvalidFeeRange(_min, _max);
-        }
-        minFeeBasis = _min;
-        maxFeeBasis = _max;
-        LOGGER.logAdminVaultEvent(203, abi.encode(_min, _max));
-    }
-
-    /// Fee recipient management
+    /// Fee management
     ///  - Propose
     ///  - Cancel
     ///  - Set
 
-    /// @notice Proposes a new fee recipient.
-    /// @param _recipient The address of the proposed fee recipient.
-    function proposeFeeRecipient(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /// @notice Proposes a new fee configuration including recipient and fee range
+    /// @param _recipient The address of the proposed fee recipient
+    /// @param _min The minimum fee in basis points
+    /// @param _max The maximum fee in basis points
+    function proposeFeeConfig(address _recipient, uint256 _min, uint256 _max) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_recipient == address(0)) {
-            revert Errors.InvalidInput("AdminVault", "proposeFeeRecipient");
+            revert Errors.InvalidInput("AdminVault", "proposeFeeConfig");
         }
-        feeRecipientProposal[_recipient] = _getDelayTimestamp();
-        LOGGER.logAdminVaultEvent(103, abi.encode(_recipient));
+        if (_min >= _max) {
+            revert Errors.AdminVault_InvalidFeeRange(_min, _max);
+        }
+
+        pendingFeeConfig = FeeConfig({
+            recipient: _recipient,
+            minBasis: _min,
+            maxBasis: _max,
+            proposalTime: _getDelayTimestamp()
+        });
+
+        LOGGER.logAdminVaultEvent(103, abi.encode(_recipient, _min, _max));
     }
 
-    /// @notice Cancels a fee recipient proposal.
-    /// @param _recipient The address of the proposed fee recipient to cancel.
-    function cancelFeeRecipientProposal(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        feeRecipientProposal[_recipient] = 0;
-        LOGGER.logAdminVaultEvent(303, abi.encode(_recipient));
+    /// @notice Cancels the pending fee configuration proposal
+    function cancelFeeConfigProposal() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address recipient = pendingFeeConfig.recipient;
+        uint256 min = pendingFeeConfig.minBasis;
+        uint256 max = pendingFeeConfig.maxBasis;
+
+        delete pendingFeeConfig;
+
+        LOGGER.logAdminVaultEvent(303, abi.encode(recipient, min, max));
     }
 
-    /// @notice Sets a new fee recipient after the proposal delay has passed.
-    /// @param _recipient The address to set as the new fee recipient.
-    function setFeeRecipient(address _recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_recipient == address(0)) {
-            revert Errors.InvalidInput("AdminVault", "setFeeRecipient");
-        }
-        if (feeRecipientProposal[_recipient] == 0) {
+    /// @notice Sets the pending fee configuration after the proposal delay has passed
+    function setFeeConfig() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (pendingFeeConfig.proposalTime == 0) {
             revert Errors.AdminVault_NotProposed();
         }
-        if (block.timestamp < feeRecipientProposal[_recipient]) {
-            revert Errors.AdminVault_DelayNotPassed(block.timestamp, feeRecipientProposal[_recipient]);
+        if (block.timestamp < pendingFeeConfig.proposalTime) {
+            revert Errors.AdminVault_DelayNotPassed(block.timestamp, pendingFeeConfig.proposalTime);
         }
-        feeRecipientProposal[_recipient] = 0;
-        feeRecipient = _recipient;
-        LOGGER.logAdminVaultEvent(203, abi.encode(_recipient));
+
+        // Store values for event logging
+        address recipient = pendingFeeConfig.recipient;
+        uint256 min = pendingFeeConfig.minBasis;
+        uint256 max = pendingFeeConfig.maxBasis;
+
+        // Update active config (note: proposalTime remains 0 for active config)
+        feeConfig = FeeConfig({recipient: recipient, minBasis: min, maxBasis: max, proposalTime: 0});
+
+        delete pendingFeeConfig;
+
+        LOGGER.logAdminVaultEvent(203, abi.encode(recipient, min, max));
     }
 
     /// Pool management
@@ -286,8 +304,8 @@ contract AdminVault is AccessControlDelayed {
     /// @notice Checks if a given fee basis is within the allowed range.
     /// @param _feeBasis The fee basis to check.
     function checkFeeBasis(uint256 _feeBasis) external view {
-        if (_feeBasis < minFeeBasis || _feeBasis > maxFeeBasis) {
-            revert Errors.AdminVault_FeePercentageOutOfRange(_feeBasis, minFeeBasis, maxFeeBasis);
+        if (_feeBasis < feeConfig.minBasis || _feeBasis > feeConfig.maxBasis) {
+            revert Errors.AdminVault_FeePercentageOutOfRange(_feeBasis, feeConfig.minBasis, feeConfig.maxBasis);
         }
     }
 

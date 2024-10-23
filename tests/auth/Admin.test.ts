@@ -129,66 +129,109 @@ describe('AdminVault', function () {
       });
     });
 
-    describe('Fee recipient', function () {
-      it('should be able to propose a fee recipient', async function () {
-        // alice should not be able to propose a fee recipient
+    describe('Fee configuration', function () {
+      it('should be able to propose a fee config', async function () {
+        // alice should not be able to propose a fee config
         await expect(
-          adminVault.connect(alice).proposeFeeRecipient(alice.address)
+          adminVault.connect(alice).proposeFeeConfig(alice.address, 100, 200)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to propose a fee recipient
-        await adminVault.connect(admin).proposeFeeRecipient(alice.address);
-        expect(await adminVault.feeRecipientProposal(alice.address)).to.not.equal(0);
+
+        // admin should be able to propose a fee config
+        await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
+        const pendingConfig = await adminVault.pendingFeeConfig();
+        expect(pendingConfig.recipient).to.equal(alice.address);
+        expect(pendingConfig.minBasis).to.equal(100);
+        expect(pendingConfig.maxBasis).to.equal(200);
+        expect(pendingConfig.proposalTime).to.not.equal(0);
         this.test!.ctx!.proposed = true;
       });
 
-      it('should be able to cancel a fee recipient proposal', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault.connect(admin).proposeFeeRecipient(alice.address);
-        expect(await adminVault.feeRecipientProposal(alice.address)).to.not.equal(0);
-        // alice should not be able to cancel the fee recipient proposal
+      it('should not be able to propose invalid fee ranges', async function () {
+        // max less than min
         await expect(
-          adminVault.connect(alice).cancelFeeRecipientProposal(alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to cancel the fee recipient proposal
-        await adminVault.connect(admin).cancelFeeRecipientProposal(alice.address);
-        expect(await adminVault.feeRecipientProposal(alice.address)).to.equal(0);
+          adminVault.connect(admin).proposeFeeConfig(alice.address, 200, 100)
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_InvalidFeeRange');
+
+        // zero address recipient
+        await expect(
+          adminVault.connect(admin).proposeFeeConfig(ethers.ZeroAddress, 100, 200)
+        ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
       });
 
-      it('should be able to set a fee recipient', async function () {
+      it('should be able to cancel a fee config proposal', async function () {
         if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault.connect(admin).proposeFeeRecipient(alice.address);
-        // alice should not be able to set a fee recipient
+        await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
+        const pendingConfigBefore = await adminVault.pendingFeeConfig();
+        expect(pendingConfigBefore.proposalTime).to.not.equal(0);
+
+        // alice should not be able to cancel the fee config proposal
         await expect(
-          adminVault.connect(alice).setFeeRecipient(alice.address)
+          adminVault.connect(alice).cancelFeeConfigProposal()
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to set a fee recipient
-        await adminVault.connect(admin).setFeeRecipient(alice.address);
-        expect(await adminVault.feeRecipient()).to.equal(alice.address);
+
+        // admin should be able to cancel the fee config proposal
+        await adminVault.connect(admin).cancelFeeConfigProposal();
+        const pendingConfigAfter = await adminVault.pendingFeeConfig();
+        expect(pendingConfigAfter.proposalTime).to.equal(0);
+      });
+
+      it('should be able to set a fee config', async function () {
+        if (!this.test!.ctx!.proposed) this.skip();
+        await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
+
+        // alice should not be able to set a fee config
+        await expect(adminVault.connect(alice).setFeeConfig()).to.be.revertedWithCustomError(
+          adminVault,
+          'AccessControlUnauthorizedAccount'
+        );
+
+        // admin should be able to set a fee config
+        await adminVault.connect(admin).setFeeConfig();
+        const activeConfig = await adminVault.feeConfig();
+        expect(activeConfig.recipient).to.equal(alice.address);
+        expect(activeConfig.minBasis).to.equal(100);
+        expect(activeConfig.maxBasis).to.equal(200);
+        expect(activeConfig.proposalTime).to.equal(0);
         this.test!.ctx!.set = true;
       });
 
-      it('should not be able to set a fee recipient if the delay is not passed', async function () {
+      it('should not be able to set a fee config if the delay is not passed', async function () {
         if (!this.test!.ctx!.set) this.skip();
         const delay = 60 * 60 * 24;
         await adminVault.connect(admin).changeDelay(delay);
-        await adminVault.connect(admin).proposeFeeRecipient(alice.address);
-        await expect(
-          adminVault.connect(admin).setFeeRecipient(alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_DelayNotPassed');
+        await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
+        await expect(adminVault.connect(admin).setFeeConfig()).to.be.revertedWithCustomError(
+          adminVault,
+          'AdminVault_DelayNotPassed'
+        );
       });
 
-      it('should not be able to set a fee recipient if the fee recipient is not proposed', async function () {
+      it('should not be able to set a fee config if not proposed', async function () {
         if (!this.test!.ctx!.set) this.skip();
-        await expect(
-          adminVault.connect(admin).setFeeRecipient(alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
+        await expect(adminVault.connect(admin).setFeeConfig()).to.be.revertedWithCustomError(
+          adminVault,
+          'AdminVault_NotProposed'
+        );
       });
 
-      it('should not be able to set a fee recipient if the fee recipient is the zero address', async function () {
+      it('should enforce fee basis range checks', async function () {
         if (!this.test!.ctx!.set) this.skip();
-        await expect(
-          adminVault.connect(admin).setFeeRecipient(ethers.ZeroAddress)
-        ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
+        // Set up a fee config with range 100-200
+        await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
+        await adminVault.connect(admin).setFeeConfig();
+
+        // Check valid fee
+        await expect(adminVault.checkFeeBasis(150)).to.not.be.reverted;
+
+        // Check below minimum
+        await expect(adminVault.checkFeeBasis(50))
+          .to.be.revertedWithCustomError(adminVault, 'AdminVault_FeePercentageOutOfRange')
+          .withArgs(50, 100, 200);
+
+        // Check above maximum
+        await expect(adminVault.checkFeeBasis(250))
+          .to.be.revertedWithCustomError(adminVault, 'AdminVault_FeePercentageOutOfRange')
+          .withArgs(250, 100, 200);
       });
     });
 
@@ -352,19 +395,20 @@ describe('AdminVault', function () {
 
     // TODO: Update test to use AccessControl
     it('should set fee percentage correctly', async function () {
-      await expect(adminVault.connect(alice).setFeeRange(100, 200)).to.be.revertedWithCustomError(
+      await expect(
+        adminVault.connect(alice).proposeFeeConfig(alice.address, 100, 200)
+      ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
+
+      await expect(adminVault.connect(admin).setFeeConfig()).to.be.revertedWithCustomError(
         adminVault,
-        'AccessControlUnauthorizedAccount'
+        'AdminVault_NotProposed'
       );
 
-      await expect(adminVault.connect(admin).setFeeRange(200, 100)).to.be.revertedWithCustomError(
-        adminVault,
-        'AdminVault_InvalidFeeRange'
-      );
-
-      await adminVault.connect(admin).setFeeRange(100, 200);
-      expect(await adminVault.minFeeBasis()).to.equal(100);
-      expect(await adminVault.maxFeeBasis()).to.equal(200);
+      await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
+      await adminVault.connect(admin).setFeeConfig();
+      const feeConfig = await adminVault.feeConfig();
+      expect(feeConfig.minBasis).to.equal(100);
+      expect(feeConfig.maxBasis).to.equal(200);
     });
     it('should initialize fee timestamp correctly', async function () {
       await adminVault.proposePool('Fluid', alice.address);
@@ -531,7 +575,8 @@ describe('AdminVault', function () {
 
       await fundAccountWithToken(safeAddr, token, amount);
 
-      const feeRecipient = await adminVault.feeRecipient();
+      const feeConfig = await adminVault.feeConfig();
+      const feeRecipient = feeConfig.recipient;
       const feeRecipientUSDCBalanceBefore = await USDC.balanceOf(feeRecipient);
       const feeRecipientfUSDCBalanceBefore = await fUSDC.balanceOf(feeRecipient);
 

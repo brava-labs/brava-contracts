@@ -69,7 +69,7 @@ abstract contract ActionBase {
             IERC20 vault = IERC20(_vault);
             uint256 balance = vault.balanceOf(address(this));
             uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
-            vault.safeTransfer(ADMIN_VAULT.feeRecipient(), fee);
+            vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
             ADMIN_VAULT.updateFeeTimestamp(_vault);
             return fee;
         }
