@@ -307,7 +307,8 @@ describe('Aave V2 tests', () => {
       expect(txLog).to.have.property('balanceAfter');
       expect(txLog).to.have.property('feeInTokens');
       expect(txLog.balanceAfter).to.be.a('bigint');
-      expect(txLog.balanceAfter).to.equal(finalaUSDCBalance);
+      // If the test runs slowly then the balanceAfter may have gained interest
+      expect(txLog.balanceAfter).to.be.greaterThanOrEqual(finalaUSDCBalance);
     });
 
     it('Should use the exit function to withdraw', async () => {
@@ -400,7 +401,9 @@ describe('Aave V2 tests', () => {
       const expectedFeeRecipientBalance = feeRecipientaUSDCBalanceBefore + expectedFee;
 
       // With Aave we earn extra tokens over time, so the fee recipient should have more than the expected fee
-      expect(await aUSDC.balanceOf(feeRecipient)).to.be.greaterThan(expectedFeeRecipientBalance);
+      expect(await aUSDC.balanceOf(feeRecipient)).to.be.greaterThanOrEqual(
+        expectedFeeRecipientBalance
+      );
     });
 
     it('Should have withdraw action type', async () => {

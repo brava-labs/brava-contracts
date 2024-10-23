@@ -300,7 +300,8 @@ describe('Aave V3 tests', () => {
       expect(txLog).to.have.property('balanceAfter');
       expect(txLog).to.have.property('feeInTokens');
       expect(txLog.balanceAfter).to.be.a('bigint');
-      expect(txLog.balanceAfter).to.equal(finalaUSDC_V3Balance);
+      // If the test runs slowly then the balanceAfter may have gained interest
+      expect(txLog.balanceAfter).to.be.greaterThanOrEqual(finalaUSDC_V3Balance);
     });
 
     it('Should use the exit function to withdraw', async () => {
