@@ -336,7 +336,8 @@ describe('Fluid tests', () => {
 
       await fundAccountWithToken(safeAddr, token, amount);
 
-      const feeRecipient = await adminVault.feeRecipient();
+      const feeConfig = await adminVault.feeConfig();
+      const feeRecipient = feeConfig.recipient;
       const feeRecipientUSDCBalanceBefore = await USDC.balanceOf(feeRecipient);
       const feeRecipientfUSDCBalanceBefore = await fUSDC.balanceOf(feeRecipient);
 
@@ -397,5 +398,4 @@ describe('Fluid tests', () => {
   });
 });
 
-export { };
-
+export {};

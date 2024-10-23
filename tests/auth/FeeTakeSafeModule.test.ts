@@ -3,15 +3,18 @@ import { executeSafeTransaction } from 'athena-sdk';
 import { expect } from 'chai';
 import { BytesLike } from 'ethers';
 import { ethers, network } from 'hardhat';
-import { AdminVault, FeeTakeSafeModule, FluidSupply, IERC20, IFluidLending, ISafe, Logger, SequenceExecutor } from '../../typechain-types';
-import { tokenConfig } from '../constants';
 import {
-  deploy,
-  executeAction,
-  getBaseSetup,
-  getBytes4,
-  log
-} from '../utils';
+  AdminVault,
+  FeeTakeSafeModule,
+  FluidSupply,
+  IERC20,
+  IFluidLending,
+  ISafe,
+  Logger,
+  SequenceExecutor,
+} from '../../typechain-types';
+import { tokenConfig } from '../constants';
+import { deploy, executeAction, getBaseSetup, getBytes4, log } from '../utils';
 import { fundAccountWithToken, getUSDC } from '../utils-stable';
 
 describe('FeeTakeSafeModule', function () {
@@ -47,7 +50,12 @@ describe('FeeTakeSafeModule', function () {
 
     sequenceExecutor = await deploy('SequenceExecutor', admin, await adminVault.getAddress());
     // Deploy FeeTakeSafeModule
-    feeTakeSafeModule = await deploy('FeeTakeSafeModule', admin, await adminVault.getAddress(), await sequenceExecutor.getAddress());
+    feeTakeSafeModule = await deploy(
+      'FeeTakeSafeModule',
+      admin,
+      await adminVault.getAddress(),
+      await sequenceExecutor.getAddress()
+    );
 
     // add FEE_TAKER_ROLE to alice
     const FEE_TAKER_ROLE = await feeTakeSafeModule.FEE_TAKER_ROLE();
@@ -96,24 +104,29 @@ describe('FeeTakeSafeModule', function () {
   describe('Constructor', function () {
     it('should set the correct AdminVault and SequenceExecutor addresses', async function () {
       expect(await feeTakeSafeModule.ADMIN_VAULT()).to.equal(await adminVault.getAddress());
-      expect(await feeTakeSafeModule.SEQUENCE_EXECUTOR_ADDR()).to.equal(await sequenceExecutor.getAddress());
+      expect(await feeTakeSafeModule.SEQUENCE_EXECUTOR_ADDR()).to.equal(
+        await sequenceExecutor.getAddress()
+      );
     });
   });
 
   describe('Enable module', function () {
     it('should be enabled', async function () {
       // encode the enable module call
-      const payload = safe.interface.encodeFunctionData('enableModule', [await feeTakeSafeModule.getAddress()]);
+      const payload = safe.interface.encodeFunctionData('enableModule', [
+        await feeTakeSafeModule.getAddress(),
+      ]);
       await executeSafeTransaction(safeAddr, safeAddr, 0, payload, 0, admin);
       expect(await safe.isModuleEnabled(await feeTakeSafeModule.getAddress())).to.be.true;
     });
   });
 
   describe('takeFees', function () {
-
     before(async () => {
       // enable module
-      const payload = safe.interface.encodeFunctionData('enableModule', [await feeTakeSafeModule.getAddress()]);
+      const payload = safe.interface.encodeFunctionData('enableModule', [
+        await feeTakeSafeModule.getAddress(),
+      ]);
       await executeSafeTransaction(safeAddr, safeAddr, 0, payload, 0, admin);
       expect(await safe.isModuleEnabled(await feeTakeSafeModule.getAddress())).to.be.true;
 
@@ -132,7 +145,12 @@ describe('FeeTakeSafeModule', function () {
     it('should revert if an invalid action type is provided', async function () {
       if (!this.test!.ctx!.proposed) this.skip();
       // deploy an invalid action (FluidWithdraw)
-      const invalidAction = await deploy('FluidWithdraw', admin, await adminVault.getAddress(), await logger.getAddress());
+      const invalidAction = await deploy(
+        'FluidWithdraw',
+        admin,
+        await adminVault.getAddress(),
+        await logger.getAddress()
+      );
       const invalidActionId = getBytes4(await invalidAction.getAddress());
       await adminVault.proposeAction(invalidActionId, await invalidAction.getAddress());
       await adminVault.addAction(invalidActionId, await invalidAction.getAddress());
@@ -146,7 +164,8 @@ describe('FeeTakeSafeModule', function () {
     it('should revert if the fee basis is too high', async function () {
       if (!this.test!.ctx!.proposed) this.skip();
       // set max fee basis to 5%
-      await adminVault.setFeeRange(0, 500);
+      await adminVault.connect(admin).proposeFeeConfig(alice.address, 0, 500);
+      await adminVault.connect(admin).setFeeConfig();
       await expect(
         feeTakeSafeModule.connect(alice).takeFees(safeAddr, [fluidSupplyId], [poolId], [501]) // 5.01%
       ).to.be.revertedWithCustomError(feeTakeSafeModule, 'FeeTakeSafeModule_ExecutionFailed');
@@ -171,10 +190,13 @@ describe('FeeTakeSafeModule', function () {
       expect(fUSDCBalanceBeforeFee).to.be.greaterThan(0);
 
       // set fee recipient to bob
-      await adminVault.connect(admin).proposeFeeRecipient(bob.address);
-      await adminVault.connect(admin).setFeeRecipient(bob.address);
+      await adminVault.connect(admin).proposeFeeConfig(bob.address, 0, 1000);
+      await adminVault.connect(admin).setFeeConfig();
 
-      const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, tokenConfig.fUSDC.address);
+      const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+        safeAddr,
+        tokenConfig.fUSDC.address
+      );
       const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp
 
       // now time travel like you're Dr Emmett Brown

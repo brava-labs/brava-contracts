@@ -252,7 +252,8 @@ describe('Yearn tests', () => {
 
       await fundAccountWithToken(safeAddr, 'USDC', amount);
 
-      const feeRecipient = await adminVault.feeRecipient();
+      const feeConfig = await adminVault.feeConfig();
+      const feeRecipient = feeConfig.recipient;
       const feeRecipientUSDCBalanceBefore = await USDC.balanceOf(feeRecipient);
       const feeRecipientyUSDCBalanceBefore = await yUSDC.balanceOf(feeRecipient);
 
