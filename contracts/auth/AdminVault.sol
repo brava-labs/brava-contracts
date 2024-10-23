@@ -56,7 +56,7 @@ contract AdminVault is AccessControlDelayed {
         feeConfig = FeeConfig({
             recipient: _initialOwner,
             minBasis: 0,
-            maxBasis: 10000, // 100% in basis points
+            maxBasis: 1000, // 10% in basis points
             proposalTime: 0
         });
 
@@ -81,6 +81,10 @@ contract AdminVault is AccessControlDelayed {
     function proposeFeeConfig(address _recipient, uint256 _min, uint256 _max) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_recipient == address(0)) {
             revert Errors.InvalidInput("AdminVault", "proposeFeeConfig");
+        }
+        if (_max > 1000) {
+            // 10% max
+            revert Errors.AdminVault_FeePercentageOutOfRange(_max, 0, 1000);
         }
         if (_min >= _max) {
             revert Errors.AdminVault_InvalidFeeRange(_min, _max);

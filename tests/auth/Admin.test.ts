@@ -156,6 +156,11 @@ describe('AdminVault', function () {
         await expect(
           adminVault.connect(admin).proposeFeeConfig(ethers.ZeroAddress, 100, 200)
         ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
+
+        // max greater than 10%
+        await expect(
+          adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 1001)
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_FeePercentageOutOfRange');
       });
 
       it('should be able to cancel a fee config proposal', async function () {

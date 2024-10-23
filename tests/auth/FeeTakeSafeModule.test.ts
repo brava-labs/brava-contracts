@@ -190,7 +190,7 @@ describe('FeeTakeSafeModule', function () {
       expect(fUSDCBalanceBeforeFee).to.be.greaterThan(0);
 
       // set fee recipient to bob
-      await adminVault.connect(admin).proposeFeeConfig(bob.address, 0, 10000);
+      await adminVault.connect(admin).proposeFeeConfig(bob.address, 0, 1000);
       await adminVault.connect(admin).setFeeConfig();
 
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
