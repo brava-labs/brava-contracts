@@ -2,6 +2,8 @@ import { CoverAsset } from '@nexusmutual/sdk';
 
 // Contract Addresses
 export const CURVE_3POOL_ADDRESS = '0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7';
+export const AAVE_V2_POOL = '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9';
+export const AAVE_V3_POOL = '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2';
 export const SAFE_PROXY_FACTORY_ADDRESS = '0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67';
 export const SAFE_SINGLETON_ADDRESS = '0x41675C099F32341bf84BFc5382aF534df5C7461a';
 export const YEARN_REGISTRY_ADDRESS = '0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804';
@@ -72,6 +74,31 @@ export const tokenConfig = {
   yUSDC: {
     address: '0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE',
     whale: '0xC4080c19DE69c2362d01B20F071D4046364A0226',
+    decimals: 6,
+  },
+  aDAI_V2: {
+    address: '0x028171bCA77440897B824Ca71D1c56caC55b68A3',
+    whale: '0x07edE94cF6316F4809f2B725f5d79AD303fB4Dc8',
+    decimals: 18,
+  },
+  aUSDC_V2: {
+    address: '0xBcca60bB61934080951369a648Fb03DF4F96263C',
+    whale: '0xc9E6E51C7dA9FF1198fdC5b3369EfeDA9b19C34c',
+    decimals: 6,
+  },
+  aUSDT_V2: {
+    address: '0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811',
+    whale: '0x295E5eE985246cfD09B615f8706854600084c529',
+    decimals: 6,
+  },
+  aUSDC_V3: {
+    address: '0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c',
+    whale: '0xA91661efEe567b353D55948C0f051C1A16E503A5',
+    decimals: 6,
+  },
+  aUSDT_V3: {
+    address: '0x23878914EFE38d27C4D67Ab83ed1b93A74D4086a',
+    whale: '0x18709E89BD403F470088aBDAcEbE86CC60dda12e',
     decimals: 6,
   },
 };

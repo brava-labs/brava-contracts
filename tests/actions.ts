@@ -1,6 +1,7 @@
 import { tokenConfig } from './constants';
 import { ethers } from 'ethers';
 import { CoverAsset } from '@nexusmutual/sdk';
+import { getBytes4 } from './utils';
 
 export const actionTypes = {
   DEPOSIT_ACTION: 0,
@@ -72,8 +73,29 @@ export interface BuyCoverArgs extends BaseActionArgs {
   coverAsset: CoverAsset;
 }
 
+export interface AaveV3Args extends BaseActionArgs {
+  type: 'AaveV3Supply' | 'AaveV3Withdraw';
+  assetId: string;
+  amount: string;
+  feeBasis?: number;
+}
+
+export interface AaveV2Args extends BaseActionArgs {
+  type: 'AaveV2Supply' | 'AaveV2Withdraw';
+  assetId: string;
+  amount: string;
+  feeBasis?: number;
+}
+
 // Union type for all action args
-export type ActionArgs = SupplyArgs | WithdrawArgs | SwapArgs | TokenTransferArgs | BuyCoverArgs;
+export type ActionArgs =
+  | SupplyArgs
+  | WithdrawArgs
+  | SwapArgs
+  | TokenTransferArgs
+  | BuyCoverArgs
+  | AaveV3Args
+  | AaveV2Args;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
@@ -179,6 +201,55 @@ export const actionDefaults: Record<string, ActionArgs> = {
     amountToInsure: '1.0',
     daysToInsure: 28,
     coverAsset: CoverAsset.DAI,
+    value: 0,
+    safeOperation: 1,
+  },
+  AaveV3Supply: {
+    useSDK: false,
+    type: 'AaveV3Supply',
+    assetId: getBytes4(tokenConfig.aUSDC_V3.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  AaveV3Withdraw: {
+    type: 'AaveV3Withdraw',
+    assetId: getBytes4(tokenConfig.aUSDC_V3.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  AaveV2Withdraw: {
+    type: 'AaveV2Withdraw',
+    assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  AaveV2Supply: {
+    type: 'AaveV2Supply',
+    assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
     value: 0,
     safeOperation: 1,
   },

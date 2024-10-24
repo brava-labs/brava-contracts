@@ -633,7 +633,7 @@ async function executeSequenceDebug(
 
   const payload = sequenceExecutorDebug.interface.encodeFunctionData('executeSequence', [sequence]);
 
-  return await executeSafeTransaction(
+  return executeSafeTransaction(
     safeAddr,
     await sequenceExecutorDebug.getAddress(),
     0,
