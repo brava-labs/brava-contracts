@@ -1,4 +1,4 @@
-import { Pool } from 'athena-sdk';
+import { Pool } from 'athenafi-ts-client';
 import { ethers } from 'hardhat';
 import { constants } from '../tests';
 import { deposit } from './deposit';

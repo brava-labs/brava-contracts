@@ -1,31 +1,31 @@
 import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
-import * as athenaSdk from 'athena-sdk';
-import { deploySafe, executeSafeTransaction } from 'athena-sdk';
+import * as athenaSdk from 'athenafi-ts-client';
+import { deploySafe, executeSafeTransaction } from 'athenafi-ts-client';
 import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
 import { ethers, network } from 'hardhat';
 import {
-  AdminVault,
-  ISafe,
-  ISafeProxyFactory,
-  Logger,
-  Proxy,
-  SequenceExecutor,
-  SequenceExecutorDebug,
+    AdminVault,
+    ISafe,
+    ISafeProxyFactory,
+    Logger,
+    Proxy,
+    SequenceExecutor,
+    SequenceExecutorDebug,
 } from '../typechain-types';
 import { ActionArgs, actionDefaults, BuyCoverArgs } from './actions';
 import {
-  CREATE_X_ADDRESS,
-  CURVE_3POOL_INDICES,
-  NEXUS_QUOTES,
-  ROLES,
-  SAFE_PROXY_FACTORY_ADDRESS,
-  tokenConfig,
+    CREATE_X_ADDRESS,
+    CURVE_3POOL_INDICES,
+    NEXUS_QUOTES,
+    ROLES,
+    SAFE_PROXY_FACTORY_ADDRESS,
+    tokenConfig,
 } from './constants';
 import { BaseLog, LogDefinitions, LOGGER_INTERFACE } from './logs';
 import {
-  BuyCoverInputTypes,
-  NexusMutualBuyCoverParamTypes,
-  NexusMutualPoolAllocationRequestTypes,
+    BuyCoverInputTypes,
+    NexusMutualBuyCoverParamTypes,
+    NexusMutualPoolAllocationRequestTypes,
 } from './params';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';

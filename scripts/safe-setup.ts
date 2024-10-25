@@ -1,4 +1,4 @@
-import { deploySafe } from 'athena-sdk';
+import { deploySafe } from 'athenafi-ts-client';
 import { Signer } from 'ethers';
 import { ethers } from 'hardhat';
 
