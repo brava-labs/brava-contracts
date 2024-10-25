@@ -4,28 +4,28 @@ import { deploySafe, executeSafeTransaction } from 'athenafi-ts-client';
 import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
 import { ethers, network } from 'hardhat';
 import {
-    AdminVault,
-    ISafe,
-    ISafeProxyFactory,
-    Logger,
-    Proxy,
-    SequenceExecutor,
-    SequenceExecutorDebug,
+  AdminVault,
+  ISafe,
+  ISafeProxyFactory,
+  Logger,
+  Proxy,
+  SequenceExecutor,
+  SequenceExecutorDebug,
 } from '../typechain-types';
 import { ActionArgs, actionDefaults, BuyCoverArgs } from './actions';
 import {
-    CREATE_X_ADDRESS,
-    CURVE_3POOL_INDICES,
-    NEXUS_QUOTES,
-    ROLES,
-    SAFE_PROXY_FACTORY_ADDRESS,
-    tokenConfig,
+  CREATE_X_ADDRESS,
+  CURVE_3POOL_INDICES,
+  NEXUS_QUOTES,
+  ROLES,
+  SAFE_PROXY_FACTORY_ADDRESS,
+  tokenConfig,
 } from './constants';
 import { BaseLog, LogDefinitions, LOGGER_INTERFACE } from './logs';
 import {
-    BuyCoverInputTypes,
-    NexusMutualBuyCoverParamTypes,
-    NexusMutualPoolAllocationRequestTypes,
+  BuyCoverInputTypes,
+  NexusMutualBuyCoverParamTypes,
+  NexusMutualPoolAllocationRequestTypes,
 } from './params';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
@@ -118,7 +118,7 @@ export async function deploy<T extends BaseContract>(
   } else {
     initCode = bytecode;
   }
-  const salt = ethers.keccak256(ethers.toUtf8Bytes("AthenaFi"));
+  const salt = ethers.keccak256(ethers.toUtf8Bytes('AthenaFi'));
   const createXFactory = await ethers.getContractAt('ICreateX', CREATE_X_ADDRESS, signer);
   let contract: T;
   let receipt: TransactionReceipt | null = null;
@@ -145,12 +145,14 @@ export async function deploy<T extends BaseContract>(
       throw error;
     }
   }
-  const contractCreationEvent = receipt?.logs.find((log: any) => log.eventName === 'ContractCreation');
+  const contractCreationEvent = receipt?.logs.find(
+    (log: any) => log.eventName === 'ContractCreation'
+  );
   if (!contractCreationEvent) {
     throw new Error(`Contract creation event not found for ${contractName}`);
   }
   const addr = ethers.getAddress(contractCreationEvent.topics[1].slice(26));
-  contract = await ethers.getContractAt(contractName, addr, signer) as unknown as T;
+  contract = (await ethers.getContractAt(contractName, addr, signer)) as unknown as T;
   log(`${contractName} deployed at:`, addr);
   deployedContracts[contractName] = { address: addr, contract };
   return contract;
@@ -175,7 +177,10 @@ export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
     await logger.getAddress()
   );
   const proxy = await deploy<Proxy>('Proxy', deploySigner, SAFE_PROXY_FACTORY_ADDRESS);
-  const safeProxyFactory = await ethers.getContractAt('ISafeProxyFactory', await proxy.getAddress());
+  const safeProxyFactory = await ethers.getContractAt(
+    'ISafeProxyFactory',
+    await proxy.getAddress()
+  );
   const safeAddress = await deploySafe(deploySigner, await safeProxyFactory.getAddress());
   const safe = await ethers.getContractAt('ISafe', safeAddress);
   log('Safe deployed at:', safeAddress);

@@ -4,14 +4,14 @@ import { expect } from 'chai';
 import { BytesLike } from 'ethers';
 import { ethers, network } from 'hardhat';
 import {
-    AdminVault,
-    FeeTakeSafeModule,
-    FluidSupply,
-    IERC20,
-    IFluidLending,
-    ISafe,
-    Logger,
-    SequenceExecutor,
+  AdminVault,
+  FeeTakeSafeModule,
+  FluidSupply,
+  IERC20,
+  IFluidLending,
+  ISafe,
+  Logger,
+  SequenceExecutor,
 } from '../../typechain-types';
 import { tokenConfig } from '../constants';
 import { deploy, executeAction, getBaseSetup, getBytes4, log } from '../utils';

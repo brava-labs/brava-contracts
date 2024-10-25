@@ -1,21 +1,14 @@
 import { network } from 'hardhat';
 import {
-    AdminVault,
-    Curve3PoolSwap,
-    FluidSupply,
-    FluidWithdraw,
-    SequenceExecutor,
+  AdminVault,
+  Curve3PoolSwap,
+  FluidSupply,
+  FluidWithdraw,
+  SequenceExecutor,
 } from '../typechain-types';
 import { ethers, Signer } from './.';
 import { CURVE_3POOL_ADDRESS, tokenConfig } from './constants';
-import {
-    deploy,
-    encodeAction,
-    executeSequence,
-    getBaseSetup,
-    getBytes4,
-    log
-} from './utils';
+import { deploy, encodeAction, executeSequence, getBaseSetup, getBytes4, log } from './utils';
 import { fundAccountWithToken } from './utils-stable';
 
 describe('Sequence tests', () => {
