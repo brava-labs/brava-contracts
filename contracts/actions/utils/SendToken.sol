@@ -25,6 +25,9 @@ contract SendToken is ActionBase {
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable override {
+        if (address(this).code.length == 0) {
+            revert Errors.Action_NotDelegateCall();
+        }
         Params memory inputData = _parseInputs(_callData);
         IOwnerManager ownerManager = IOwnerManager(address(this));
         if (!ownerManager.isOwner(inputData.to)) {
@@ -33,10 +36,7 @@ contract SendToken is ActionBase {
         _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
 
         // Log event
-        LOGGER.logActionEvent(
-            4,
-            abi.encode(inputData.tokenAddr, inputData.to, inputData.amount)
-        );
+        LOGGER.logActionEvent(4, abi.encode(inputData.tokenAddr, inputData.to, inputData.amount));
     }
 
     /// @inheritdoc ActionBase

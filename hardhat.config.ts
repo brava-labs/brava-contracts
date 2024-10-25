@@ -4,9 +4,41 @@ import '@nomiclabs/hardhat-solhint';
 import * as tenderly from '@tenderly/hardhat-tenderly';
 import 'dotenv/config';
 import { HardhatUserConfig } from 'hardhat/config';
+import { task } from 'hardhat/config';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 tenderly.setup({
   automaticVerifications: !!process.env.TENDERLY_AUTOMATIC_VERIFICATION,
+});
+
+const execAsync = promisify(exec);
+
+task('analyze', 'Analyze all contracts with Mythril').setAction(async (_, hre) => {
+  const contractNames = await hre.artifacts.getAllFullyQualifiedNames();
+
+  for (const contractName of contractNames) {
+    if (!contractName.endsWith('.sol')) continue;
+
+    console.log(`\nAnalyzing ${contractName}...`);
+
+    try {
+      // Flatten
+      const flattenedPath = `flattened/${contractName.split(':')[1]}`;
+      await hre.run('flatten', {
+        files: [contractName],
+        output: flattenedPath,
+      });
+
+      // Analyze
+      const { stdout, stderr } = await execAsync(`myth analyze ${flattenedPath} --solv 0.8.24`);
+
+      console.log(stdout);
+      if (stderr) console.error(stderr);
+    } catch (error) {
+      console.error(`Error analyzing ${contractName}:`, error);
+    }
+  }
 });
 
 const config: HardhatUserConfig = {

@@ -1,0 +1,656 @@
+/home/splidge/Github/athena-contracts/flattened/AccessControlDelayed.echidna.sol
+  1 |     | // SPDX-License-Identifier: MIT
+  2 |     | pragma solidity =0.8.24;
+  3 |     | 
+  4 |     | import "./AccessControlDelayed.sol";
+  5 |     | 
+  6 | *   | contract TestToken {
+  7 |     |     bool public value;
+  8 |     |     function setValue(bool _value) external {
+  9 |     |         value = _value;
+ 10 |     |     }
+ 11 |     | }
+ 12 |     | 
+ 13 | *r  | contract AccessControlDelayedEchidna is AccessControlDelayed {
+ 14 |     |     TestToken public testToken;
+ 15 | *   |     bytes32 public constant TEST_ROLE = keccak256("TEST_ROLE");
+ 16 |     | 
+ 17 | *   |     constructor() AccessControlDelayed(1 days) {
+ 18 | *   |         testToken = new TestToken();
+ 19 | *   |         _grantRole(DEFAULT_ADMIN_ROLE, address(this));
+ 20 |     |     }
+ 21 |     | 
+ 22 |     |     // Property 1: Roles cannot be granted before delay period
+ 23 |     |     function echidna_no_instant_grant() public view returns (bool) {
+ 24 |     |         bytes32 proposalId = keccak256(abi.encodePacked(TEST_ROLE, address(this)));
+ 25 |     |         return proposedRoles[proposalId] == 0 || block.timestamp < proposedRoles[proposalId];
+ 26 |     |     }
+ 27 |     | 
+ 28 |     |     // Property 2: Delay cannot exceed 5 days
+ 29 |     |     function echidna_max_delay() public view returns (bool) {
+ 30 |     |         return delay <= 5 days;
+ 31 |     |     }
+ 32 |     | 
+ 33 |     |     // Property 3: Reduced delay must respect lock time
+ 34 |     |     function echidna_delay_reduction_locked() public view returns (bool) {
+ 35 |     |         if (proposedDelay == 0) return true;
+ 36 |     |         if (proposedDelay >= delay) return true;
+ 37 |     |         return block.timestamp < delayReductionLockTime;
+ 38 |     |     }
+ 39 |     | 
+ 40 |     |     // Helper function to test role granting
+ 41 | *   |     function tryGrantRole(address account) public {
+ 42 | *   |         try this.grantRole(TEST_ROLE, account) {
+ 43 |     |             // Role was granted
+ 44 |     |         } catch {
+ 45 |     |             // Role grant failed
+ 46 |     |         }
+ 47 |     |     }
+ 48 |     | }
+ 49 |     | 
+
+/home/splidge/Github/athena-contracts/flattened/AccessControlDelayed.sol
+   1 |     | // Sources flattened with hardhat v2.22.10 https://hardhat.org
+   2 |     | 
+   3 |     | // SPDX-License-Identifier: MIT
+   4 |     | 
+   5 |     | // File @openzeppelin/contracts/access/IAccessControl.sol@v5.0.2
+   6 |     | 
+   7 |     | // Original license: SPDX_License_Identifier: MIT
+   8 |     | // OpenZeppelin Contracts (last updated v5.0.0) (access/IAccessControl.sol)
+   9 |     | 
+  10 |     | pragma solidity ^0.8.20;
+  11 |     | 
+  12 |     | /**
+  13 |     |  * @dev External interface of AccessControl declared to support ERC165 detection.
+  14 |     |  */
+  15 |     | interface IAccessControl {
+  16 |     |     /**
+  17 |     |      * @dev The `account` is missing a role.
+  18 |     |      */
+  19 |     |     error AccessControlUnauthorizedAccount(address account, bytes32 neededRole);
+  20 |     | 
+  21 |     |     /**
+  22 |     |      * @dev The caller of a function is not the expected one.
+  23 |     |      *
+  24 |     |      * NOTE: Don't confuse with {AccessControlUnauthorizedAccount}.
+  25 |     |      */
+  26 |     |     error AccessControlBadConfirmation();
+  27 |     | 
+  28 |     |     /**
+  29 |     |      * @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
+  30 |     |      *
+  31 |     |      * `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
+  32 |     |      * {RoleAdminChanged} not being emitted signaling this.
+  33 |     |      */
+  34 |     |     event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
+  35 |     | 
+  36 |     |     /**
+  37 |     |      * @dev Emitted when `account` is granted `role`.
+  38 |     |      *
+  39 |     |      * `sender` is the account that originated the contract call, an admin role
+  40 |     |      * bearer except when using {AccessControl-_setupRole}.
+  41 |     |      */
+  42 |     |     event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
+  43 |     | 
+  44 |     |     /**
+  45 |     |      * @dev Emitted when `account` is revoked `role`.
+  46 |     |      *
+  47 |     |      * `sender` is the account that originated the contract call:
+  48 |     |      *   - if using `revokeRole`, it is the admin role bearer
+  49 |     |      *   - if using `renounceRole`, it is the role bearer (i.e. `account`)
+  50 |     |      */
+  51 |     |     event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
+  52 |     | 
+  53 |     |     /**
+  54 |     |      * @dev Returns `true` if `account` has been granted `role`.
+  55 |     |      */
+  56 |     |     function hasRole(bytes32 role, address account) external view returns (bool);
+  57 |     | 
+  58 |     |     /**
+  59 |     |      * @dev Returns the admin role that controls `role`. See {grantRole} and
+  60 |     |      * {revokeRole}.
+  61 |     |      *
+  62 |     |      * To change a role's admin, use {AccessControl-_setRoleAdmin}.
+  63 |     |      */
+  64 |     |     function getRoleAdmin(bytes32 role) external view returns (bytes32);
+  65 |     | 
+  66 |     |     /**
+  67 |     |      * @dev Grants `role` to `account`.
+  68 |     |      *
+  69 |     |      * If `account` had not been already granted `role`, emits a {RoleGranted}
+  70 |     |      * event.
+  71 |     |      *
+  72 |     |      * Requirements:
+  73 |     |      *
+  74 |     |      * - the caller must have ``role``'s admin role.
+  75 |     |      */
+  76 |     |     function grantRole(bytes32 role, address account) external;
+  77 |     | 
+  78 |     |     /**
+  79 |     |      * @dev Revokes `role` from `account`.
+  80 |     |      *
+  81 |     |      * If `account` had been granted `role`, emits a {RoleRevoked} event.
+  82 |     |      *
+  83 |     |      * Requirements:
+  84 |     |      *
+  85 |     |      * - the caller must have ``role``'s admin role.
+  86 |     |      */
+  87 |     |     function revokeRole(bytes32 role, address account) external;
+  88 |     | 
+  89 |     |     /**
+  90 |     |      * @dev Revokes `role` from the calling account.
+  91 |     |      *
+  92 |     |      * Roles are often managed via {grantRole} and {revokeRole}: this function's
+  93 |     |      * purpose is to provide a mechanism for accounts to lose their privileges
+  94 |     |      * if they are compromised (such as when a trusted device is misplaced).
+  95 |     |      *
+  96 |     |      * If the calling account had been granted `role`, emits a {RoleRevoked}
+  97 |     |      * event.
+  98 |     |      *
+  99 |     |      * Requirements:
+ 100 |     |      *
+ 101 |     |      * - the caller must be `callerConfirmation`.
+ 102 |     |      */
+ 103 |     |     function renounceRole(bytes32 role, address callerConfirmation) external;
+ 104 |     | }
+ 105 |     | 
+ 106 |     | 
+ 107 |     | // File @openzeppelin/contracts/utils/Context.sol@v5.0.2
+ 108 |     | 
+ 109 |     | // Original license: SPDX_License_Identifier: MIT
+ 110 |     | // OpenZeppelin Contracts (last updated v5.0.1) (utils/Context.sol)
+ 111 |     | 
+ 112 |     | pragma solidity ^0.8.20;
+ 113 |     | 
+ 114 |     | /**
+ 115 |     |  * @dev Provides information about the current execution context, including the
+ 116 |     |  * sender of the transaction and its data. While these are generally available
+ 117 |     |  * via msg.sender and msg.data, they should not be accessed in such a direct
+ 118 |     |  * manner, since when dealing with meta-transactions the account sending and
+ 119 |     |  * paying for execution may not be the actual sender (as far as an application
+ 120 |     |  * is concerned).
+ 121 |     |  *
+ 122 |     |  * This contract is only required for intermediate, library-like contracts.
+ 123 |     |  */
+ 124 |     | abstract contract Context {
+ 125 | *   |     function _msgSender() internal view virtual returns (address) {
+ 126 | *   |         return msg.sender;
+ 127 |     |     }
+ 128 |     | 
+ 129 |     |     function _msgData() internal view virtual returns (bytes calldata) {
+ 130 |     |         return msg.data;
+ 131 |     |     }
+ 132 |     | 
+ 133 |     |     function _contextSuffixLength() internal view virtual returns (uint256) {
+ 134 |     |         return 0;
+ 135 |     |     }
+ 136 |     | }
+ 137 |     | 
+ 138 |     | 
+ 139 |     | // File @openzeppelin/contracts/utils/introspection/IERC165.sol@v5.0.2
+ 140 |     | 
+ 141 |     | // Original license: SPDX_License_Identifier: MIT
+ 142 |     | // OpenZeppelin Contracts (last updated v5.0.0) (utils/introspection/IERC165.sol)
+ 143 |     | 
+ 144 |     | pragma solidity ^0.8.20;
+ 145 |     | 
+ 146 |     | /**
+ 147 |     |  * @dev Interface of the ERC165 standard, as defined in the
+ 148 |     |  * https://eips.ethereum.org/EIPS/eip-165[EIP].
+ 149 |     |  *
+ 150 |     |  * Implementers can declare support of contract interfaces, which can then be
+ 151 |     |  * queried by others ({ERC165Checker}).
+ 152 |     |  *
+ 153 |     |  * For an implementation, see {ERC165}.
+ 154 |     |  */
+ 155 |     | interface IERC165 {
+ 156 |     |     /**
+ 157 |     |      * @dev Returns true if this contract implements the interface defined by
+ 158 |     |      * `interfaceId`. See the corresponding
+ 159 |     |      * https://eips.ethereum.org/EIPS/eip-165#how-interfaces-are-identified[EIP section]
+ 160 |     |      * to learn more about how these ids are created.
+ 161 |     |      *
+ 162 |     |      * This function call must use less than 30 000 gas.
+ 163 |     |      */
+ 164 |     |     function supportsInterface(bytes4 interfaceId) external view returns (bool);
+ 165 |     | }
+ 166 |     | 
+ 167 |     | 
+ 168 |     | // File @openzeppelin/contracts/utils/introspection/ERC165.sol@v5.0.2
+ 169 |     | 
+ 170 |     | // Original license: SPDX_License_Identifier: MIT
+ 171 |     | // OpenZeppelin Contracts (last updated v5.0.0) (utils/introspection/ERC165.sol)
+ 172 |     | 
+ 173 |     | pragma solidity ^0.8.20;
+ 174 |     | 
+ 175 |     | /**
+ 176 |     |  * @dev Implementation of the {IERC165} interface.
+ 177 |     |  *
+ 178 |     |  * Contracts that want to implement ERC165 should inherit from this contract and override {supportsInterface} to check
+ 179 |     |  * for the additional interface id that will be supported. For example:
+ 180 |     |  *
+ 181 |     |  * ```solidity
+ 182 |     |  * function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+ 183 |     |  *     return interfaceId == type(MyInterface).interfaceId || super.supportsInterface(interfaceId);
+ 184 |     |  * }
+ 185 |     |  * ```
+ 186 |     |  */
+ 187 |     | abstract contract ERC165 is IERC165 {
+ 188 |     |     /**
+ 189 |     |      * @dev See {IERC165-supportsInterface}.
+ 190 |     |      */
+ 191 |     |     function supportsInterface(bytes4 interfaceId) public view virtual returns (bool) {
+ 192 |     |         return interfaceId == type(IERC165).interfaceId;
+ 193 |     |     }
+ 194 |     | }
+ 195 |     | 
+ 196 |     | 
+ 197 |     | // File @openzeppelin/contracts/access/AccessControl.sol@v5.0.2
+ 198 |     | 
+ 199 |     | // Original license: SPDX_License_Identifier: MIT
+ 200 |     | // OpenZeppelin Contracts (last updated v5.0.0) (access/AccessControl.sol)
+ 201 |     | 
+ 202 |     | pragma solidity ^0.8.20;
+ 203 |     | 
+ 204 |     | 
+ 205 |     | 
+ 206 |     | /**
+ 207 |     |  * @dev Contract module that allows children to implement role-based access
+ 208 |     |  * control mechanisms. This is a lightweight version that doesn't allow enumerating role
+ 209 |     |  * members except through off-chain means by accessing the contract event logs. Some
+ 210 |     |  * applications may benefit from on-chain enumerability, for those cases see
+ 211 |     |  * {AccessControlEnumerable}.
+ 212 |     |  *
+ 213 |     |  * Roles are referred to by their `bytes32` identifier. These should be exposed
+ 214 |     |  * in the external API and be unique. The best way to achieve this is by
+ 215 |     |  * using `public constant` hash digests:
+ 216 |     |  *
+ 217 |     |  * ```solidity
+ 218 |     |  * bytes32 public constant MY_ROLE = keccak256("MY_ROLE");
+ 219 |     |  * ```
+ 220 |     |  *
+ 221 |     |  * Roles can be used to represent a set of permissions. To restrict access to a
+ 222 |     |  * function call, use {hasRole}:
+ 223 |     |  *
+ 224 |     |  * ```solidity
+ 225 |     |  * function foo() public {
+ 226 |     |  *     require(hasRole(MY_ROLE, msg.sender));
+ 227 |     |  *     ...
+ 228 |     |  * }
+ 229 |     |  * ```
+ 230 |     |  *
+ 231 |     |  * Roles can be granted and revoked dynamically via the {grantRole} and
+ 232 |     |  * {revokeRole} functions. Each role has an associated admin role, and only
+ 233 |     |  * accounts that have a role's admin role can call {grantRole} and {revokeRole}.
+ 234 |     |  *
+ 235 |     |  * By default, the admin role for all roles is `DEFAULT_ADMIN_ROLE`, which means
+ 236 |     |  * that only accounts with this role will be able to grant or revoke other
+ 237 |     |  * roles. More complex role relationships can be created by using
+ 238 |     |  * {_setRoleAdmin}.
+ 239 |     |  *
+ 240 |     |  * WARNING: The `DEFAULT_ADMIN_ROLE` is also its own admin: it has permission to
+ 241 |     |  * grant and revoke this role. Extra precautions should be taken to secure
+ 242 |     |  * accounts that have been granted it. We recommend using {AccessControlDefaultAdminRules}
+ 243 |     |  * to enforce additional security measures for this role.
+ 244 |     |  */
+ 245 |     | abstract contract AccessControl is Context, IAccessControl, ERC165 {
+ 246 |     |     struct RoleData {
+ 247 |     |         mapping(address account => bool) hasRole;
+ 248 |     |         bytes32 adminRole;
+ 249 |     |     }
+ 250 |     | 
+ 251 |     |     mapping(bytes32 role => RoleData) private _roles;
+ 252 |     | 
+ 253 | *   |     bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+ 254 |     | 
+ 255 |     |     /**
+ 256 |     |      * @dev Modifier that checks that an account has a specific role. Reverts
+ 257 |     |      * with an {AccessControlUnauthorizedAccount} error including the required role.
+ 258 |     |      */
+ 259 |     |     modifier onlyRole(bytes32 role) {
+ 260 | *   |         _checkRole(role);
+ 261 |     |         _;
+ 262 |     |     }
+ 263 |     | 
+ 264 |     |     /**
+ 265 |     |      * @dev See {IERC165-supportsInterface}.
+ 266 |     |      */
+ 267 |     |     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+ 268 |     |         return interfaceId == type(IAccessControl).interfaceId || super.supportsInterface(interfaceId);
+ 269 |     |     }
+ 270 |     | 
+ 271 |     |     /**
+ 272 |     |      * @dev Returns `true` if `account` has been granted `role`.
+ 273 |     |      */
+ 274 | *   |     function hasRole(bytes32 role, address account) public view virtual returns (bool) {
+ 275 | *   |         return _roles[role].hasRole[account];
+ 276 |     |     }
+ 277 |     | 
+ 278 |     |     /**
+ 279 |     |      * @dev Reverts with an {AccessControlUnauthorizedAccount} error if `_msgSender()`
+ 280 |     |      * is missing `role`. Overriding this function changes the behavior of the {onlyRole} modifier.
+ 281 |     |      */
+ 282 | *   |     function _checkRole(bytes32 role) internal view virtual {
+ 283 | *   |         _checkRole(role, _msgSender());
+ 284 |     |     }
+ 285 |     | 
+ 286 |     |     /**
+ 287 |     |      * @dev Reverts with an {AccessControlUnauthorizedAccount} error if `account`
+ 288 |     |      * is missing `role`.
+ 289 |     |      */
+ 290 | *   |     function _checkRole(bytes32 role, address account) internal view virtual {
+ 291 | *   |         if (!hasRole(role, account)) {
+ 292 | *r  |             revert AccessControlUnauthorizedAccount(account, role);
+ 293 |     |         }
+ 294 |     |     }
+ 295 |     | 
+ 296 |     |     /**
+ 297 |     |      * @dev Returns the admin role that controls `role`. See {grantRole} and
+ 298 |     |      * {revokeRole}.
+ 299 |     |      *
+ 300 |     |      * To change a role's admin, use {_setRoleAdmin}.
+ 301 |     |      */
+ 302 | *   |     function getRoleAdmin(bytes32 role) public view virtual returns (bytes32) {
+ 303 | *   |         return _roles[role].adminRole;
+ 304 |     |     }
+ 305 |     | 
+ 306 |     |     /**
+ 307 |     |      * @dev Grants `role` to `account`.
+ 308 |     |      *
+ 309 |     |      * If `account` had not been already granted `role`, emits a {RoleGranted}
+ 310 |     |      * event.
+ 311 |     |      *
+ 312 |     |      * Requirements:
+ 313 |     |      *
+ 314 |     |      * - the caller must have ``role``'s admin role.
+ 315 |     |      *
+ 316 |     |      * May emit a {RoleGranted} event.
+ 317 |     |      */
+ 318 |     |     function grantRole(bytes32 role, address account) public virtual onlyRole(getRoleAdmin(role)) {
+ 319 |     |         _grantRole(role, account);
+ 320 |     |     }
+ 321 |     | 
+ 322 |     |     /**
+ 323 |     |      * @dev Revokes `role` from `account`.
+ 324 |     |      *
+ 325 |     |      * If `account` had been granted `role`, emits a {RoleRevoked} event.
+ 326 |     |      *
+ 327 |     |      * Requirements:
+ 328 |     |      *
+ 329 |     |      * - the caller must have ``role``'s admin role.
+ 330 |     |      *
+ 331 |     |      * May emit a {RoleRevoked} event.
+ 332 |     |      */
+ 333 | *   |     function revokeRole(bytes32 role, address account) public virtual onlyRole(getRoleAdmin(role)) {
+ 334 |     |         _revokeRole(role, account);
+ 335 |     |     }
+ 336 |     | 
+ 337 |     |     /**
+ 338 |     |      * @dev Revokes `role` from the calling account.
+ 339 |     |      *
+ 340 |     |      * Roles are often managed via {grantRole} and {revokeRole}: this function's
+ 341 |     |      * purpose is to provide a mechanism for accounts to lose their privileges
+ 342 |     |      * if they are compromised (such as when a trusted device is misplaced).
+ 343 |     |      *
+ 344 |     |      * If the calling account had been revoked `role`, emits a {RoleRevoked}
+ 345 |     |      * event.
+ 346 |     |      *
+ 347 |     |      * Requirements:
+ 348 |     |      *
+ 349 |     |      * - the caller must be `callerConfirmation`.
+ 350 |     |      *
+ 351 |     |      * May emit a {RoleRevoked} event.
+ 352 |     |      */
+ 353 | *   |     function renounceRole(bytes32 role, address callerConfirmation) public virtual {
+ 354 | *   |         if (callerConfirmation != _msgSender()) {
+ 355 | *r  |             revert AccessControlBadConfirmation();
+ 356 |     |         }
+ 357 |     | 
+ 358 | *   |         _revokeRole(role, callerConfirmation);
+ 359 |     |     }
+ 360 |     | 
+ 361 |     |     /**
+ 362 |     |      * @dev Sets `adminRole` as ``role``'s admin role.
+ 363 |     |      *
+ 364 |     |      * Emits a {RoleAdminChanged} event.
+ 365 |     |      */
+ 366 |     |     function _setRoleAdmin(bytes32 role, bytes32 adminRole) internal virtual {
+ 367 |     |         bytes32 previousAdminRole = getRoleAdmin(role);
+ 368 |     |         _roles[role].adminRole = adminRole;
+ 369 |     |         emit RoleAdminChanged(role, previousAdminRole, adminRole);
+ 370 |     |     }
+ 371 |     | 
+ 372 |     |     /**
+ 373 |     |      * @dev Attempts to grant `role` to `account` and returns a boolean indicating if `role` was granted.
+ 374 |     |      *
+ 375 |     |      * Internal function without access restriction.
+ 376 |     |      *
+ 377 |     |      * May emit a {RoleGranted} event.
+ 378 |     |      */
+ 379 | *   |     function _grantRole(bytes32 role, address account) internal virtual returns (bool) {
+ 380 | *   |         if (!hasRole(role, account)) {
+ 381 | *   |             _roles[role].hasRole[account] = true;
+ 382 | *   |             emit RoleGranted(role, account, _msgSender());
+ 383 | *   |             return true;
+ 384 |     |         } else {
+ 385 |     |             return false;
+ 386 |     |         }
+ 387 |     |     }
+ 388 |     | 
+ 389 |     |     /**
+ 390 |     |      * @dev Attempts to revoke `role` to `account` and returns a boolean indicating if `role` was revoked.
+ 391 |     |      *
+ 392 |     |      * Internal function without access restriction.
+ 393 |     |      *
+ 394 |     |      * May emit a {RoleRevoked} event.
+ 395 |     |      */
+ 396 | *   |     function _revokeRole(bytes32 role, address account) internal virtual returns (bool) {
+ 397 | *   |         if (hasRole(role, account)) {
+ 398 |     |             _roles[role].hasRole[account] = false;
+ 399 |     |             emit RoleRevoked(role, account, _msgSender());
+ 400 |     |             return true;
+ 401 |     |         } else {
+ 402 | *   |             return false;
+ 403 |     |         }
+ 404 |     |     }
+ 405 |     | }
+ 406 |     | 
+ 407 |     | 
+ 408 |     | // File contracts/Errors.sol
+ 409 |     | 
+ 410 |     | // Original license: SPDX_License_Identifier: MIT
+ 411 |     | pragma solidity =0.8.24;
+ 412 |     | 
+ 413 |     | /// @title Errors
+ 414 |     | /// @notice This contract contains all custom errors used across the protocol
+ 415 |     | contract Errors {
+ 416 |     |     // Generic errors
+ 417 |     |     error InvalidInput(string _contract, string _function);
+ 418 |     | 
+ 419 |     |     // AccessControlDelayed errors
+ 420 |     |     error AccessControlDelayed_InvalidDelay();
+ 421 |     | 
+ 422 |     |     // AdminVault errors
+ 423 |     |     error AdminVault_FeePercentageOutOfRange(uint256 _providedPercentage, uint256 _minAllowed, uint256 _maxAllowed);
+ 424 |     |     error AdminVault_InvalidFeeRange(uint256 _minFee, uint256 _maxFee);
+ 425 |     |     error AdminVault_AlreadyInitialized();
+ 426 |     |     error AdminVault_NotInitialized();
+ 427 |     |     error AdminVault_Unauthorized(address _caller, bytes32 _requiredRole);
+ 428 |     |     error AdminVault_DelayNotPassed(uint256 _currentTime, uint256 _requiredTime);
+ 429 |     |     error AdminVault_NotFound(string _entityType, bytes4 _entityId);
+ 430 |     |     error AdminVault_NotProposed();
+ 431 |     |     error AdminVault_AlreadyProposed();
+ 432 |     |     error AdminVault_NotAdded();
+ 433 |     |     error AdminVault_AlreadyAdded();
+ 434 |     | 
+ 435 |     |     // FeeTakeSafeModule errors
+ 436 |     |     error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);
+ 437 |     |     error FeeTakeSafeModule_InvalidActionType(bytes4 _actionId);
+ 438 |     |     error FeeTakeSafeModule_ExecutionFailed();
+ 439 |     | 
+ 440 |     |     // Generic Action errors
+ 441 |     |     error Action_ZeroAmount(string _protocolName, uint8 _actionType);
+ 442 |     |     error Action_InsufficientSharesReceived(
+ 443 |     |         string _protocolName,
+ 444 |     |         uint8 _actionType,
+ 445 |     |         uint256 _sharesReceived,
+ 446 |     |         uint256 _minSharesReceived
+ 447 |     |     );
+ 448 |     |     error Action_MaxSharesBurnedExceeded(
+ 449 |     |         string _protocolName,
+ 450 |     |         uint8 _actionType,
+ 451 |     |         uint256 _sharesBurned,
+ 452 |     |         uint256 _maxAllowed
+ 453 |     |     );
+ 454 |     |     error Action_NotDelegateCall();
+ 455 |     |     // Curve3PoolSwap errors
+ 456 |     |     error Curve3Pool__InvalidTokenIndices(int128 _fromToken, int128 _toToken);
+ 457 |     | 
+ 458 |     |     // SendToken errors
+ 459 |     |     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
+ 460 |     | }
+ 461 |     | 
+ 462 |     | 
+ 463 |     | // File contracts/auth/AccessControlDelayed.sol
+ 464 |     | 
+ 465 |     | // Original license: SPDX_License_Identifier: MIT
+ 466 |     | 
+ 467 |     | pragma solidity =0.8.24;
+ 468 |     | 
+ 469 |     | 
+ 470 |     | /// @title Add delays to granting roles in access control
+ 471 |     | abstract contract AccessControlDelayed is AccessControl {
+ 472 | *   |     uint256 public delay; // How long after a proposal can the role be granted
+ 473 | *   |     uint256 public proposedDelay; // New delay to be set after delayReductionLockTime
+ 474 | *   |     uint256 public delayReductionLockTime; // Time when the new delay can be set/used
+ 475 |     |     // mapping of proposed roles to the timestamp they can be granted
+ 476 |     |     mapping(bytes32 => uint256) public proposedRoles;
+ 477 |     | 
+ 478 | *   |     constructor(uint256 _delay) {
+ 479 | *   |         delay = _delay;
+ 480 |     |     }
+ 481 |     | 
+ 482 | *   |     function grantRoles(bytes32[] calldata roles, address[] calldata accounts) external virtual {
+ 483 | *   |         for (uint256 i = 0; i < roles.length; i++) {
+ 484 | *   |             grantRole(roles[i], accounts[i]);
+ 485 |     |         }
+ 486 |     |     }
+ 487 |     | 
+ 488 | *   |     function grantRole(bytes32 role, address account) public virtual override(AccessControl) {
+ 489 | *   |         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
+ 490 |     |         // Check if role was proposed
+ 491 | *   |         if (proposedRoles[proposalId] == 0) {
+ 492 | *r  |             revert Errors.AdminVault_NotProposed();
+ 493 |     |         }
+ 494 |     |         // Check if delay is passed
+ 495 |     |         if (block.timestamp < proposedRoles[proposalId]) {
+ 496 |     |             revert Errors.AdminVault_DelayNotPassed(block.timestamp, proposedRoles[proposalId]);
+ 497 |     |         }
+ 498 |     |         // role was proposed and delay has passed, delete proposal and grant role
+ 499 |     |         delete proposedRoles[proposalId];
+ 500 |     |         super.grantRole(role, account);
+ 501 |     |     }
+ 502 |     | 
+ 503 | *   |     function proposeRoles(
+ 504 |     |         bytes32[] calldata roles,
+ 505 |     |         address[] calldata accounts
+ 506 | *   |     ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+ 507 |     |         for (uint256 i = 0; i < roles.length; i++) {
+ 508 |     |             _proposeRole(roles[i], accounts[i]);
+ 509 |     |         }
+ 510 |     |     }
+ 511 |     | 
+ 512 | *   |     function proposeRole(bytes32 role, address account) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+ 513 |     |         _proposeRole(role, account);
+ 514 |     |     }
+ 515 |     | 
+ 516 |     |     function _proposeRole(bytes32 role, address account) internal virtual {
+ 517 |     |         if (account == address(0)) {
+ 518 |     |             revert Errors.InvalidInput("AccessControlDelayed", "_proposeRole");
+ 519 |     |         }
+ 520 |     |         // Check if role was already proposed
+ 521 |     |         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
+ 522 |     |         if (proposedRoles[proposalId] > 0) {
+ 523 |     |             revert Errors.AdminVault_AlreadyProposed();
+ 524 |     |         }
+ 525 |     |         // add to list of proposed roles with the wait time
+ 526 |     |         proposedRoles[proposalId] = _getDelayTimestamp();
+ 527 |     |     }
+ 528 |     | 
+ 529 |     |     // A helper to find the time when a role proposal will be available to grant
+ 530 | *   |     function getRoleProposalTime(bytes32 role, address account) public view returns (uint256) {
+ 531 | *   |         return proposedRoles[keccak256(abi.encodePacked(role, account))];
+ 532 |     |     }
+ 533 |     | 
+ 534 |     |     // Admin function to change the delay
+ 535 |     |     // If the new delay is longer we just use it.
+ 536 |     |     // If the new delay is shorter we must set a timestamp for when the old delay
+ 537 |     |     // would have expired and we can use the new delay after that time.
+ 538 |     |     // e.g. If the delay is 2 hours, and we reduce it to 1 hour. All new proposals
+ 539 |     |     //      must wait until at least now + 2 hours (old delay) but in 1 hour's time
+ 540 |     |     //      they may start using the new delay (because both the old and the new
+ 541 |     |     //      delays will have passed by the time they may be granted).
+ 542 |     |     // Note: We don't simply add the shorter delay to the delayReductionLockTime
+ 543 |     |     //       because for legitimate use we may want to shorten the delay, say from
+ 544 |     |     //       2 days to 1 day, in this case we don't want to wait a total of 3 days.
+ 545 |     |     // This means that the delay used by default should include enough time to:
+ 546 |     |     //   -- Notice the change
+ 547 |     |     //   -- Deal with the security hole (remove attackers permissions)
+ 548 |     |     //   -- Adjust the delay back to a suitable value
+ 549 |     |     //   -- Cancel any proposals made during this period
+ 550 | *   |     function changeDelay(uint256 _newDelay) public onlyRole(DEFAULT_ADMIN_ROLE) {
+ 551 |     |         // Only overwrite the same delay if there is a proposal we want to cancel
+ 552 |     |         // Delay must not more than 5 days (to avoid costly mistakes)
+ 553 |     |         if ((_newDelay == delay && proposedDelay != 0) || _newDelay > 5 days) {
+ 554 |     |             revert Errors.AccessControlDelayed_InvalidDelay();
+ 555 |     |         }
+ 556 |     | 
+ 557 |     |         if (block.timestamp < delayReductionLockTime) {
+ 558 |     |             // The delay must already have been reduced because delayReductionLockTime is in the future
+ 559 |     |             // We can't have set the delay to proposedDelay yet, so we can just delete it
+ 560 |     |             delete delayReductionLockTime;
+ 561 |     |             delete proposedDelay;
+ 562 |     |         }
+ 563 |     | 
+ 564 |     |         if (_newDelay >= delay) {
+ 565 |     |             // New delay is longer, just set it
+ 566 |     |             delay = _newDelay;
+ 567 |     |         } else {
+ 568 |     |             // New delay is shorter, enforce old delay until it is met
+ 569 |     |             delayReductionLockTime = block.timestamp + delay;
+ 570 |     |             proposedDelay = _newDelay;
+ 571 |     |         }
+ 572 |     |     }
+ 573 |     | 
+ 574 |     |     // an internal function that will return the timestamp to wait until,
+ 575 |     |     // foctors in the the delayReuctionLockTime
+ 576 |     |     // if after the lock time we can set delay to the new value
+ 577 |     |     function _getDelayTimestamp() internal returns (uint256) {
+ 578 |     |         if (block.timestamp < delayReductionLockTime) {
+ 579 |     |             // We haven't reached the lock time yet,
+ 580 |     |             // We must wait until the greater of the lock time, or now + proposedDelay
+ 581 |     |             uint256 proposedDelayTime = block.timestamp + proposedDelay;
+ 582 |     |             return proposedDelayTime > delayReductionLockTime ? proposedDelayTime : delayReductionLockTime;
+ 583 |     |         }
+ 584 |     |         // We have reached the lock time, we may set the delay to the proposed delay
+ 585 |     |         if (proposedDelay != 0) {
+ 586 |     |             delay = proposedDelay;
+ 587 |     |             delete proposedDelay;
+ 588 |     |         }
+ 589 |     |         return block.timestamp + delay;
+ 590 |     |     }
+ 591 |     | 
+ 592 |     |     function _checkProposalWaitTime(bytes32 proposalId) internal view returns (bool) {
+ 593 |     |         return block.timestamp >= proposedRoles[proposalId];
+ 594 |     |     }
+ 595 |     | 
+ 596 | *   |     function cancelRoleProposal(bytes32 role, address account) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+ 597 |     |         if (proposedRoles[keccak256(abi.encodePacked(role, account))] == 0) {
+ 598 |     |             revert Errors.AdminVault_NotProposed();
+ 599 |     |         }
+ 600 |     |         delete proposedRoles[keccak256(abi.encodePacked(role, account))];
+ 601 |     |     }
+ 602 |     | }
+ 603 |     | 
+

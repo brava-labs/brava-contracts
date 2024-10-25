@@ -92,7 +92,10 @@ contract FluidSupply is ActionBase {
             }
 
             stableToken.safeIncreaseAllowance(_fTokenAddress, amountToDeposit);
-            fToken.deposit(_inputData.amount, address(this), _inputData.minSharesReceived);
+            uint256 sharesMinted = fToken.deposit(_inputData.amount, address(this), _inputData.minSharesReceived);
+            if (sharesMinted < _inputData.minSharesReceived) {
+                revert Errors.Action_MinSharesReceived(protocolName(), uint8(actionType()));
+            }
         }
 
         fBalanceAfter = fToken.balanceOf(address(this));

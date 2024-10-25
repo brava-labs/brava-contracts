@@ -1,0 +1,5 @@
+testMode: 'property'
+testLimit: 1000000 # Significantly increase the number of test sequences
+seqLen: 500 # Increase the length of each sequence
+corpusDir: 'echidna-corpus'
+coverage: true

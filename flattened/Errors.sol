@@ -1,4 +1,10 @@
+// Sources flattened with hardhat v2.22.10 https://hardhat.org
+
 // SPDX-License-Identifier: MIT
+
+// File contracts/Errors.sol
+
+// Original license: SPDX_License_Identifier: MIT
 pragma solidity =0.8.24;
 
 /// @title Errors
@@ -43,8 +49,6 @@ contract Errors {
         uint256 _maxAllowed
     );
     error Action_NotDelegateCall();
-    error Action_MinSharesReceived(string _protocolName, uint8 _actionType);
-
     // Curve3PoolSwap errors
     error Curve3Pool__InvalidTokenIndices(int128 _fromToken, int128 _toToken);
 

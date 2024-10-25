@@ -1,10 +1,16 @@
+// Sources flattened with hardhat v2.22.10 https://hardhat.org
+
 // SPDX-License-Identifier: MIT
+
+// File contracts/Logger.sol
+
+// Original license: SPDX_License_Identifier: MIT
 
 pragma solidity =0.8.24;
 
-import {ILogger} from "./interfaces/ILogger.sol";
-
-contract Logger is ILogger {
+contract Logger {
+    event ActionEvent(address caller, uint256 logId, bytes data);
+    event AdminVaultEvent(uint256 logId, bytes data);
 
     /// @notice Logs an event from an action
     /// @param _logId The ID of the log

@@ -37,10 +37,8 @@ contract Curve3PoolSwap is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+    function executeAction(bytes memory _callData, uint16 /* _strategyId */) public payable override {
         Params memory params = _parseInputs(_callData);
-        // _strategyId is ignored, as this action is not strategy-specific
-        _strategyId;
         _curve3PoolSwap(params);
     }
 

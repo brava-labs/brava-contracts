@@ -127,10 +127,6 @@ abstract contract AccessControlDelayed is AccessControl {
         return block.timestamp + delay;
     }
 
-    function _checkProposalWaitTime(bytes32 proposalId) internal view returns (bool) {
-        return block.timestamp >= proposedRoles[proposalId];
-    }
-
     function cancelRoleProposal(bytes32 role, address account) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         if (proposedRoles[keccak256(abi.encodePacked(role, account))] == 0) {
             revert Errors.AdminVault_NotProposed();

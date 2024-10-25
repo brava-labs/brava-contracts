@@ -93,13 +93,6 @@ abstract contract ActionBase {
         return feeForPeriod;
     }
 
-    /// @notice Generates a pool ID from an address
-    /// @param _addr Address to generate the pool ID from
-    /// @return bytes4 The generated pool ID
-    function _poolIdFromAddress(address _addr) internal pure returns (bytes4) {
-        return bytes4(keccak256(abi.encodePacked(_addr)));
-    }
-
     /// @notice Encodes balance update information
     /// @param _strategyId ID of the strategy
     /// @param _poolId ID of the pool
