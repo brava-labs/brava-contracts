@@ -22,7 +22,7 @@ Welcome to the AthenaFi smart contract repository! 🚀 This project houses the 
    ALCHEMY_API_KEY=your_alchemy_api_key_here
    ```
 
-4. 🔗 Visit the [athena-sdk repository](https://github.com/your-repo/athena-sdk) and follow the installation instructions.
+4. 🔗 Visit the [athenafi-ts-client repository](https://github.com/amorphicxyz/athenafi-ts-client.git) and follow the installation instructions.
 
 ## 🧪 Running Tests
 
@@ -48,7 +48,7 @@ npm run test -- --grep Curve
 
 This project uses Hardhat for Ethereum development. The main configuration can be found in `hardhat.config.ts`.
 
-🔗 This project relies on the athena-sdk.
+🔗 This project relies on the athenafi-ts-client.
 
 ## 📜 Contract Overview
 

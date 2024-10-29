@@ -1,4 +1,4 @@
-import { executeSafeTransaction, getPortfolioUpdateTx, Pool, poolToProtocol, Portfolio, portfolioUpdateToBalanceUpdates, SafeOperation } from 'athena-sdk';
+import { executeSafeTransaction, getPortfolioUpdateTx, Pool, poolToProtocol, Portfolio, portfolioUpdateToBalanceUpdates, SafeOperation } from 'athenafi-ts-client';
 import { Signer } from 'ethers';
 import { ethers } from 'hardhat';
 

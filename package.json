@@ -31,7 +31,7 @@
   "dependencies": {
     "@nomiclabs/hardhat-solhint": "^4.0.0",
     "@openzeppelin/contracts": "^5.0.2",
-    "athena-sdk": "github:amorphicxyz/athena-sdk#DEL-54",
+    "athenafi-ts-client": "github:amorphicxyz/athenafi-ts-client#epic/DEL-258",
     "dotenv": "^16.4.5",
     "ethers": "6.13.2"
   }
