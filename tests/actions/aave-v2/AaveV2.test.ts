@@ -356,7 +356,8 @@ describe('Aave V2 tests', () => {
       await fundAccountWithToken(safeAddr, token, amount);
 
       const aUSDC = await ethers.getContractAt('IERC20', tokenConfig.aUSDC_V2.address);
-      const feeRecipient = await adminVault.feeRecipient();
+      const feeConfig = await adminVault.feeConfig();
+      const feeRecipient = feeConfig.recipient;
       const feeRecipientaUSDCBalanceBefore = await aUSDC.balanceOf(feeRecipient);
 
       const supplyTx = await executeAction({
