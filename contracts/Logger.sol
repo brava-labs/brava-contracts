@@ -2,15 +2,15 @@
 
 pragma solidity =0.8.24;
 
-contract Logger {
-    event ActionEvent(address caller, uint256 logId, bytes data);
-    event AdminVaultEvent(uint256 logId, bytes data);
+import {ActionBase} from "./actions/ActionBase.sol";
+import {ILogger} from "./interfaces/ILogger.sol";
 
+contract Logger is ILogger {
     /// @notice Logs an event from an action
-    /// @param _logId The ID of the log
+    /// @param _logType The type of the log
     /// @param _data The data to log
-    function logActionEvent(uint256 _logId, bytes memory _data) public {
-        emit ActionEvent(msg.sender, _logId, _data);
+    function logActionEvent(ActionBase.LogType _logType, bytes memory _data) public {
+        emit ActionEvent(msg.sender, _logType, _data);
     }
 
     /// @notice Logs an event from the AdminVault

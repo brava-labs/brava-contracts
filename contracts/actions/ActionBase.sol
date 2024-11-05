@@ -36,6 +36,19 @@ abstract contract ActionBase {
         CUSTOM_ACTION
     }
 
+    /// @notice Enum representing different types of logs
+    // List of log types, this list should be updated with each new log type added to the system.
+    //   Existing values should not be changed/removed, as they may be already in use by a deployed action.
+    //   UNUSED keeps the enum starting at index 1 for off-chain processing.
+    enum LogType {
+        UNUSED,
+        BALANCE_UPDATE,
+        BUY_COVER,
+        CURVE_3POOL_SWAP,
+        SEND_TOKEN,
+        PULL_TOKEN
+    }
+
     /// @notice Initializes the ActionBase contract
     /// @param _adminVault Address of the admin vault
     /// @param _logger Address of the logger contract

@@ -8,7 +8,7 @@
 //     - The decode function should take in the baseLog and the decodedBytes and return the log
 
 export const LOGGER_INTERFACE = [
-  'event ActionEvent(address caller, uint256 logId, bytes data)',
+  'event ActionEvent(address caller, uint8 logId, bytes data)',
   'event AdminVaultEvent(string logName, bytes data)',
 ];
 
