@@ -14,7 +14,7 @@ contract AdminVault is AccessControlDelayed {
 
     // Role definitions
     // Access to the private keys associated with each address granted roles will be managed off-chain.
-    //   And will vary depending on the privelege of the role and future security reviews.
+    //   And will vary depending on the privilege of the role and future security reviews.
 
     // OWNER_ROLE is the highest role in the hierarchy, it is used to setup the proposers.
     //   ideally once the proposers are setup this is never used, and is reserved for emergencies only.
@@ -25,11 +25,13 @@ contract AdminVault is AccessControlDelayed {
     //   only proposals that have passed an off-chain vetting process should be proposed.
     // EXECUTOR_ROLE may execute proposed configurations, this is likely less permissioned than the proposers.
     //   it should be reasonably easy for team members to execute changes once the proposal has passed.
-    // CANCELER_ROLE may cancel proposals, this role is a defence mechanism and should be treated as realatively in-secure.
+    // CANCELER_ROLE may cancel proposals, this role is a defence mechanism and should be treated as relatively in-secure.
     //   it should be possible to cancel a proposal if there was a successful attack and the proposal is not
     //   going to be used. This role may be given to bots, or team members on easy to access software wallets.
+    // DISPOSER_ROLE may remove pools and actions, this shouldn't be frequently required.
+    //   It's likely this role will be given to the same addresses as the proposers.
 
-    // Lower privelliaged roles may be assigned to the same address as higher privelliaged roles.
+    // Lower privileged roles may be assigned to the same address as higher privileged roles.
     //   This means a PROPOSER may also be an EXECUTOR or CANCELER, so they may cancel or execute their own proposals.
 
     // Role definitions
