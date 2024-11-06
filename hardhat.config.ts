@@ -12,7 +12,7 @@ tenderly.setup({
 const config: HardhatUserConfig = {
   solidity: '0.8.24',
   paths: {
-    tests: './tests/',
+    tests: './tests',
   },
   networks: {
     virtualMainnet: {
