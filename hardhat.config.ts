@@ -5,10 +5,6 @@ import * as tenderly from '@tenderly/hardhat-tenderly';
 import 'dotenv/config';
 import { HardhatUserConfig } from 'hardhat/config';
 
-tenderly.setup({
-  automaticVerifications: !!process.env.TENDERLY_AUTOMATIC_VERIFICATION,
-});
-
 const config: HardhatUserConfig = {
   solidity: '0.8.24',
   paths: {
