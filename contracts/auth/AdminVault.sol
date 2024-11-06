@@ -38,14 +38,16 @@ contract AdminVault is AccessControlDelayed {
 
     // Granular role definitions
     bytes32 public constant FEE_PROPOSER_ROLE = keccak256("FEE_PROPOSER_ROLE");
-    bytes32 public constant FEE_EXECUTOR_ROLE = keccak256("FEE_EXECUTOR_ROLE");
     bytes32 public constant FEE_CANCELER_ROLE = keccak256("FEE_CANCELER_ROLE");
+    bytes32 public constant FEE_EXECUTOR_ROLE = keccak256("FEE_EXECUTOR_ROLE");
     bytes32 public constant POOL_PROPOSER_ROLE = keccak256("POOL_PROPOSER_ROLE");
-    bytes32 public constant POOL_EXECUTOR_ROLE = keccak256("POOL_EXECUTOR_ROLE");
     bytes32 public constant POOL_CANCELER_ROLE = keccak256("POOL_CANCELER_ROLE");
+    bytes32 public constant POOL_EXECUTOR_ROLE = keccak256("POOL_EXECUTOR_ROLE");
+    bytes32 public constant POOL_DISPOSER_ROLE = keccak256("POOL_DISPOSER_ROLE");
     bytes32 public constant ACTION_PROPOSER_ROLE = keccak256("ACTION_PROPOSER_ROLE");
-    bytes32 public constant ACTION_EXECUTOR_ROLE = keccak256("ACTION_EXECUTOR_ROLE");
     bytes32 public constant ACTION_CANCELER_ROLE = keccak256("ACTION_CANCELER_ROLE");
+    bytes32 public constant ACTION_EXECUTOR_ROLE = keccak256("ACTION_EXECUTOR_ROLE");
+    bytes32 public constant ACTION_DISPOSER_ROLE = keccak256("ACTION_DISPOSER_ROLE");
 
     // Timestamp tracking for fee collection: user => vault => timestamp
     mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
@@ -97,15 +99,16 @@ contract AdminVault is AccessControlDelayed {
 
         // Grant all granular roles to initial owner
         _grantRole(FEE_PROPOSER_ROLE, _initialOwner);
-        _grantRole(FEE_EXECUTOR_ROLE, _initialOwner);
         _grantRole(FEE_CANCELER_ROLE, _initialOwner);
+        _grantRole(FEE_EXECUTOR_ROLE, _initialOwner);
         _grantRole(POOL_PROPOSER_ROLE, _initialOwner);
-        _grantRole(POOL_EXECUTOR_ROLE, _initialOwner);
         _grantRole(POOL_CANCELER_ROLE, _initialOwner);
+        _grantRole(POOL_EXECUTOR_ROLE, _initialOwner);
+        _grantRole(POOL_DISPOSER_ROLE, _initialOwner);
         _grantRole(ACTION_PROPOSER_ROLE, _initialOwner);
-        _grantRole(ACTION_EXECUTOR_ROLE, _initialOwner);
         _grantRole(ACTION_CANCELER_ROLE, _initialOwner);
-
+        _grantRole(ACTION_EXECUTOR_ROLE, _initialOwner);
+        _grantRole(ACTION_DISPOSER_ROLE, _initialOwner);
         // Set role hierarchy
         _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
@@ -115,15 +118,19 @@ contract AdminVault is AccessControlDelayed {
         _setRoleAdmin(POOL_PROPOSER_ROLE, OWNER_ROLE);
         _setRoleAdmin(ACTION_PROPOSER_ROLE, OWNER_ROLE);
 
+        // Canceler roles managed by ADMIN
+        _setRoleAdmin(FEE_CANCELER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(POOL_CANCELER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(ACTION_CANCELER_ROLE, ADMIN_ROLE);
+
         // Executor roles managed by ADMIN
         _setRoleAdmin(FEE_EXECUTOR_ROLE, ADMIN_ROLE);
         _setRoleAdmin(POOL_EXECUTOR_ROLE, ADMIN_ROLE);
         _setRoleAdmin(ACTION_EXECUTOR_ROLE, ADMIN_ROLE);
 
-        // Canceler roles managed by ADMIN
-        _setRoleAdmin(FEE_CANCELER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(POOL_CANCELER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(ACTION_CANCELER_ROLE, ADMIN_ROLE);
+        // Disposer roles managed by ADMIN
+        _setRoleAdmin(POOL_DISPOSER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(ACTION_DISPOSER_ROLE, ADMIN_ROLE);
     }
 
     /// Fee management
@@ -250,7 +257,7 @@ contract AdminVault is AccessControlDelayed {
         LOGGER.logAdminVaultEvent(202, abi.encode(protocolId, _poolAddress));
     }
 
-    function removePool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_PROPOSER_ROLE) {
+    function removePool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_DISPOSER_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
         delete protocolPools[protocolId][poolId];
@@ -305,7 +312,7 @@ contract AdminVault is AccessControlDelayed {
         LOGGER.logAdminVaultEvent(201, abi.encode(_actionId, _actionAddress));
     }
 
-    function removeAction(bytes4 _actionId) external onlyRole(ACTION_PROPOSER_ROLE) {
+    function removeAction(bytes4 _actionId) external onlyRole(ACTION_DISPOSER_ROLE) {
         delete actionAddresses[_actionId];
         LOGGER.logAdminVaultEvent(401, abi.encode(_actionId));
     }
