@@ -55,7 +55,7 @@ contract BuyCover is ActionBase {
         (uint32 period, uint256 amount, uint256 coverId) = _buyCover(inputData);
 
         // Log event
-        LOGGER.logActionEvent(2, _encodeBuyCover(_strategyId, period, amount, coverId));
+        LOGGER.logActionEvent(LogType.BUY_COVER, _encodeBuyCover(_strategyId, period, amount, coverId));
     }
 
     /// @inheritdoc ActionBase

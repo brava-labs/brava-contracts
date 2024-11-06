@@ -27,7 +27,7 @@ contract PullToken is ActionBase {
         _pullToken(inputData.tokenAddr, inputData.from, inputData.amount);
 
         // Log event
-        LOGGER.logActionEvent(5, abi.encode(inputData.tokenAddr, inputData.from, inputData.amount));
+        LOGGER.logActionEvent(LogType.PULL_TOKEN, abi.encode(inputData.tokenAddr, inputData.from, inputData.amount));
     }
 
     /// @inheritdoc ActionBase

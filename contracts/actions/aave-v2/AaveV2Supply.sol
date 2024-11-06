@@ -55,7 +55,7 @@ contract AaveV2Supply is ActionBase {
 
         // Log event
         LOGGER.logActionEvent(
-            1,
+            LogType.BALANCE_UPDATE,
             _encodeBalanceUpdate(_strategyId, inputData.assetId, balanceBefore, balanceAfter, feeInTokens)
         );
     }

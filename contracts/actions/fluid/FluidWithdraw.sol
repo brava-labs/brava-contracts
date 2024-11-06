@@ -40,7 +40,7 @@ contract FluidWithdraw is ActionBase {
 
         // Log event
         LOGGER.logActionEvent(
-            1,
+            LogType.BALANCE_UPDATE,
             _encodeBalanceUpdate(_strategyId, inputData.poolId, fBalanceBefore, fBalanceAfter, feeInTokens)
         );
     }
