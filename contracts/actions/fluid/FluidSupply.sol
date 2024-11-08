@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import {VaultSupply} from "../common/ERC4626Supply.sol";
+import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title FluidSupply - Supplies tokens to Fluid vault
 /// @notice This contract allows users to supply tokens to a Fluid vault
-/// @dev Inherits from VaultSupply as Fluid implements ERC4626
-contract FluidSupply is VaultSupply {
+/// @dev Inherits from ERC4626Supply as Fluid implements ERC4626
+contract FluidSupply is ERC4626Supply {
     /// @notice Initializes the FluidSupply contract
     /// @param _adminVault Address of the admin vault
     /// @param _logger Address of the logger contract
-    constructor(address _adminVault, address _logger) VaultSupply(_adminVault, _logger) {}
+    constructor(address _adminVault, address _logger) ERC4626Supply(_adminVault, _logger) {}
 
-    /// @inheritdoc VaultSupply
+    /// @inheritdoc ERC4626Supply
     /// @notice Returns the protocol name
     /// @return string "Fluid"
     function protocolName() internal pure override returns (string memory) {

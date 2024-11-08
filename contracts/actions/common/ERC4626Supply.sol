@@ -7,10 +7,10 @@ import {IERC4626} from "../../interfaces/ERC4626/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title VaultSupply - Supplies tokens to any ERC4626 vault
+/// @title ERC4626Supply - Supplies tokens to any ERC4626 vault
 /// @notice This contract allows users to supply tokens to any ERC4626-compliant vault
 /// @dev Inherits from ActionBase and implements generic supply functionality
-abstract contract VaultSupply is ActionBase {
+abstract contract ERC4626Supply is ActionBase {
     using SafeERC20 for IERC20;
 
     /// @notice Parameters for the supply action
@@ -25,7 +25,7 @@ abstract contract VaultSupply is ActionBase {
         uint256 minSharesReceived;
     }
 
-    /// @notice Initializes the VaultSupply contract
+    /// @notice Initializes the ERC4626Supply contract
     /// @param _adminVault Address of the admin vault
     /// @param _logger Address of the logger contract
     constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
