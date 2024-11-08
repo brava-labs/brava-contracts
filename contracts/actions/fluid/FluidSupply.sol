@@ -81,9 +81,9 @@ contract FluidSupply is ActionBase {
 
         // Perform the deposit
         if (_inputData.amount != 0) {
-            IERC20 stableToken = IERC20(fToken.asset());
+            IERC20 underlyingToken = IERC20(fToken.asset());
             uint256 amountToDeposit = _inputData.amount == type(uint256).max
-                ? stableToken.balanceOf(address(this))
+                ? underlyingToken.balanceOf(address(this))
                 : _inputData.amount;
 
             if (amountToDeposit == 0) {
@@ -91,8 +91,16 @@ contract FluidSupply is ActionBase {
                 revert Errors.Action_ZeroAmount(protocolName(), uint8(actionType()));
             }
 
-            stableToken.safeIncreaseAllowance(_fTokenAddress, amountToDeposit);
-            fToken.deposit(_inputData.amount, address(this), _inputData.minSharesReceived);
+            underlyingToken.safeIncreaseAllowance(_fTokenAddress, amountToDeposit);
+            uint256 shares = fToken.deposit(_inputData.amount, address(this));
+            if (shares < _inputData.minSharesReceived) {
+                revert Errors.Action_InsufficientSharesReceived(
+                    protocolName(),
+                    actionType(),
+                    shares,
+                    _inputData.minSharesReceived
+                );
+            }
         }
 
         fBalanceAfter = fToken.balanceOf(address(this));

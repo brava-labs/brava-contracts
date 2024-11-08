@@ -59,32 +59,40 @@ contract YearnSupply is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
+    /// @notice Executes the Fluid supply logic
+    /// @param _inputData Struct containing supply parameters
+    /// @param _yTokenAddress Address of the fToken contract
+    /// @return yBalanceBefore Balance of fTokens before the supply
+    /// @return yBalanceAfter Balance of fTokens after the supply
+    /// @return feeInTokens Amount of fees taken in tokens
     function _yearnSupply(
         Params memory _inputData,
-        address _yToken
+        address _yTokenAddress
     ) private returns (uint256 yBalanceBefore, uint256 yBalanceAfter, uint256 feeInTokens) {
-        IYearnVault yToken = IYearnVault(_yToken);
+        IYearnVault yToken = IYearnVault(_yTokenAddress);
+        yBalanceBefore = yToken.balanceOf(address(this));
 
-        // Check fee status
+        // Handle fee initialization or collection
         if (yBalanceBefore == 0) {
-            // Balance is zero, initialize fee timestamp for future fee calculations
             ADMIN_VAULT.initializeFeeTimestamp(address(yToken));
         } else {
-            // Balance is non-zero, take fees before depositing
             feeInTokens = _takeFee(address(yToken), _inputData.feeBasis);
         }
 
-        yBalanceBefore = yToken.balanceOf(address(this));
-
-        // Deposit tokens
+        // Perform the deposit
         if (_inputData.amount != 0) {
             IERC20 underlyingToken = IERC20(yToken.token());
-            if (_inputData.amount == type(uint256).max) {
-                _inputData.amount = underlyingToken.balanceOf(address(this));
-            }
-            underlyingToken.approve(address(yToken), _inputData.amount);
+            uint256 amountToDeposit = _inputData.amount == type(uint256).max
+                ? underlyingToken.balanceOf(address(this))
+                : _inputData.amount;
 
-            uint256 shares = yToken.deposit(_inputData.amount);
+            if (amountToDeposit == 0) {
+                // We wanted to input max, but have zero stable balance
+                revert Errors.Action_ZeroAmount(protocolName(), uint8(actionType()));
+            }
+
+            underlyingToken.safeIncreaseAllowance(_yTokenAddress, amountToDeposit);
+            uint256 shares = yToken.deposit(_inputData.amount, address(this));
             if (shares < _inputData.minSharesReceived) {
                 revert Errors.Action_InsufficientSharesReceived(
                     protocolName(),
@@ -106,6 +114,8 @@ contract YearnSupply is ActionBase {
     }
 
     /// @inheritdoc ActionBase
+    /// @notice Returns the protocol name
+    /// @return string "Fluid"
     function protocolName() internal pure override returns (string memory) {
         return "Yearn";
     }
