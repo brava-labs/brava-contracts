@@ -296,11 +296,13 @@ describe('Aave V3 tests', () => {
       expect(txLog).to.have.property('safeAddress', safeAddr);
       expect(txLog).to.have.property('strategyId', BigInt(strategyId));
       expect(txLog).to.have.property('poolId', getBytes4(tokenConfig[token].address));
-      expect(txLog).to.have.property('balanceBefore', amount);
+      expect(txLog).to.have.property('balanceBefore');
       expect(txLog).to.have.property('balanceAfter');
       expect(txLog).to.have.property('feeInTokens');
+      expect(txLog.balanceBefore).to.be.a('bigint');
       expect(txLog.balanceAfter).to.be.a('bigint');
-      // If the test runs slowly then the balanceAfter may have gained interest
+      // If the test runs slowly then the balances may have gained interest
+      expect(txLog.balanceBefore).to.be.greaterThanOrEqual(finalaUSDC_V3Balance);
       expect(txLog.balanceAfter).to.be.greaterThanOrEqual(finalaUSDC_V3Balance);
     });
 
