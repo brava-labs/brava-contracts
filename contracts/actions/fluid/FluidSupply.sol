@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import {VaultSupply} from "../ERC4626/ERC4626Supply.sol";
+import {VaultSupply} from "../common/ERC4626Supply.sol";
 
 /// @title FluidSupply - Supplies tokens to Fluid vault
 /// @notice This contract allows users to supply tokens to a Fluid vault

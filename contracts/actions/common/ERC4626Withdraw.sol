@@ -8,7 +8,7 @@ import {IERC4626} from "../../interfaces/ERC4626/IERC4626.sol";
 /// @title ERC4626Withdraw - Burns vault shares and receives underlying tokens in return
 /// @notice This contract allows users to withdraw tokens from any ERC4626 vault
 /// @dev Inherits from ActionBase and implements generic withdraw functionality
-contract ERC4626Withdraw is ActionBase {
+abstract contract ERC4626Withdraw is ActionBase {
     /// @notice Parameters for the withdraw action
     /// @param poolId ID of vault contract
     /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24;
 
-import {ERC4626Withdraw} from "../ERC4626/ERC4626Withdraw.sol";
+import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 
 /// @title FluidWithdraw - Withdraws tokens from Fluid vault
 /// @notice This contract allows users to withdraw tokens from a Fluid vault
