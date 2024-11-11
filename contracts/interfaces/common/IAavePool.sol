@@ -40,7 +40,9 @@ interface IAavePool {
     event Withdraw(address indexed reserve, address indexed user, address indexed to, uint256 amount);
 
     // Common Functions
+    // solhint-disable-next-line func-name-mixedcase
     function FLASHLOAN_PREMIUM_TOTAL() external view returns (uint256);
+    // solhint-disable-next-line func-name-mixedcase
     function MAX_NUMBER_RESERVES() external view returns (uint256);
 
     function borrow(

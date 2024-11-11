@@ -3,7 +3,6 @@ pragma solidity =0.8.24;
 
 import {AaveSupplyBase} from "../common/AaveSupply.sol";
 import {IPool} from "../../interfaces/aave-v3/IPoolInstance.sol";
-import {IATokenV3} from "../../interfaces/aave-v3/IATokenV3.sol";
 
 contract AaveV3Supply is AaveSupplyBase {
     constructor(

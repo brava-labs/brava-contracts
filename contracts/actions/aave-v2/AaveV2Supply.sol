@@ -3,7 +3,6 @@ pragma solidity =0.8.24;
 
 import {AaveSupplyBase} from "../common/AaveSupply.sol";
 import {ILendingPool} from "../../interfaces/aave-v2/ILendingPool.sol";
-import {IATokenV2} from "../../interfaces/aave-v2/IATokenV2.sol";
 
 contract AaveV2Supply is AaveSupplyBase {
     constructor(
