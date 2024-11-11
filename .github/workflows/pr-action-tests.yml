@@ -32,6 +32,13 @@ jobs:
         run: |
           changed_files="${{ steps.changed-files.outputs.all_changed_files }}"
 
+          # Check if any files in common folder have changed
+          if echo "$changed_files" | grep -q "contracts/actions/common/"; then
+            echo "Changes detected in common folder. Running all tests..."
+            npx hardhat test tests/actions/**/*.test.ts
+            exit 0
+          fi
+
           # Use an associative array to track which subdirectories we've seen
           declare -A seen_subdirs
 
