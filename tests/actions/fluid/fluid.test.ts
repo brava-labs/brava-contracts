@@ -359,7 +359,7 @@ describe('Fluid tests', () => {
         type: 'FluidWithdraw',
         token,
         feeBasis: 10,
-        amount: '0',
+        amount: '1',
       });
 
       const expectedFee = await calculateExpectedFee(

@@ -30,10 +30,9 @@ abstract contract ERC4626Supply is ActionBase {
     /// @param _logger Address of the logger contract
     constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
+    ///  ----- Core logic -----  ///
+
     /// @inheritdoc ActionBase
-    /// @notice Executes the supply action
-    /// @param _callData Encoded call data containing Params struct
-    /// @param _strategyId ID of the strategy executing this action
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
         // Parse inputs
         Params memory inputData = _parseInputs(_callData);
@@ -52,13 +51,6 @@ abstract contract ERC4626Supply is ActionBase {
         );
     }
 
-    /// @inheritdoc ActionBase
-    function actionType() public pure override returns (uint8) {
-        return uint8(ActionType.DEPOSIT_ACTION);
-    }
-
-    //////////////////////////// ACTION LOGIC ////////////////////////////
-
     /// @notice Executes the vault supply logic
     /// @param _inputData Struct containing supply parameters
     /// @param _vaultAddress Address of the ERC4626 vault
@@ -69,8 +61,8 @@ abstract contract ERC4626Supply is ActionBase {
         Params memory _inputData,
         address _vaultAddress
     ) private returns (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) {
-        IERC4626 vault = IERC4626(_vaultAddress);
-        sharesBefore = vault.balanceOf(address(this));
+        // For logging, get the balance before
+        sharesBefore = _getBalance(_vaultAddress);
 
         // Handle fee initialization or collection
         if (sharesBefore == 0) {
@@ -79,38 +71,37 @@ abstract contract ERC4626Supply is ActionBase {
             feeInTokens = _takeFee(_vaultAddress, _inputData.feeBasis);
         }
 
-        // Perform the deposit
+        // This may be a zero value deposit (a fee collection)
+        // If not, then we need to do the deposit
         if (_inputData.amount != 0) {
+            // We can only deposit up to whatever we have, how much do we have?
             IERC20 underlyingToken = IERC20(_getUnderlying(_vaultAddress));
             uint256 amountToDeposit = _inputData.amount == type(uint256).max
                 ? underlyingToken.balanceOf(address(this))
                 : _inputData.amount;
 
             if (amountToDeposit == 0) {
+                // uh-oh, we have no tokens to deposit
                 revert Errors.Action_ZeroAmount(protocolName(), uint8(actionType()));
             }
 
+            // Perform the deposit
             underlyingToken.safeIncreaseAllowance(_vaultAddress, amountToDeposit);
-            uint256 shares = vault.deposit(amountToDeposit, address(this));
+            uint256 shares = _deposit(_vaultAddress, amountToDeposit);
+
+            // Did that work as expected?
             if (shares < _inputData.minSharesReceived) {
                 revert Errors.Action_InsufficientSharesReceived(
                     protocolName(),
-                    actionType(),
+                    uint8(actionType()),
                     shares,
                     _inputData.minSharesReceived
                 );
             }
         }
 
-        sharesAfter = vault.balanceOf(address(this));
-    }
-
-    /// @notice Gets the underlying token address from the vault
-    /// @dev Override this for non-standard ERC4626 implementations
-    /// @param _vaultAddress The vault address
-    /// @return The underlying token address
-    function _getUnderlying(address _vaultAddress) internal view virtual returns (address) {
-        return IERC4626(_vaultAddress).asset();
+        // For logging, get the new balance
+        sharesAfter = _getBalance(_vaultAddress);
     }
 
     /// @notice Parses the input data from bytes to Params struct
@@ -121,9 +112,38 @@ abstract contract ERC4626Supply is ActionBase {
     }
 
     /// @inheritdoc ActionBase
+    function actionType() public pure override returns (uint8) {
+        return uint8(ActionType.DEPOSIT_ACTION);
+    }
+
+    ///  -----  Protocol specific overrides -----  ///
+
+    /// @notice Gets the underlying token address from the vault
+    /// @dev Override this for non-standard ERC4626 implementations
+    /// @param _vaultAddress The vault address
+    /// @return The underlying token address
+    function _getUnderlying(address _vaultAddress) internal view virtual returns (address) {
+        return IERC4626(_vaultAddress).asset();
+    }
+
+    /// @notice Gets the balance of the vault
+    /// @dev Override this for non-standard ERC4626 implementations
+    /// @param _vaultAddress The vault address
+    /// @return The user balance of the vault
+    function _getBalance(address _vaultAddress) internal view virtual returns (uint256) {
+        return IERC4626(_vaultAddress).balanceOf(address(this));
+    }
+
+    /// @notice Executes the deposit to the vault
+    /// @dev Override this for non-standard ERC4626 implementations
+    /// @param _vaultAddress The vault address
+    /// @param _amount The amount of underlying token to deposit
+    function _deposit(address _vaultAddress, uint256 _amount) internal virtual returns (uint256 _shares) {
+        return IERC4626(_vaultAddress).deposit(_amount, address(this));
+    }
+
+    /// @inheritdoc ActionBase
     /// @notice Returns the protocol name
     /// @return string Protocol name for the specific implementation
-    function protocolName() internal pure virtual override returns (string memory) {
-        return "ERC4626";
-    }
+    function protocolName() internal pure virtual override returns (string memory);
 }
