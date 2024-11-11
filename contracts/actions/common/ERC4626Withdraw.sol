@@ -3,7 +3,7 @@ pragma solidity =0.8.24;
 
 import {Errors} from "../../Errors.sol";
 import {ActionBase} from "../ActionBase.sol";
-import {IERC4626} from "../../interfaces/ERC4626/IERC4626.sol";
+import {IERC4626} from "../../interfaces/common/IERC4626.sol";
 
 /// @title ERC4626Withdraw - Burns vault shares and receives underlying tokens in return
 /// @notice This contract allows users to withdraw tokens from any ERC4626 vault

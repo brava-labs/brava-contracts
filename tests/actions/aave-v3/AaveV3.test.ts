@@ -75,10 +75,10 @@ describe('Aave V3 tests', () => {
     await adminVault.proposeAction(getBytes4(aaveWithdrawAddress), aaveWithdrawAddress);
     await adminVault.addAction(getBytes4(aaveSupplyAddress), aaveSupplyAddress);
     await adminVault.addAction(getBytes4(aaveWithdrawAddress), aaveWithdrawAddress);
-    await adminVault.proposePool('Aave', tokenConfig.aUSDC_V3.address);
-    await adminVault.proposePool('Aave', tokenConfig.aUSDT_V3.address);
-    await adminVault.addPool('Aave', tokenConfig.aUSDC_V3.address);
-    await adminVault.addPool('Aave', tokenConfig.aUSDT_V3.address);
+    await adminVault.proposePool('AaveV3', tokenConfig.aUSDC_V3.address);
+    await adminVault.proposePool('AaveV3', tokenConfig.aUSDT_V3.address);
+    await adminVault.addPool('AaveV3', tokenConfig.aUSDC_V3.address);
+    await adminVault.addPool('AaveV3', tokenConfig.aUSDT_V3.address);
   });
 
   beforeEach(async () => {
@@ -105,7 +105,7 @@ describe('Aave V3 tests', () => {
 
       // check adminVault has the pool
       const poolAddress = await adminVault.getPoolAddress(
-        'Aave',
+        'AaveV3',
         getBytes4(tokenConfig.aUSDC_V3.address)
       );
       log('Pool address', poolAddress);

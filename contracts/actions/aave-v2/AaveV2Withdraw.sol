@@ -12,12 +12,7 @@ contract AaveV2Withdraw is AaveWithdrawBase {
         address _poolAddress
     ) AaveWithdrawBase(_adminVault, _logger, _poolAddress) {}
 
-    function _getATokenInfo(address _aTokenAddress) internal view override returns (address underlying, address pool) {
-        IATokenV2 aToken = IATokenV2(_aTokenAddress);
-        return (aToken.UNDERLYING_ASSET_ADDRESS(), aToken.POOL());
-    }
-
-    function _withdraw(address _underlyingAsset, uint256 _amount) internal override {
-        ILendingPool(POOL).withdraw(_underlyingAsset, _amount, address(this));
+    function protocolName() internal pure override returns (string memory) {
+        return "AaveV2";
     }
 }

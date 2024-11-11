@@ -1,43 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface ILendingPool {
-    event Borrow(
-        address indexed reserve,
-        address user,
-        address indexed onBehalfOf,
-        uint256 amount,
-        uint256 borrowRateMode,
-        uint256 borrowRate,
-        uint16 indexed referral
-    );
-    event Deposit(
-        address indexed reserve,
-        address user,
-        address indexed onBehalfOf,
-        uint256 amount,
-        uint16 indexed referral
-    );
-    event FlashLoan(
-        address indexed target,
-        address indexed initiator,
-        address indexed asset,
-        uint256 amount,
-        uint256 premium,
-        uint16 referralCode
-    );
-    event LiquidationCall(
-        address indexed collateralAsset,
-        address indexed debtAsset,
-        address indexed user,
-        uint256 debtToCover,
-        uint256 liquidatedCollateralAmount,
-        address liquidator,
-        bool receiveAToken
-    );
+import {IAavePool} from "../common/IAavePool.sol";
+
+interface ILendingPool is IAavePool {
+    // V2-specific events
     event Paused();
     event RebalanceStableBorrowRate(address indexed reserve, address indexed user);
-    event Repay(address indexed reserve, address indexed user, address indexed repayer, uint256 amount);
     event ReserveDataUpdated(
         address indexed reserve,
         uint256 liquidityRate,
@@ -51,24 +20,15 @@ interface ILendingPool {
     event Swap(address indexed reserve, address indexed user, uint256 rateMode);
     event TokensRescued(address indexed tokenRescued, address indexed receiver, uint256 amountRescued);
     event Unpaused();
-    event Withdraw(address indexed reserve, address indexed user, address indexed to, uint256 amount);
 
-    //solhint-disable-next-line func-name-mixedcase
-    function FLASHLOAN_PREMIUM_TOTAL() external view returns (uint256);
+    // V2-specific functions
     //solhint-disable-next-line func-name-mixedcase
     function LENDINGPOOL_REVISION() external view returns (uint256);
     //solhint-disable-next-line func-name-mixedcase
-    function MAX_NUMBER_RESERVES() external view returns (uint256);
-    //solhint-disable-next-line func-name-mixedcase
     function MAX_STABLE_RATE_BORROW_SIZE_PERCENT() external view returns (uint256);
-    function borrow(
-        address asset,
-        uint256 amount,
-        uint256 interestRateMode,
-        uint16 referralCode,
-        address onBehalfOf
-    ) external;
+
     function deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
+
     function finalizeTransfer(
         address asset,
         address from,
@@ -77,6 +37,7 @@ interface ILendingPool {
         uint256 balanceFromBefore,
         uint256 balanceToBefore
     ) external;
+
     function flashLoan(
         address receiverAddress,
         address[] calldata assets,
@@ -86,8 +47,10 @@ interface ILendingPool {
         bytes calldata params,
         uint16 referralCode
     ) external;
-    function getAddressesProvider() external view returns (address);
+
     function getConfiguration(address asset) external view returns (uint256);
+    function getAddressesProvider() external view returns (address);
+
     function getReserveData(
         address asset
     )
@@ -107,23 +70,9 @@ interface ILendingPool {
             address interestRateStrategyAddress,
             uint8 id
         );
-    function getReserveNormalizedIncome(address asset) external view returns (uint256);
-    function getReserveNormalizedVariableDebt(address asset) external view returns (uint256);
-    function getReservesList() external view returns (address[] memory);
-    function getUserAccountData(
-        address user
-    )
-        external
-        view
-        returns (
-            uint256 totalCollateralETH,
-            uint256 totalDebtETH,
-            uint256 availableBorrowsETH,
-            uint256 currentLiquidationThreshold,
-            uint256 ltv,
-            uint256 healthFactor
-        );
+
     function getUserConfiguration(address user) external view returns (uint256);
+
     function initReserve(
         address asset,
         address aTokenAddress,
@@ -131,23 +80,14 @@ interface ILendingPool {
         address variableDebtAddress,
         address interestRateStrategyAddress
     ) external;
+
     function initialize(address provider) external;
-    function liquidationCall(
-        address collateralAsset,
-        address debtAsset,
-        address user,
-        uint256 debtToCover,
-        bool receiveAToken
-    ) external;
     function paused() external view returns (bool);
     function rebalanceStableBorrowRate(address asset, address user) external;
-    function repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf) external returns (uint256);
     function rescueTokens(address token, address to, uint256 amount) external;
     function setConfiguration(address asset, uint256 configuration) external;
     function setPause(bool val) external;
     function setReserveInterestRateStrategyAddress(address asset, address rateStrategyAddress) external;
-    function setUserUseReserveAsCollateral(address asset, bool useAsCollateral) external;
     function swapBorrowRateMode(address asset, uint256 rateMode) external;
     function swapToVariable(address asset, address user) external;
-    function withdraw(address asset, uint256 amount, address to) external returns (uint256);
 }
