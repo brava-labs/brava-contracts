@@ -112,6 +112,11 @@ export const tokenConfig = {
     whale: '0x18709E89BD403F470088aBDAcEbE86CC60dda12e',
     decimals: 6,
   },
+  cpALP_USDC: {
+    address: '0x68F311351e7196D71f8E6372e4A1D2e725669BF2',
+    whale: '0x804cc33C14d804a96d9f5D0e27489e64920eD775',
+    decimals: 6,
+  },
 };
 
 export const NEXUS_QUOTES = {
