@@ -75,10 +75,10 @@ describe('Aave V2 tests', () => {
     await adminVault.proposeAction(getBytes4(aaveWithdrawAddress), aaveWithdrawAddress);
     await adminVault.addAction(getBytes4(aaveSupplyAddress), aaveSupplyAddress);
     await adminVault.addAction(getBytes4(aaveWithdrawAddress), aaveWithdrawAddress);
-    await adminVault.proposePool('Aave', tokenConfig.aUSDC_V2.address);
-    await adminVault.proposePool('Aave', tokenConfig.aUSDT_V2.address);
-    await adminVault.addPool('Aave', tokenConfig.aUSDC_V2.address);
-    await adminVault.addPool('Aave', tokenConfig.aUSDT_V2.address);
+    await adminVault.proposePool('AaveV2', tokenConfig.aUSDC_V2.address);
+    await adminVault.proposePool('AaveV2', tokenConfig.aUSDT_V2.address);
+    await adminVault.addPool('AaveV2', tokenConfig.aUSDC_V2.address);
+    await adminVault.addPool('AaveV2', tokenConfig.aUSDT_V2.address);
   });
 
   beforeEach(async () => {
@@ -105,7 +105,7 @@ describe('Aave V2 tests', () => {
 
       // check adminVault has the pool
       const poolAddress = await adminVault.getPoolAddress(
-        'Aave',
+        'AaveV2',
         getBytes4(tokenConfig.aUSDC_V2.address)
       );
       log('Pool address', poolAddress);
@@ -120,7 +120,7 @@ describe('Aave V2 tests', () => {
       const finalAaveBalance = await aavePool.getUserAccountData(safeAddr);
 
       expect(finalUSDCBalance).to.be.lt(initialUSDCBalance);
-      expect(finalAaveBalance.totalCollateralETH).to.be.gt(initialAaveBalance.totalCollateralETH);
+      expect(finalAaveBalance.totalCollateralBase).to.be.gt(initialAaveBalance.totalCollateralBase);
     });
 
     it('Should deposit USDT', async () => {

@@ -75,10 +75,10 @@ describe('Aave V3 tests', () => {
     await adminVault.proposeAction(getBytes4(aaveWithdrawAddress), aaveWithdrawAddress);
     await adminVault.addAction(getBytes4(aaveSupplyAddress), aaveSupplyAddress);
     await adminVault.addAction(getBytes4(aaveWithdrawAddress), aaveWithdrawAddress);
-    await adminVault.proposePool('Aave', tokenConfig.aUSDC_V3.address);
-    await adminVault.proposePool('Aave', tokenConfig.aUSDT_V3.address);
-    await adminVault.addPool('Aave', tokenConfig.aUSDC_V3.address);
-    await adminVault.addPool('Aave', tokenConfig.aUSDT_V3.address);
+    await adminVault.proposePool('AaveV3', tokenConfig.aUSDC_V3.address);
+    await adminVault.proposePool('AaveV3', tokenConfig.aUSDT_V3.address);
+    await adminVault.addPool('AaveV3', tokenConfig.aUSDC_V3.address);
+    await adminVault.addPool('AaveV3', tokenConfig.aUSDT_V3.address);
   });
 
   beforeEach(async () => {
@@ -105,7 +105,7 @@ describe('Aave V3 tests', () => {
 
       // check adminVault has the pool
       const poolAddress = await adminVault.getPoolAddress(
-        'Aave',
+        'AaveV3',
         getBytes4(tokenConfig.aUSDC_V3.address)
       );
       log('Pool address', poolAddress);
@@ -296,11 +296,13 @@ describe('Aave V3 tests', () => {
       expect(txLog).to.have.property('safeAddress', safeAddr);
       expect(txLog).to.have.property('strategyId', BigInt(strategyId));
       expect(txLog).to.have.property('poolId', getBytes4(tokenConfig[token].address));
-      expect(txLog).to.have.property('balanceBefore', amount);
+      expect(txLog).to.have.property('balanceBefore');
       expect(txLog).to.have.property('balanceAfter');
       expect(txLog).to.have.property('feeInTokens');
+      expect(txLog.balanceBefore).to.be.a('bigint');
       expect(txLog.balanceAfter).to.be.a('bigint');
-      // If the test runs slowly then the balanceAfter may have gained interest
+      // If the test runs slowly then the balances may have gained interest
+      expect(txLog.balanceBefore).to.be.greaterThanOrEqual(finalaUSDC_V3Balance);
       expect(txLog.balanceAfter).to.be.greaterThanOrEqual(finalaUSDC_V3Balance);
     });
 

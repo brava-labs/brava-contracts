@@ -60,7 +60,7 @@ abstract contract ActionBase {
     /// @notice Executes the implemented action
     /// @dev This function should be overridden by inheriting contracts
     /// @param _callData Encoded input data for the action
-    /// @param _strategyId The ID of the strategy executing this action
+    /// @param _strategyId The ID of the strategy executing this action (for logging use only)
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual;
 
     /// @notice Returns the type of action being implemented

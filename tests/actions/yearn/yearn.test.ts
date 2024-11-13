@@ -272,7 +272,7 @@ describe('Yearn tests', () => {
       const withdrawTx = await executeAction({
         type: 'YearnWithdraw',
         feeBasis: 10,
-        amount: '0',
+        amount: '1',
       });
 
       const expectedFee = await calculateExpectedFee(

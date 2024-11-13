@@ -48,13 +48,14 @@ jobs:
           # Initialize tracking variables
           declare -A seen_subdirs
           auth_changes=0
-          action_base_changes=0
+          run_all_action_tests=0
 
           # Iterate through each changed file
           for file in $changed_files; do
-            if [[ "$file" == "contracts/actions/ActionBase.sol" ]]; then
-              action_base_changes=1
-            elif [[ "$file" == contracts/actions/* && "$file" != "contracts/actions/ActionBase.sol" ]]; then
+            if [[ "$file" == "contracts/actions/ActionBase.sol" || "$file" == contracts/actions/common/* ]]; then
+              run_all_action_tests=1
+              break  # No need to check other files if we're running all tests
+            elif [[ "$file" == contracts/actions/* ]]; then
               # Extract the subdirectory name
               subdir=$(echo "$file" | sed 's|contracts/actions/||' | cut -d'/' -f1)
               # Track unique subdirectories to avoid duplicate test runs
@@ -70,9 +71,9 @@ jobs:
             $test_command
           }
 
-          # Run all action tests if ActionBase.sol has changed
-          if [[ $action_base_changes -eq 1 ]]; then
-            # Find all .test.ts files within tests/actions and pass them to Hardhat
+          # Run all action tests if ActionBase.sol or common files have changed
+          if [[ $run_all_action_tests -eq 1 ]]; then
+            echo "Changes detected in ActionBase.sol or common folder. Running all action tests..."
             action_test_files=$(find tests/actions -type f -name "*.test.ts")
             if [[ -n "$action_test_files" ]]; then
               run_tests "npx hardhat test $action_test_files"
