@@ -51,12 +51,14 @@ contract AdminVault is AccessControlDelayed {
     bytes32 public constant ACTION_EXECUTOR_ROLE = keccak256("ACTION_EXECUTOR_ROLE");
     bytes32 public constant ACTION_DISPOSER_ROLE = keccak256("ACTION_DISPOSER_ROLE");
 
-    // Timestamp tracking for fee collection: user => vault => timestamp
+    // Timestamp tracking for fee collection: user => pool => timestamp
     mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
 
     // TODO improve mapping ID
     // Protocol and pool management: protocol => poolId => poolAddress
     mapping(uint256 => mapping(bytes4 => address)) public protocolPools;
+    // Quick lookup for pool addresses
+    mapping(address => bool) public pool;
 
     // Proposal tracking: proposalId => timestamp
     mapping(bytes32 => uint256) public poolProposals;
@@ -256,6 +258,7 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_DelayNotPassed(block.timestamp, poolProposals[proposalId]);
         }
         protocolPools[protocolId][poolId] = _poolAddress;
+        pool[_poolAddress] = true;
         LOGGER.logAdminVaultEvent(202, abi.encode(protocolId, _poolAddress));
     }
 
@@ -263,6 +266,7 @@ contract AdminVault is AccessControlDelayed {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
         delete protocolPools[protocolId][poolId];
+        pool[_poolAddress] = false;
         LOGGER.logAdminVaultEvent(402, abi.encode(protocolId, _poolAddress));
     }
 
@@ -323,19 +327,31 @@ contract AdminVault is AccessControlDelayed {
     ///  - Initialize
     ///  - Update
 
-    /// @notice Initializes the fee timestamp for a vault.
+    /// @notice Initializes the fee timestamp for a pool.
     /// @dev This should be called when a user's deposit changes from zero to non-zero.
-    /// @param _vault The address of the vault.
-    /// @dev TODO: Add a guard to block attackers from calling this, given access to a mapping they can write to storage of their choice
-    function initializeFeeTimestamp(address _vault) external {
-        lastFeeTimestamp[msg.sender][_vault] = block.timestamp;
+    /// @param _pool The address of the pool.
+    function initializeFeeTimestamp(address _pool) external {
+        _isPool(_pool);
+        lastFeeTimestamp[msg.sender][_pool] = block.timestamp;
     }
 
-    /// @notice Updates the fee timestamp for a vault.
-    /// @dev This should be called when a fee is taken.
-    /// @param _vault The address of the vault.
-    function updateFeeTimestamp(address _vault) external {
-        lastFeeTimestamp[msg.sender][_vault] = block.timestamp;
+    /// @notice Updates the fee timestamp for a pool.
+    /// @dev This should be called whenever a fee is taken.
+    /// @param _pool The address of the pool.
+    function updateFeeTimestamp(address _pool) external {
+        _isPool(_pool);
+        lastFeeTimestamp[msg.sender][_pool] = block.timestamp;
+    }
+
+    /// @notice Checks if a given address is a pool.
+    /// @dev This should always be used when initializing or updating fee timestamps
+    /// @dev Without this check an attacker could call one of those functions with a pool address of their choice
+    /// @dev this would give them access to the storage slot of their choice. It's only a timestamp they could put there, but still not good.
+    /// @param _pool The address to check.
+    function _isPool(address _pool) internal view {
+        if (!pool[_pool]) {
+            revert Errors.AdminVault_NotPool(_pool);
+        }
     }
 
     /// Getters
@@ -364,14 +380,14 @@ contract AdminVault is AccessControlDelayed {
         return actionAddress;
     }
 
-    /// @notice Retrieves the last fee timestamp for a given vault.
-    /// @param _vault The address of the vault.
+    /// @notice Retrieves the last fee timestamp for a given pool.
+    /// @param _pool The address of the pool.
     /// @return The last fee timestamp.
-    function getLastFeeTimestamp(address _vault) external view returns (uint256) {
-        if (lastFeeTimestamp[msg.sender][_vault] == 0) {
+    function getLastFeeTimestamp(address _pool) external view returns (uint256) {
+        if (lastFeeTimestamp[msg.sender][_pool] == 0) {
             revert Errors.AdminVault_NotInitialized();
         }
-        return lastFeeTimestamp[msg.sender][_vault];
+        return lastFeeTimestamp[msg.sender][_pool];
     }
 
     /// @notice Checks if a given fee basis is within the allowed range.
