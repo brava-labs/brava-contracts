@@ -44,6 +44,9 @@ contract Errors {
     );
     error Action_InvalidPool(string _protocolName, uint8 _actionType);
 
+    // CompoundV2Supply errors
+    error Action_CompoundError(string _protocolName, uint8 _actionType, uint256 _errorCode);
+
     // Curve3PoolSwap errors
     error Curve3Pool__InvalidTokenIndices(int128 _fromToken, int128 _toToken);
 
