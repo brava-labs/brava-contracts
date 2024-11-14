@@ -88,6 +88,16 @@ export const tokenConfig = {
     whale: '0xC4080c19DE69c2362d01B20F071D4046364A0226',
     decimals: 6,
   },
+  yUSDT: {
+    address: '0x3B27F92C0e212C671EA351827EDF93DB27cc0c65',
+    whale: '0xB0eb24077563DB8b88384949011dc46410C0A31D',
+    decimals: 6,
+  },
+  yDAI: {
+    address: '0xdA816459F1AB5631232FE5e97a05BBBb94970c95',
+    whale: '0x5C6374a2ac4EBC38DeA0Fc1F8716e5Ea1AdD94dd',
+    decimals: 18,
+  },
   aDAI_V2: {
     address: '0x028171bCA77440897B824Ca71D1c56caC55b68A3',
     whale: '0x07edE94cF6316F4809f2B725f5d79AD303fB4Dc8',
@@ -103,6 +113,11 @@ export const tokenConfig = {
     whale: '0x295E5eE985246cfD09B615f8706854600084c529',
     decimals: 6,
   },
+  aDAI_V3: {
+    address: '0x018008bfb33d285247A21d44E50697654f754e63',
+    whale: '0x07edE94cF6316F4809f2B725f5d79AD303fB4Dc8',
+    decimals: 18,
+  },
   aUSDC_V3: {
     address: '0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c',
     whale: '0xA91661efEe567b353D55948C0f051C1A16E503A5',
@@ -116,6 +131,11 @@ export const tokenConfig = {
   cpALP_USDC: {
     address: '0x68F311351e7196D71f8E6372e4A1D2e725669BF2',
     whale: '0x804cc33C14d804a96d9f5D0e27489e64920eD775',
+    decimals: 6,
+  },
+  cpAUR_USDC: {
+    address: '0x3aeB3a8F0851249682A6a836525CDEeE5aA2A153',
+    whale: '0xB0E6faDc3e16f0f1440d254E095F7b1019ec03DB',
     decimals: 6,
   },
   uDAI: {
