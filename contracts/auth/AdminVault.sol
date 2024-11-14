@@ -13,23 +13,52 @@ contract AdminVault is AccessControlDelayed {
     ILogger public immutable LOGGER;
 
     // Role definitions
+    // Access to the private keys associated with each address granted roles will be managed off-chain.
+    //   And will vary depending on the privilege of the role and future security reviews.
+
+    // OWNER_ROLE is the highest role in the hierarchy, it is used to setup the proposers.
+    //   ideally once the proposers are setup this is never used, and is reserved for emergencies only.
+    // ADMIN_ROLE is the second highest role in the hierarchy, it is used to assign/manage proposers and executors.
+    //   to be used infrequently when team members need to be added or removed.
+
+    // PROPOSER_ROLE may propose new configurations, this will be behind a multi-sig or similar strong security.
+    //   only proposals that have passed an off-chain vetting process should be proposed.
+    // EXECUTOR_ROLE may execute proposed configurations, this is likely less permissioned than the proposers.
+    //   it should be reasonably easy for team members to execute changes once the proposal has passed.
+    // CANCELER_ROLE may cancel proposals, this role is a defence mechanism and should be treated as relatively in-secure.
+    //   it should be possible to cancel a proposal if there was a successful attack and the proposal is not
+    //   going to be used. This role may be given to bots, or team members on easy to access software wallets.
+    // DISPOSER_ROLE may remove pools and actions, this shouldn't be frequently required.
+    //   It's likely this role will be given to the same addresses as the proposers.
+
+    // Lower privileged roles may be assigned to the same address as higher privileged roles.
+    //   This means a PROPOSER may also be an EXECUTOR or CANCELER, so they may cancel or execute their own proposals.
+
+    // Role definitions
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // Granular role definitions
     bytes32 public constant FEE_PROPOSER_ROLE = keccak256("FEE_PROPOSER_ROLE");
+    bytes32 public constant FEE_CANCELER_ROLE = keccak256("FEE_CANCELER_ROLE");
     bytes32 public constant FEE_EXECUTOR_ROLE = keccak256("FEE_EXECUTOR_ROLE");
     bytes32 public constant POOL_PROPOSER_ROLE = keccak256("POOL_PROPOSER_ROLE");
+    bytes32 public constant POOL_CANCELER_ROLE = keccak256("POOL_CANCELER_ROLE");
     bytes32 public constant POOL_EXECUTOR_ROLE = keccak256("POOL_EXECUTOR_ROLE");
+    bytes32 public constant POOL_DISPOSER_ROLE = keccak256("POOL_DISPOSER_ROLE");
     bytes32 public constant ACTION_PROPOSER_ROLE = keccak256("ACTION_PROPOSER_ROLE");
+    bytes32 public constant ACTION_CANCELER_ROLE = keccak256("ACTION_CANCELER_ROLE");
     bytes32 public constant ACTION_EXECUTOR_ROLE = keccak256("ACTION_EXECUTOR_ROLE");
+    bytes32 public constant ACTION_DISPOSER_ROLE = keccak256("ACTION_DISPOSER_ROLE");
 
-    // Timestamp tracking for fee collection: user => vault => timestamp
+    // Timestamp tracking for fee collection: user => pool => timestamp
     mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
 
     // TODO improve mapping ID
     // Protocol and pool management: protocol => poolId => poolAddress
     mapping(uint256 => mapping(bytes4 => address)) public protocolPools;
+    // Quick lookup for pool addresses
+    mapping(address => bool) public pool;
 
     // Proposal tracking: proposalId => timestamp
     mapping(bytes32 => uint256) public poolProposals;
@@ -74,12 +103,16 @@ contract AdminVault is AccessControlDelayed {
 
         // Grant all granular roles to initial owner
         _grantRole(FEE_PROPOSER_ROLE, _initialOwner);
+        _grantRole(FEE_CANCELER_ROLE, _initialOwner);
         _grantRole(FEE_EXECUTOR_ROLE, _initialOwner);
         _grantRole(POOL_PROPOSER_ROLE, _initialOwner);
+        _grantRole(POOL_CANCELER_ROLE, _initialOwner);
         _grantRole(POOL_EXECUTOR_ROLE, _initialOwner);
+        _grantRole(POOL_DISPOSER_ROLE, _initialOwner);
         _grantRole(ACTION_PROPOSER_ROLE, _initialOwner);
+        _grantRole(ACTION_CANCELER_ROLE, _initialOwner);
         _grantRole(ACTION_EXECUTOR_ROLE, _initialOwner);
-
+        _grantRole(ACTION_DISPOSER_ROLE, _initialOwner);
         // Set role hierarchy
         _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
@@ -89,10 +122,19 @@ contract AdminVault is AccessControlDelayed {
         _setRoleAdmin(POOL_PROPOSER_ROLE, OWNER_ROLE);
         _setRoleAdmin(ACTION_PROPOSER_ROLE, OWNER_ROLE);
 
+        // Canceler roles managed by ADMIN
+        _setRoleAdmin(FEE_CANCELER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(POOL_CANCELER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(ACTION_CANCELER_ROLE, ADMIN_ROLE);
+
         // Executor roles managed by ADMIN
         _setRoleAdmin(FEE_EXECUTOR_ROLE, ADMIN_ROLE);
         _setRoleAdmin(POOL_EXECUTOR_ROLE, ADMIN_ROLE);
         _setRoleAdmin(ACTION_EXECUTOR_ROLE, ADMIN_ROLE);
+
+        // Disposer roles managed by ADMIN
+        _setRoleAdmin(POOL_DISPOSER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(ACTION_DISPOSER_ROLE, ADMIN_ROLE);
     }
 
     /// Fee management
@@ -127,7 +169,7 @@ contract AdminVault is AccessControlDelayed {
     }
 
     /// @notice Cancels the pending fee configuration proposal
-    function cancelFeeConfigProposal() external onlyRole(FEE_PROPOSER_ROLE) {
+    function cancelFeeConfigProposal() external onlyRole(FEE_CANCELER_ROLE) {
         address recipient = pendingFeeConfig.recipient;
         uint256 min = pendingFeeConfig.minBasis;
         uint256 max = pendingFeeConfig.maxBasis;
@@ -185,7 +227,7 @@ contract AdminVault is AccessControlDelayed {
     function cancelPoolProposal(
         string calldata _protocolName,
         address _poolAddress
-    ) external onlyRole(POOL_PROPOSER_ROLE) {
+    ) external onlyRole(POOL_CANCELER_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
@@ -216,13 +258,15 @@ contract AdminVault is AccessControlDelayed {
             revert Errors.AdminVault_DelayNotPassed(block.timestamp, poolProposals[proposalId]);
         }
         protocolPools[protocolId][poolId] = _poolAddress;
+        pool[_poolAddress] = true;
         LOGGER.logAdminVaultEvent(202, abi.encode(protocolId, _poolAddress));
     }
 
-    function removePool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_PROPOSER_ROLE) {
+    function removePool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_DISPOSER_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
         delete protocolPools[protocolId][poolId];
+        pool[_poolAddress] = false;
         LOGGER.logAdminVaultEvent(402, abi.encode(protocolId, _poolAddress));
     }
 
@@ -250,7 +294,7 @@ contract AdminVault is AccessControlDelayed {
     /// @notice Cancels an action proposal.
     /// @param _actionId The identifier of the action.
     /// @param _actionAddress The address of the proposed action contract.
-    function cancelActionProposal(bytes4 _actionId, address _actionAddress) external onlyRole(ACTION_PROPOSER_ROLE) {
+    function cancelActionProposal(bytes4 _actionId, address _actionAddress) external onlyRole(ACTION_CANCELER_ROLE) {
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         actionProposals[proposalId] = 0;
         LOGGER.logAdminVaultEvent(301, abi.encode(_actionId, _actionAddress));
@@ -274,7 +318,7 @@ contract AdminVault is AccessControlDelayed {
         LOGGER.logAdminVaultEvent(201, abi.encode(_actionId, _actionAddress));
     }
 
-    function removeAction(bytes4 _actionId) external onlyRole(ACTION_PROPOSER_ROLE) {
+    function removeAction(bytes4 _actionId) external onlyRole(ACTION_DISPOSER_ROLE) {
         delete actionAddresses[_actionId];
         LOGGER.logAdminVaultEvent(401, abi.encode(_actionId));
     }
@@ -283,19 +327,31 @@ contract AdminVault is AccessControlDelayed {
     ///  - Initialize
     ///  - Update
 
-    /// @notice Initializes the fee timestamp for a vault.
+    /// @notice Initializes the fee timestamp for a pool.
     /// @dev This should be called when a user's deposit changes from zero to non-zero.
-    /// @param _vault The address of the vault.
-    /// @dev TODO: Add a guard to block attackers from calling this, given access to a mapping they can write to storage of their choice
-    function initializeFeeTimestamp(address _vault) external {
-        lastFeeTimestamp[msg.sender][_vault] = block.timestamp;
+    /// @param _pool The address of the pool.
+    function initializeFeeTimestamp(address _pool) external {
+        _isPool(_pool);
+        lastFeeTimestamp[msg.sender][_pool] = block.timestamp;
     }
 
-    /// @notice Updates the fee timestamp for a vault.
-    /// @dev This should be called when a fee is taken.
-    /// @param _vault The address of the vault.
-    function updateFeeTimestamp(address _vault) external {
-        lastFeeTimestamp[msg.sender][_vault] = block.timestamp;
+    /// @notice Updates the fee timestamp for a pool.
+    /// @dev This should be called whenever a fee is taken.
+    /// @param _pool The address of the pool.
+    function updateFeeTimestamp(address _pool) external {
+        _isPool(_pool);
+        lastFeeTimestamp[msg.sender][_pool] = block.timestamp;
+    }
+
+    /// @notice Checks if a given address is a pool.
+    /// @dev This should always be used when initializing or updating fee timestamps
+    /// @dev Without this check an attacker could call one of those functions with a pool address of their choice
+    /// @dev this would give them access to the storage slot of their choice. It's only a timestamp they could put there, but still not good.
+    /// @param _pool The address to check.
+    function _isPool(address _pool) internal view {
+        if (!pool[_pool]) {
+            revert Errors.AdminVault_NotPool(_pool);
+        }
     }
 
     /// Getters
@@ -324,14 +380,14 @@ contract AdminVault is AccessControlDelayed {
         return actionAddress;
     }
 
-    /// @notice Retrieves the last fee timestamp for a given vault.
-    /// @param _vault The address of the vault.
+    /// @notice Retrieves the last fee timestamp for a given pool.
+    /// @param _pool The address of the pool.
     /// @return The last fee timestamp.
-    function getLastFeeTimestamp(address _vault) external view returns (uint256) {
-        if (lastFeeTimestamp[msg.sender][_vault] == 0) {
+    function getLastFeeTimestamp(address _pool) external view returns (uint256) {
+        if (lastFeeTimestamp[msg.sender][_pool] == 0) {
             revert Errors.AdminVault_NotInitialized();
         }
-        return lastFeeTimestamp[msg.sender][_vault];
+        return lastFeeTimestamp[msg.sender][_pool];
     }
 
     /// @notice Checks if a given fee basis is within the allowed range.

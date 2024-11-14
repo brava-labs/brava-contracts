@@ -33,7 +33,7 @@ interface BaseActionArgs {
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
-  type: 'FluidSupply' | 'YearnSupply';
+  type: 'FluidSupply' | 'YearnSupply' | 'ClearpoolSupply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -41,7 +41,7 @@ interface SupplyArgs extends BaseActionArgs {
 }
 
 interface WithdrawArgs extends BaseActionArgs {
-  type: 'FluidWithdraw' | 'YearnWithdraw';
+  type: 'FluidWithdraw' | 'YearnWithdraw' | 'ClearpoolWithdraw';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -94,6 +94,13 @@ interface StrikeArgs extends BaseActionArgs {
   feeBasis?: number;
 }
 
+export interface UwULendArgs extends BaseActionArgs {
+  type: 'UwULendSupply' | 'UwULendWithdraw';
+  assetId: string;
+  amount: string;
+  feeBasis?: number;
+}
+
 // Union type for all action args
 export type ActionArgs =
   | SupplyArgs
@@ -103,7 +110,8 @@ export type ActionArgs =
   | BuyCoverArgs
   | AaveV3Args
   | AaveV2Args
-  | StrikeArgs;
+  | StrikeArgs
+  | UwULendArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
@@ -276,6 +284,59 @@ export const actionDefaults: Record<string, ActionArgs> = {
   StrikeSupply: {
     type: 'StrikeSupply',
     assetId: getBytes4(tokenConfig.sUSDC.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  ClearpoolSupply: {
+    useSDK: false,
+    type: 'ClearpoolSupply',
+    poolAddress: tokenConfig.cpALP_USDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    value: 0,
+    safeOperation: 1,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
+  },
+  ClearpoolWithdraw: {
+    type: 'ClearpoolWithdraw',
+    useSDK: false,
+    poolAddress: tokenConfig.cpALP_USDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  UwULendWithdraw: {
+    type: 'UwULendWithdraw',
+    assetId: getBytes4(tokenConfig.uUSDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  UwULendSupply: {
+    type: 'UwULendSupply',
+    assetId: getBytes4(tokenConfig.uUSDT.address),
     amount: '0',
     feeBasis: 0,
     encoding: {

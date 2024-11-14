@@ -21,15 +21,16 @@ describe('AdminVault', function () {
   let admin: SignerWithAddress;
   let owner: SignerWithAddress;
   let alice: SignerWithAddress;
-  let bob: SignerWithAddress;
+  let bobby: SignerWithAddress;
   let carol: SignerWithAddress;
+  let david: SignerWithAddress;
   let snapshotId: string;
   let USDC: IERC20;
   let safeAddr: string;
 
   describe('Direct tests', function () {
     before(async () => {
-      [admin, owner, alice, bob, carol] = await ethers.getSigners();
+      [admin, owner, alice, bobby, carol, david] = await ethers.getSigners();
 
       const baseSetup = await getBaseSetup(admin);
       if (!baseSetup) {
@@ -178,83 +179,134 @@ describe('AdminVault', function () {
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
 
         // Now check the roles for each function are the correct ones.
+        // Alice will be the proposer - "Addition" Alice
+        // Bobby will be the canceler - "Bye bye" Bobby
+        // Carol will be the executor - "Can do" Carol
+        // David will be the disposer - David the Disposer
 
         // FEE MANAGEMENT
-        // Lets make alice the fee proposer and bob the fee executor
+        // Lets make alice the fee proposer, bobby the fee executor and carol the canceller
         await adminVault
           .connect(admin)
           .proposeRole(getRoleBytes('FEE_PROPOSER_ROLE'), alice.address);
-        await adminVault.connect(admin).proposeRole(getRoleBytes('FEE_EXECUTOR_ROLE'), bob.address);
+        await adminVault
+          .connect(admin)
+          .proposeRole(getRoleBytes('FEE_CANCELER_ROLE'), bobby.address);
+        await adminVault
+          .connect(admin)
+          .proposeRole(getRoleBytes('FEE_EXECUTOR_ROLE'), carol.address);
         await adminVault.connect(admin).grantRole(getRoleBytes('FEE_PROPOSER_ROLE'), alice.address);
-        await adminVault.connect(admin).grantRole(getRoleBytes('FEE_EXECUTOR_ROLE'), bob.address);
+        await adminVault.connect(admin).grantRole(getRoleBytes('FEE_CANCELER_ROLE'), bobby.address);
+        await adminVault.connect(admin).grantRole(getRoleBytes('FEE_EXECUTOR_ROLE'), carol.address);
 
-        // Alice can now propose and cancel a fee config
+        // Alice can now propose and Bobby can cancel a fee config
         await adminVault.connect(alice).proposeFeeConfig(alice.address, 100, 200);
-        await adminVault.connect(alice).cancelFeeConfigProposal();
+        await adminVault.connect(bobby).cancelFeeConfigProposal();
 
-        // Bob can set the fee config (after another proposal from alice)
+        // Carol can set the fee config (after another proposal from alice)
         await adminVault.connect(alice).proposeFeeConfig(alice.address, 300, 400);
-        await adminVault.connect(bob).setFeeConfig();
+        await adminVault.connect(carol).setFeeConfig();
 
-        // Remove their roles and now make them pool proposer and executor
+        // Remove their roles and now make them pool proposer, executor and disposer
+        // lets add david as the pool disposer
         await adminVault
           .connect(admin)
           .revokeRole(getRoleBytes('FEE_PROPOSER_ROLE'), alice.address);
-        await adminVault.connect(admin).revokeRole(getRoleBytes('FEE_EXECUTOR_ROLE'), bob.address);
+        await adminVault
+          .connect(admin)
+          .revokeRole(getRoleBytes('FEE_CANCELER_ROLE'), bobby.address);
+        await adminVault
+          .connect(admin)
+          .revokeRole(getRoleBytes('FEE_EXECUTOR_ROLE'), carol.address);
         await adminVault
           .connect(admin)
           .proposeRole(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address);
         await adminVault
           .connect(admin)
-          .proposeRole(getRoleBytes('POOL_EXECUTOR_ROLE'), bob.address);
+          .proposeRole(getRoleBytes('POOL_CANCELER_ROLE'), bobby.address);
+        await adminVault
+          .connect(admin)
+          .proposeRole(getRoleBytes('POOL_EXECUTOR_ROLE'), carol.address);
+        await adminVault
+          .connect(admin)
+          .proposeRole(getRoleBytes('POOL_DISPOSER_ROLE'), david.address);
         await adminVault
           .connect(admin)
           .grantRole(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address);
-        await adminVault.connect(admin).grantRole(getRoleBytes('POOL_EXECUTOR_ROLE'), bob.address);
+        await adminVault
+          .connect(admin)
+          .grantRole(getRoleBytes('POOL_CANCELER_ROLE'), bobby.address);
+        await adminVault
+          .connect(admin)
+          .grantRole(getRoleBytes('POOL_EXECUTOR_ROLE'), carol.address);
+        await adminVault
+          .connect(admin)
+          .grantRole(getRoleBytes('POOL_DISPOSER_ROLE'), david.address);
 
         // POOL MANAGEMENT
-        // Alice can now propose and cancel a pool
+        // Alice can now propose and bobby can cancel a pool
         await adminVault.connect(alice).proposePool('Fluid', alice.address);
-        await adminVault.connect(alice).cancelPoolProposal('Fluid', alice.address);
+        await adminVault.connect(bobby).cancelPoolProposal('Fluid', alice.address);
 
-        // Bob can add a pool (after another proposal from alice)
+        // Carol can add a pool (after another proposal from alice)
         await adminVault.connect(alice).proposePool('Fluid', alice.address);
-        await adminVault.connect(bob).addPool('Fluid', alice.address);
+        await adminVault.connect(carol).addPool('Fluid', alice.address);
 
-        // Alice can remove the pool
-        await adminVault.connect(alice).removePool('Fluid', alice.address);
+        // david can remove the pool
+        await adminVault.connect(david).removePool('Fluid', alice.address);
 
         // Remove their roles and now make them action proposer and executor
         await adminVault
           .connect(admin)
           .revokeRole(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address);
-        await adminVault.connect(admin).revokeRole(getRoleBytes('POOL_EXECUTOR_ROLE'), bob.address);
+        await adminVault
+          .connect(admin)
+          .revokeRole(getRoleBytes('POOL_CANCELER_ROLE'), bobby.address);
+        await adminVault
+          .connect(admin)
+          .revokeRole(getRoleBytes('POOL_EXECUTOR_ROLE'), carol.address);
+        await adminVault
+          .connect(admin)
+          .revokeRole(getRoleBytes('POOL_DISPOSER_ROLE'), david.address);
+
         await adminVault
           .connect(admin)
           .proposeRole(getRoleBytes('ACTION_PROPOSER_ROLE'), alice.address);
         await adminVault
           .connect(admin)
-          .proposeRole(getRoleBytes('ACTION_EXECUTOR_ROLE'), bob.address);
+          .proposeRole(getRoleBytes('ACTION_CANCELER_ROLE'), bobby.address);
+        await adminVault
+          .connect(admin)
+          .proposeRole(getRoleBytes('ACTION_EXECUTOR_ROLE'), carol.address);
+        await adminVault
+          .connect(admin)
+          .proposeRole(getRoleBytes('ACTION_DISPOSER_ROLE'), david.address);
         await adminVault
           .connect(admin)
           .grantRole(getRoleBytes('ACTION_PROPOSER_ROLE'), alice.address);
         await adminVault
           .connect(admin)
-          .grantRole(getRoleBytes('ACTION_EXECUTOR_ROLE'), bob.address);
+          .grantRole(getRoleBytes('ACTION_CANCELER_ROLE'), bobby.address);
+        await adminVault
+          .connect(admin)
+          .grantRole(getRoleBytes('ACTION_EXECUTOR_ROLE'), carol.address);
+        await adminVault
+          .connect(admin)
+          .grantRole(getRoleBytes('ACTION_DISPOSER_ROLE'), david.address);
 
         // ACTION MANAGEMENT
-        // Alice can now propose and cancel an action
+        // Alice can now propose and bobby can cancel an action
         await adminVault.connect(alice).proposeAction(getBytes4(alice.address), alice.address);
         await adminVault
-          .connect(alice)
+          .connect(bobby)
           .cancelActionProposal(getBytes4(alice.address), alice.address);
 
-        // Bob can add an action (after another proposal from alice)
+        // Carol can add an action (after another proposal from alice)
         await adminVault.connect(alice).proposeAction(getBytes4(alice.address), alice.address);
-        await adminVault.connect(bob).addAction(getBytes4(alice.address), alice.address);
+        await adminVault.connect(carol).addAction(getBytes4(alice.address), alice.address);
 
-        // Alice can remove the action
-        await adminVault.connect(alice).removeAction(getBytes4(alice.address));
+        // David can remove the action
+        await adminVault.connect(david).removeAction(getBytes4(alice.address));
       });
     });
 
