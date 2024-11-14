@@ -47,7 +47,7 @@ abstract contract ERC4626Withdraw is ActionBase {
     /// @notice Withdraws all available tokens from the specified vault
     /// @notice This is for emergency use, it doesn't limit the shares burnt.
     /// @param _vault Address of the vault contract
-    function exit(address _vault) public {
+    function exit(address _vault) external virtual {
         uint256 maxWithdrawAmount = _getMaxWithdraw(_vault);
         _executeWithdraw(_vault, maxWithdrawAmount);
     }
@@ -76,9 +76,9 @@ abstract contract ERC4626Withdraw is ActionBase {
         // Perform the withdraw
         uint256 sharesBurned = _executeWithdraw(_vaultAddress, amountToWithdraw);
 
-        // check if we received enough shares
+        // check we didn't burn more shares than we were allowed to
         if (sharesBurned > _inputData.maxSharesBurned) {
-            revert Errors.Action_InsufficientSharesReceived(
+            revert Errors.Action_MaxSharesBurnedExceeded(
                 protocolName(),
                 uint8(actionType()),
                 sharesBurned,
