@@ -14,6 +14,9 @@ abstract contract CompoundV2SupplyBase is ActionBase {
     using SafeERC20 for IERC20;
 
     /// @notice Parameters for the supply action
+    /// @param assetId The asset ID
+    /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param amount Amount of underlying token to supply
     struct Params {
         bytes4 assetId;
         uint16 feeBasis;

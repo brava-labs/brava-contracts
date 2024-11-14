@@ -4,7 +4,7 @@ pragma solidity =0.8.24;
 import {Errors} from "../../Errors.sol";
 import {ActionBase} from "../ActionBase.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {CErc20Interface} from "../../interfaces/compound/CTokenInterfaces.sol";
+import {CErc20Interface, CTokenInterface} from "../../interfaces/compound/CTokenInterfaces.sol";
 
 /// @title CompoundV2WithdrawBase - Base contract for Compound withdraw actions
 /// @notice This contract provides base functionality for withdrawing from Compound-style lending pools
@@ -12,6 +12,9 @@ import {CErc20Interface} from "../../interfaces/compound/CTokenInterfaces.sol";
 abstract contract CompoundV2WithdrawBase is ActionBase {
 
     /// @notice Parameters for the withdraw action
+    /// @param assetId The asset ID
+    /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
+    /// @param withdrawAmount Amount of underlying token to withdraw
     struct Params {
         bytes4 assetId;
         uint16 feeBasis;
@@ -38,7 +41,8 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
 
     /// @notice Withdraws all of the underlying tokens from the aToken provided
     function exit(address _cTokenAddress) external {
-        _withdraw(_cTokenAddress, type(uint256).max);
+        uint256 underlyingBalance = _getBalance(_cTokenAddress);
+        _withdraw(_cTokenAddress, underlyingBalance);
     }
 
     function _compoundWithdraw(
@@ -50,17 +54,17 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
             revert Errors.Action_ZeroAmount(protocolName(), actionType());
         }
 
-        address underlyingAsset = _getUnderlyingAsset(_cTokenAddress);
-        balanceBefore = IERC20(_cTokenAddress).balanceOf(address(this));
+        balanceBefore = CTokenInterface(_cTokenAddress).balanceOf(address(this));
+
+        uint256 underlyingBalance = _getBalance(_cTokenAddress);
+        if (amountToWithdraw > underlyingBalance) {
+            amountToWithdraw = underlyingBalance;
+        }
 
         feeInTokens = _takeFee(_cTokenAddress, _inputData.feeBasis);
 
-        if (amountToWithdraw > IERC20(_cTokenAddress).balanceOf(address(this))) {
-            amountToWithdraw = type(uint256).max;
-        }
-
-        _withdraw(underlyingAsset, amountToWithdraw);
-        balanceAfter = IERC20(_cTokenAddress).balanceOf(address(this));
+        _withdraw(_cTokenAddress, amountToWithdraw);
+        balanceAfter = CTokenInterface(_cTokenAddress).balanceOf(address(this));
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
@@ -83,9 +87,17 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
 
     /// @notice Performs the actual withdrawal from the Compound pool
     /// @param _cTokenAddress The cToken address
-    /// @param _amount Amount to withdraw
+    /// @param _amount Amount to withdraw in underlying tokens
     function _withdraw(address _cTokenAddress, uint256 _amount) internal virtual {
-        CErc20Interface(_cTokenAddress).redeem(_amount);
+        uint256 result = CErc20Interface(_cTokenAddress).redeemUnderlying(_amount);
+        if (result != 0) {
+            revert Errors.Action_CompoundError(protocolName(), actionType(), result);
+        }
+    }
+
+    /// @dev Override for non-standard balance calculations
+    function _getBalance(address _cTokenAddress) internal virtual returns (uint256) {
+        return CTokenInterface(_cTokenAddress).balanceOfUnderlying(address(this));
     }
 
     /// @inheritdoc ActionBase

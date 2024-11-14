@@ -1,6 +1,6 @@
-import { tokenConfig } from './constants';
-import { ethers } from 'ethers';
 import { CoverAsset } from '@nexusmutual/sdk';
+import { ethers } from 'ethers';
+import { tokenConfig } from './constants';
 import { getBytes4 } from './utils';
 
 export const actionTypes = {
@@ -87,6 +87,13 @@ export interface AaveV2Args extends BaseActionArgs {
   feeBasis?: number;
 }
 
+interface StrikeArgs extends BaseActionArgs {
+  type: 'StrikeSupply' | 'StrikeWithdraw';
+  assetId: string;
+  amount: string;
+  feeBasis?: number;
+}
+
 // Union type for all action args
 export type ActionArgs =
   | SupplyArgs
@@ -95,7 +102,8 @@ export type ActionArgs =
   | TokenTransferArgs
   | BuyCoverArgs
   | AaveV3Args
-  | AaveV2Args;
+  | AaveV2Args
+  | StrikeArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
@@ -244,6 +252,30 @@ export const actionDefaults: Record<string, ActionArgs> = {
   AaveV2Supply: {
     type: 'AaveV2Supply',
     assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  StrikeWithdraw: {
+    type: 'StrikeWithdraw',
+    assetId: getBytes4(tokenConfig.sUSDC.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  StrikeSupply: {
+    type: 'StrikeSupply',
+    assetId: getBytes4(tokenConfig.sUSDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
