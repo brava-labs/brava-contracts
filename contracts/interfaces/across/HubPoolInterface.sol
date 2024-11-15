@@ -175,5 +175,7 @@ interface HubPoolInterface {
 
     function loadEthForL2Calls() external payable;
 
+    /// @notice Returns the pooled token for a given L1 token
+    /// @dev Added by Brava Labs
     function pooledTokens(address _poolAddress) external view returns (PooledToken memory);
 }
