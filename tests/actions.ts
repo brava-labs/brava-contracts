@@ -33,7 +33,7 @@ interface BaseActionArgs {
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
-  type: 'FluidSupply' | 'YearnSupply' | 'ClearpoolSupply';
+  type: 'FluidSupply' | 'YearnSupply' | 'ClearpoolSupply' | 'AcrossSupply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -41,7 +41,7 @@ interface SupplyArgs extends BaseActionArgs {
 }
 
 interface WithdrawArgs extends BaseActionArgs {
-  type: 'FluidWithdraw' | 'YearnWithdraw' | 'ClearpoolWithdraw';
+  type: 'FluidWithdraw' | 'YearnWithdraw' | 'ClearpoolWithdraw' | 'AcrossWithdraw';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -345,5 +345,33 @@ export const actionDefaults: Record<string, ActionArgs> = {
     },
     value: 0,
     safeOperation: 1,
+  },
+  AcrossSupply: {
+    type: 'AcrossSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.across_lpUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  AcrossWithdraw: {
+    type: 'AcrossWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.across_lpUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
   },
 };

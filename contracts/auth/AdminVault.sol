@@ -51,8 +51,8 @@ contract AdminVault is AccessControlDelayed {
     bytes32 public constant ACTION_EXECUTOR_ROLE = keccak256("ACTION_EXECUTOR_ROLE");
     bytes32 public constant ACTION_DISPOSER_ROLE = keccak256("ACTION_DISPOSER_ROLE");
 
-    // Timestamp tracking for fee collection: user => pool => timestamp
-    mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
+    // Timestamp tracking for fee collection: user => protocol => pool => timestamp
+    mapping(address => mapping(uint256 => mapping(address => uint256))) public lastFeeTimestamp;
 
     // TODO improve mapping ID
     // Protocol and pool management: protocol => poolId => poolAddress
@@ -212,7 +212,7 @@ contract AdminVault is AccessControlDelayed {
     /// @param _poolAddress The address of the pool.
     function proposePool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_PROPOSER_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
-        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        uint256 protocolId = uint256(keccak256(abi.encode(_protocolName)));
         if (protocolPools[protocolId][poolId] != address(0)) {
             revert Errors.AdminVault_AlreadyAdded();
         }
@@ -229,7 +229,7 @@ contract AdminVault is AccessControlDelayed {
         address _poolAddress
     ) external onlyRole(POOL_CANCELER_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
-        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        uint256 protocolId = uint256(keccak256(abi.encode(_protocolName)));
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
         if (poolProposals[proposalId] == 0) {
             revert Errors.AdminVault_NotProposed();
@@ -243,7 +243,7 @@ contract AdminVault is AccessControlDelayed {
     /// @param _poolAddress The address of the pool to add.
     function addPool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_EXECUTOR_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
-        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        uint256 protocolId = uint256(keccak256(abi.encode(_protocolName)));
         if (protocolPools[protocolId][poolId] != address(0)) {
             revert Errors.AdminVault_AlreadyAdded();
         }
@@ -264,9 +264,8 @@ contract AdminVault is AccessControlDelayed {
 
     function removePool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_DISPOSER_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
-        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        uint256 protocolId = uint256(keccak256(abi.encode(_protocolName)));
         delete protocolPools[protocolId][poolId];
-        pool[_poolAddress] = false;
         LOGGER.logAdminVaultEvent(402, abi.encode(protocolId, _poolAddress));
     }
 
@@ -329,18 +328,22 @@ contract AdminVault is AccessControlDelayed {
 
     /// @notice Initializes the fee timestamp for a pool.
     /// @dev This should be called when a user's deposit changes from zero to non-zero.
+    /// @param _protocolName The name of the protocol.
     /// @param _pool The address of the pool.
-    function initializeFeeTimestamp(address _pool) external {
+    function initializeFeeTimestamp(string calldata _protocolName, address _pool) external {
         _isPool(_pool);
-        lastFeeTimestamp[msg.sender][_pool] = block.timestamp;
+        uint256 protocolId = uint256(keccak256(abi.encode(_protocolName)));
+        lastFeeTimestamp[msg.sender][protocolId][_pool] = block.timestamp;
     }
 
     /// @notice Updates the fee timestamp for a pool.
     /// @dev This should be called whenever a fee is taken.
+    /// @param _protocolName The name of the protocol.
     /// @param _pool The address of the pool.
-    function updateFeeTimestamp(address _pool) external {
+    function updateFeeTimestamp(string calldata _protocolName, address _pool) external {
         _isPool(_pool);
-        lastFeeTimestamp[msg.sender][_pool] = block.timestamp;
+        uint256 protocolId = uint256(keccak256(abi.encode(_protocolName)));
+        lastFeeTimestamp[msg.sender][protocolId][_pool] = block.timestamp;
     }
 
     /// @notice Checks if a given address is a pool.
@@ -361,7 +364,7 @@ contract AdminVault is AccessControlDelayed {
     /// @param _poolId The identifier of the pool.
     /// @return The address of the pool.
     function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address) {
-        uint256 protocolId = uint256(keccak256(abi.encodePacked(_protocolName)));
+        uint256 protocolId = uint256(keccak256(abi.encode(_protocolName)));
         address poolAddress = protocolPools[protocolId][_poolId];
         if (poolAddress == address(0)) {
             revert Errors.AdminVault_NotFound(_protocolName, _poolId);
@@ -381,13 +384,15 @@ contract AdminVault is AccessControlDelayed {
     }
 
     /// @notice Retrieves the last fee timestamp for a given pool.
+    /// @param _protocolName The name of the protocol.
     /// @param _pool The address of the pool.
     /// @return The last fee timestamp.
-    function getLastFeeTimestamp(address _pool) external view returns (uint256) {
-        if (lastFeeTimestamp[msg.sender][_pool] == 0) {
+    function getLastFeeTimestamp(string calldata _protocolName, address _pool) external view returns (uint256) {
+        uint256 protocolId = uint256(keccak256(abi.encode(_protocolName)));
+        if (lastFeeTimestamp[msg.sender][protocolId][_pool] == 0) {
             revert Errors.AdminVault_NotInitialized();
         }
-        return lastFeeTimestamp[msg.sender][_pool];
+        return lastFeeTimestamp[msg.sender][protocolId][_pool];
     }
 
     /// @notice Checks if a given fee basis is within the allowed range.

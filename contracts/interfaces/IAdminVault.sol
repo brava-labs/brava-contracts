@@ -30,12 +30,12 @@ interface IAdminVault {
     function ADMIN_ROLE() external view returns (bytes32);
     function feeConfig() external view returns (FeeConfig memory);
     function pendingFeeConfig() external view returns (FeeConfig memory);
-    function lastFeeTimestamp(address, address) external view returns (uint256);
+    function lastFeeTimestamp(address, uint256, address) external view returns (uint256);
     function protocolPools(uint256 protocolId, bytes4 poolId) external view returns (address);
     function actionAddresses(bytes4 actionId) external view returns (address);
     function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address);
     function getActionAddress(bytes4 _actionId) external view returns (address);
-    function getLastFeeTimestamp(address _vault) external view returns (uint256);
+    function getLastFeeTimestamp(string calldata _protocolName, address _vault) external view returns (uint256);
     function checkFeeBasis(uint256 _feeBasis) external view;
     function getPoolProposalTime(string calldata protocolName, address poolAddress) external view returns (uint256);
     function getActionProposalTime(bytes4 actionId, address actionAddress) external view returns (uint256);
@@ -51,8 +51,8 @@ interface IAdminVault {
     function proposeFeeConfig(address recipient, uint256 min, uint256 max) external;
     function cancelFeeConfigProposal() external;
     function setFeeConfig() external;
-    function initializeFeeTimestamp(address _vault) external;
-    function updateFeeTimestamp(address _vault) external;
+    function initializeFeeTimestamp(string calldata _protocolName, address _vault) external;
+    function updateFeeTimestamp(string calldata _protocolName, address _vault) external;
 
     // Pool Management Functions
     function proposePool(string calldata protocolName, address poolAddress) external;

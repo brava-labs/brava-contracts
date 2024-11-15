@@ -12,11 +12,11 @@ import {CErc20Interface, CTokenInterface} from "../../interfaces/compound/CToken
 abstract contract CompoundV2WithdrawBase is ActionBase {
 
     /// @notice Parameters for the withdraw action
-    /// @param assetId The asset ID
+    /// @param poolId The pool ID
     /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param withdrawAmount Amount of underlying token to withdraw
     struct Params {
-        bytes4 assetId;
+        bytes4 poolId;
         uint16 feeBasis;
         uint256 withdrawAmount;
     }
@@ -29,13 +29,13 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
         Params memory inputData = _parseInputs(_callData);
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-        address cTokenAddress = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.assetId);
+        address cTokenAddress = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
         (uint256 balanceBefore, uint256 balanceAfter, uint256 feeInTokens) = _compoundWithdraw(inputData, cTokenAddress);
 
         LOGGER.logActionEvent(
             LogType.BALANCE_UPDATE,
-            _encodeBalanceUpdate(_strategyId, inputData.assetId, balanceBefore, balanceAfter, feeInTokens)
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, balanceBefore, balanceAfter, feeInTokens)
         );
     }
 
@@ -61,7 +61,7 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
             revert Errors.Action_ZeroAmount(protocolName(), actionType());
         }
 
-        feeInTokens = _takeFee(_cTokenAddress, _inputData.feeBasis);
+        feeInTokens = _takeFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress);
 
         _withdraw(_cTokenAddress, amountToWithdraw);
         balanceAfter = CTokenInterface(_cTokenAddress).balanceOf(address(this));
