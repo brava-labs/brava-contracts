@@ -113,6 +113,16 @@ export const tokenConfig = {
     whale: '0x18709E89BD403F470088aBDAcEbE86CC60dda12e',
     decimals: 6,
   },
+  sUSDC: {
+    address: '0x3774E825d567125988Fb293e926064B6FAa71DAB',
+    whale: '0xee2826453A4Fd5AfeB7ceffeEF3fFA2320081268',
+    decimals: 8,
+  },
+  sUSDT: {
+    address: '0x69702cfd7DAd8bCcAA24D6B440159404AAA140F5',
+    whale: '0xee2826453A4Fd5AfeB7ceffeEF3fFA2320081268',
+    decimals: 8,
+  },
   cpALP_USDC: {
     address: '0x68F311351e7196D71f8E6372e4A1D2e725669BF2',
     whale: '0x804cc33C14d804a96d9f5D0e27489e64920eD775',
