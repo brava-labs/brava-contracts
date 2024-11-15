@@ -50,15 +50,15 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
         address _cTokenAddress
     ) internal returns (uint256 balanceBefore, uint256 balanceAfter, uint256 feeInTokens) {
         uint256 amountToWithdraw = _inputData.withdrawAmount;
-        if (amountToWithdraw == 0) {
-            revert Errors.Action_ZeroAmount(protocolName(), actionType());
-        }
 
         balanceBefore = CTokenInterface(_cTokenAddress).balanceOf(address(this));
 
         uint256 underlyingBalance = _getBalance(_cTokenAddress);
         if (amountToWithdraw > underlyingBalance) {
             amountToWithdraw = underlyingBalance;
+        }
+        if (amountToWithdraw == 0) {
+            revert Errors.Action_ZeroAmount(protocolName(), actionType());
         }
 
         feeInTokens = _takeFee(_cTokenAddress, _inputData.feeBasis);
