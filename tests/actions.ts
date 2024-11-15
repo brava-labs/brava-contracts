@@ -73,8 +73,8 @@ export interface BuyCoverArgs extends BaseActionArgs {
   coverAsset: CoverAsset;
 }
 
-export interface AaveLikeArgs extends BaseActionArgs {
-  type: 'AaveV3Supply' | 'AaveV3Withdraw' | 'AaveV2Supply' | 'AaveV2Withdraw';
+export interface AaveV3Args extends BaseActionArgs {
+  type: 'AaveV3Supply' | 'AaveV3Withdraw';
   assetId: string;
   amount: string | BigInt;
   feeBasis?: number;
@@ -84,6 +84,13 @@ export interface AaveV2Args extends BaseActionArgs {
   type: 'AaveV2Supply' | 'AaveV2Withdraw';
   assetId: string;
   amount: string | BigInt;
+  feeBasis?: number;
+}
+
+interface StrikeArgs extends BaseActionArgs {
+  type: 'StrikeSupply' | 'StrikeWithdraw';
+  assetId: string;
+  amount: string;
   feeBasis?: number;
 }
 
@@ -101,7 +108,9 @@ export type ActionArgs =
   | SwapArgs
   | TokenTransferArgs
   | BuyCoverArgs
-  | AaveLikeArgs
+  | AaveV3Args
+  | AaveV2Args
+  | StrikeArgs
   | UwULendArgs;
 
 /// @dev this is the default values for each action type
@@ -251,6 +260,30 @@ export const actionDefaults: Record<string, ActionArgs> = {
   AaveV2Supply: {
     type: 'AaveV2Supply',
     assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  StrikeWithdraw: {
+    type: 'StrikeWithdraw',
+    assetId: getBytes4(tokenConfig.sUSDC.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  StrikeSupply: {
+    type: 'StrikeSupply',
+    assetId: getBytes4(tokenConfig.sUSDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
