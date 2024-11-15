@@ -170,7 +170,8 @@ describe('Fluid tests', () => {
           const fTokenBalanceAfterFirstTx = await fToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, poolAddress);
+          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid'])));
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -244,8 +245,10 @@ describe('Fluid tests', () => {
         expect(txLog.balanceAfter).to.not.equal(BigInt(0));
       });
       it('Should initialize last fee timestamp', async () => {
+        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid'])));
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
+          protocolId,
           FLUID_USDC_ADDRESS
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
@@ -267,6 +270,7 @@ describe('Fluid tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
+          protocolId,
           FLUID_USDC_ADDRESS
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
@@ -357,7 +361,8 @@ describe('Fluid tests', () => {
 
           const fTokenBalanceAfterSupply = await fToken().balanceOf(safeAddr);
 
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, poolAddress);
+          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid'])));
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -410,4 +415,5 @@ describe('Fluid tests', () => {
   });
 });
 
-export {};
+export { };
+

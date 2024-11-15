@@ -1,20 +1,19 @@
-import { ethers, network } from 'hardhat';
-import { expect } from 'chai';
-import { AdminVault, IERC20, IFluidLending, FluidSupply } from '../../typechain-types';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { getUSDC, fundAccountWithToken } from '../utils-stable';
-import {
-  log,
-  deploy,
-  getBaseSetup,
-  calculateExpectedFee,
-  executeAction,
-  getRoleBytes,
-  getRoleName,
-  getBytes4,
-} from '../utils';
-import { tokenConfig } from '../constants';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
+import { expect } from 'chai';
+import { ethers, network } from 'hardhat';
+import { AdminVault, FluidSupply, IERC20, IFluidLending } from '../../typechain-types';
+import { tokenConfig } from '../constants';
+import {
+  calculateExpectedFee,
+  deploy,
+  executeAction,
+  getBaseSetup,
+  getBytes4,
+  getRoleBytes,
+  log
+} from '../utils';
+import { fundAccountWithToken, getUSDC } from '../utils-stable';
 
 describe('AdminVault', function () {
   let adminVault: AdminVault;
@@ -599,11 +598,12 @@ describe('AdminVault', function () {
     it('should initialize fee timestamp correctly', async function () {
       await adminVault.proposePool('Fluid', alice.address);
       await adminVault.addPool('Fluid', alice.address);
-      const tx = await adminVault.connect(owner).initializeFeeTimestamp(alice.address);
+      const tx = await adminVault.connect(owner).initializeFeeTimestamp("Protocol", alice.address);
 
       const receipt = await tx.wait();
       const blockTimestamp = (await ethers.provider.getBlock(receipt!.blockNumber))!.timestamp;
-      expect(await adminVault.lastFeeTimestamp(owner.address, alice.address)).to.equal(
+      const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Protocol'])));
+      expect(await adminVault.lastFeeTimestamp(owner.address, protocolId, alice.address)).to.equal(
         blockTimestamp
       );
     });
@@ -611,11 +611,12 @@ describe('AdminVault', function () {
     it('should update fee timestamp correctly', async function () {
       await adminVault.proposePool('Fluid', alice.address);
       await adminVault.addPool('Fluid', alice.address);
-      await adminVault.connect(owner).initializeFeeTimestamp(alice.address);
-      const tx = await adminVault.connect(owner).updateFeeTimestamp(alice.address);
+      await adminVault.connect(owner).initializeFeeTimestamp("Protocol", alice.address);
+      const tx = await adminVault.connect(owner).updateFeeTimestamp("Protocol", alice.address);
       const receipt = await tx.wait();
       const blockTimestamp = (await ethers.provider.getBlock(receipt!.blockNumber))!.timestamp;
-      expect(await adminVault.lastFeeTimestamp(owner.address, alice.address)).to.equal(
+      const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Protocol'])));
+      expect(await adminVault.lastFeeTimestamp(owner.address, protocolId, alice.address)).to.equal(
         blockTimestamp
       );
     });
@@ -773,8 +774,10 @@ describe('AdminVault', function () {
 
       const fUSDCBalanceAfterSupply = await fUSDC.balanceOf(safeAddr);
 
+      const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid'])));
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
+        protocolId,
         tokenConfig.fUSDC.address
       );
       const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp

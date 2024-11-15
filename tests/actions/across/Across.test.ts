@@ -47,14 +47,14 @@ describe('Across tests', () => {
       token: 'USDC',
       lpToken: 'across_lpUSDC',
     },
-    // {
-    //   token: 'USDT',
-    //   lpToken: 'across_lpUSDT',
-    // },
-    // {
-    //   token: 'DAI',
-    //   lpToken: 'across_lpDAI',
-    // },
+    {
+      token: 'USDT',
+      lpToken: 'across_lpUSDT',
+    },
+    {
+      token: 'DAI',
+      lpToken: 'across_lpDAI',
+    },
   ];
 
   before(async () => {

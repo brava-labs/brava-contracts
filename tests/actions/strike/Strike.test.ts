@@ -187,8 +187,10 @@ describe('Strike tests', () => {
       expect(actionType).to.equal(actionTypes.DEPOSIT_ACTION);
     });
     it('Should initialize the last fee timestamp', async () => {
+      const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Strike'])));
       const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
+        protocolId,
         tokenConfig.sUSDC.address
       );
       expect(lastFeeTimestamp).to.equal(0n);
@@ -201,6 +203,7 @@ describe('Strike tests', () => {
 
       const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
         safeAddr,
+        protocolId,
         tokenConfig.sUSDC.address
       );
       expect(lastFeeTimestampAfter).to.not.equal(0n);
@@ -367,8 +370,10 @@ describe('Strike tests', () => {
         feeBasis: 10,
       });
 
+      const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Strike'])));
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
+        protocolId,
         tokenConfig.sUSDC.address
       );
 
