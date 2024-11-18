@@ -418,6 +418,36 @@ describe('Clearpool tests', () => {
     });
 
     describe('General tests', () => {
+      it('Should emit the correct log on withdraw', async () => {
+        const token = 'cpALP_USDC';
+        const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        await fundAccountWithToken(safeAddr, token, amount);
+        const strategyId: number = 42;
+        const poolId: BytesLike = ethers.keccak256(tokenConfig[token].address).slice(0, 10);
+
+        const tx = await executeAction({
+          type: 'ClearpoolWithdraw',
+          poolAddress: tokenConfig[token].address,
+          amount,
+        });
+
+        const logs = await decodeLoggerLog(tx);
+        log('Logs:', logs);
+
+        expect(logs).to.have.length(1);
+        expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
+
+        const txLog = logs[0] as BalanceUpdateLog;
+        expect(txLog).to.have.property('safeAddress', safeAddr);
+        expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+        expect(txLog).to.have.property('poolId', poolId);
+        expect(txLog).to.have.property('balanceBefore');
+        expect(txLog).to.have.property('balanceAfter');
+        expect(txLog).to.have.property('feeInTokens', BigInt(0));
+        expect(txLog.balanceBefore).to.equal(amount);
+        expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
+      });
+
       it('Should have withdraw action type', async () => {
         const actionType = await clearpoolWithdrawContract.actionType();
         expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);

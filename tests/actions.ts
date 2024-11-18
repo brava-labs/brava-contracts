@@ -90,7 +90,7 @@ export interface AaveV2Args extends BaseActionArgs {
 interface StrikeArgs extends BaseActionArgs {
   type: 'StrikeSupply' | 'StrikeWithdraw';
   assetId: string;
-  amount: string;
+  amount: string | BigInt;
   feeBasis?: number;
 }
 
