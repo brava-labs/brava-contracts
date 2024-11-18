@@ -33,19 +33,24 @@ interface BaseActionArgs {
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
-  type: 'FluidSupply' | 'YearnSupply' | 'ClearpoolSupply' | 'SparkSupply';
+  type: 'FluidSupply' | 'YearnSupply' | 'ClearpoolSupply' | 'SparkSupply' | 'MorphoSupply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
-  minSharesReceived?: string;
+  minSharesReceived?: string | BigInt;
 }
 
 interface WithdrawArgs extends BaseActionArgs {
-  type: 'FluidWithdraw' | 'YearnWithdraw' | 'ClearpoolWithdraw' | 'SparkWithdraw';
+  type:
+    | 'FluidWithdraw'
+    | 'YearnWithdraw'
+    | 'ClearpoolWithdraw'
+    | 'SparkWithdraw'
+    | 'MorphoWithdraw';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
-  maxSharesBurned?: string;
+  maxSharesBurned?: string | BigInt;
 }
 
 interface SwapArgs extends BaseActionArgs {
@@ -143,6 +148,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
+    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
   YearnSupply: {
     type: 'YearnSupply',
@@ -373,5 +379,35 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
+  },
+  MorphoSupply: {
+    type: 'MorphoSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.fxUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
+  },
+  MorphoWithdraw: {
+    type: 'MorphoWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.fxUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
 };

@@ -161,8 +161,18 @@ export const tokenConfig = {
   sDAI: {
     address: '0x83f20f44975d03b1b09e64809b757c47f942beea',
     whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
-    decimals: 18
-  }
+    decimals: 18,
+  },
+  fxUSDC: {
+    address: '0x4F460bb11cf958606C69A963B4A17f9DaEEea8b6',
+    whale: '0xd3c082cDC4a31ABe9Ce02A785b89947800D0898C',
+    decimals: 18,
+  },
+  usualUSDC: {
+    address: '0xd63070114470f685b75b74d60eec7c1113d33a3d',
+    whale: '0xeABD4A433D9BD08DDbB086503b18BBe2dD51a414',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {
