@@ -76,28 +76,28 @@ export interface BuyCoverArgs extends BaseActionArgs {
 export interface AaveV3Args extends BaseActionArgs {
   type: 'AaveV3Supply' | 'AaveV3Withdraw';
   assetId: string;
-  amount: string;
+  amount: string | BigInt;
   feeBasis?: number;
 }
 
 export interface AaveV2Args extends BaseActionArgs {
   type: 'AaveV2Supply' | 'AaveV2Withdraw';
   assetId: string;
-  amount: string;
+  amount: string | BigInt;
   feeBasis?: number;
 }
 
 interface StrikeArgs extends BaseActionArgs {
   type: 'StrikeSupply' | 'StrikeWithdraw';
   assetId: string;
-  amount: string;
+  amount: string | BigInt;
   feeBasis?: number;
 }
 
 export interface UwULendArgs extends BaseActionArgs {
   type: 'UwULendSupply' | 'UwULendWithdraw';
   assetId: string;
-  amount: string;
+  amount: string | BigInt;
   feeBasis?: number;
 }
 
