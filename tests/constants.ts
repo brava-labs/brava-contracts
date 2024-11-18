@@ -128,6 +128,16 @@ export const tokenConfig = {
     whale: '0x31d3243CfB54B34Fc9C73e1CB1137124bD6B13E1',
     decimals: 6,
   },
+  fxUSDC: {
+    address: '0x4F460bb11cf958606C69A963B4A17f9DaEEea8b6',
+    whale: '0xd3c082cDC4a31ABe9Ce02A785b89947800D0898C',
+    decimals: 18,
+  },
+  usualUSDC: {
+    address: '0xd63070114470f685b75b74d60eec7c1113d33a3d',
+    whale: '0xeABD4A433D9BD08DDbB086503b18BBe2dD51a414',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {
