@@ -138,6 +138,11 @@ export const tokenConfig = {
     whale: '0xeABD4A433D9BD08DDbB086503b18BBe2dD51a414',
     decimals: 18,
   },
+  gauntletUSDC: {
+    address: '0x8eB67A509616cd6A7c1B3c8C21D48FF57df3d458',
+    whale: '0x8a95a711A56bD837D678ab299dE7B1Ec9863051C',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {

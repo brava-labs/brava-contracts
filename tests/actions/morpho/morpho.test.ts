@@ -34,7 +34,7 @@ const getTokenNameFromAddress = (address: string): string => {
   );
 };
 
-describe.only('Morpho tests', () => {
+describe('Morpho tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let loggerAddress: string;
@@ -48,6 +48,7 @@ describe.only('Morpho tests', () => {
   let morphoWithdrawAddress: string;
   let fxUSDC: IERC4626;
   let usualUSDC: IERC4626;
+  let gauntletUSDC: IERC4626;
   // let fUSDT: IFluidLending;
   let adminVault: AdminVault;
   const MORPHO_fxUSDC_ADDRESS = tokenConfig.fxUSDC.address;
@@ -69,12 +70,11 @@ describe.only('Morpho tests', () => {
       poolAddress: tokenConfig.usualUSDC.address,
       mToken: () => usualUSDC,
     },
-    // Add more tokens here as needed
-    // {
-    //   token: 'USDT',
-    //   poolAddress: tokenConfig.fxUSDT.address,
-    //   mToken: () => fxUSDT,
-    // },
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.gauntletUSDC.address,
+      mToken: () => gauntletUSDC,
+    },
   ];
 
   before(async () => {
@@ -108,6 +108,7 @@ describe.only('Morpho tests', () => {
     morphoWithdrawAddress = await morphoWithdrawContract.getAddress();
     fxUSDC = await ethers.getContractAt('IERC4626', tokenConfig.fxUSDC.address);
     usualUSDC = await ethers.getContractAt('IERC4626', tokenConfig.usualUSDC.address);
+    gauntletUSDC = await ethers.getContractAt('IERC4626', tokenConfig.gauntletUSDC.address);
 
     // propose and add all tokens in the testCases array
     for (const { poolAddress } of testCases) {
