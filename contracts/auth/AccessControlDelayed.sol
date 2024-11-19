@@ -7,6 +7,12 @@ import {Errors} from "../Errors.sol";
 
 /// @title Add delays to granting roles in access control
 abstract contract AccessControlDelayed is AccessControl {
+
+    event RoleProposed(bytes32 indexed role, address indexed account, uint256 timestamp);
+    event RoleProposalCancelled(bytes32 indexed role, address indexed account);
+
+    event DelayChanged(uint256 oldDelay, uint256 newDelay);
+
     uint256 public delay; // How long after a proposal can the role be granted
     uint256 public proposedDelay; // New delay to be set after delayReductionLockTime
     uint256 public delayReductionLockTime; // Time when the new delay can be set/used
@@ -62,6 +68,7 @@ abstract contract AccessControlDelayed is AccessControl {
         }
         // add to list of proposed roles with the wait time
         proposedRoles[proposalId] = _getDelayTimestamp();
+        emit RoleProposed(role, account, proposedRoles[proposalId]);
     }
 
     // A helper to find the time when a role proposal will be available to grant
@@ -98,7 +105,7 @@ abstract contract AccessControlDelayed is AccessControl {
             delete delayReductionLockTime;
             delete proposedDelay;
         }
-
+        emit DelayChanged(delay, _newDelay);
         if (_newDelay >= delay) {
             // New delay is longer, just set it
             delay = _newDelay;
@@ -136,5 +143,6 @@ abstract contract AccessControlDelayed is AccessControl {
             revert Errors.AdminVault_NotProposed();
         }
         delete proposedRoles[keccak256(abi.encodePacked(role, account))];
+        emit RoleProposalCancelled(role, account);
     }
 }
