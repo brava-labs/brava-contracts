@@ -62,9 +62,9 @@ abstract contract AaveSupplyBase is ActionBase {
 
         // Handle fee initialization or collection
         if (balanceBefore == 0) {
-            ADMIN_VAULT.initializeFeeTimestamp(_aTokenAddress);
+            ADMIN_VAULT.initializeFeeTimestamp(protocolName(), _aTokenAddress);
         } else {
-            feeInTokens = _takeFee(_aTokenAddress, _inputData.feeBasis);
+            feeInTokens = _takeFee(_aTokenAddress, _inputData.feeBasis, _aTokenAddress);
         }
 
         // If we have an amount to deposit, do that

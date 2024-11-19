@@ -61,7 +61,7 @@ abstract contract ERC4626Withdraw is ActionBase {
         sharesBefore = _getBalance(_vaultAddress);
 
         // handle fee collection (no init, that's done in supply)
-        feeInTokens = _takeFee(_vaultAddress, _inputData.feeBasis);
+        feeInTokens = _takeFee(_vaultAddress, _inputData.feeBasis, _vaultAddress);
 
         uint256 maxWithdrawAmount = _getMaxWithdraw(_vaultAddress);
         uint256 amountToWithdraw = _inputData.withdrawRequest > maxWithdrawAmount

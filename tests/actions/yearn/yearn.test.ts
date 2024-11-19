@@ -5,11 +5,11 @@ import { actionTypes } from '../../../tests/actions';
 import { tokenConfig } from '../../../tests/constants';
 import {
   AdminVault,
-  YearnSupply,
-  YearnWithdraw,
   IERC20,
   IYearnVault,
   Logger,
+  YearnSupply,
+  YearnWithdraw,
 } from '../../../typechain-types';
 import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
@@ -20,7 +20,7 @@ import {
   getBaseSetup,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT, getDAI } from '../../utils-stable';
+import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
 
 describe('Yearn tests', () => {
   let signer: Signer;
@@ -182,7 +182,8 @@ describe('Yearn tests', () => {
           const yTokenBalanceAfterFirstTx = await yToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, poolAddress);
+          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn'])));
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -257,8 +258,10 @@ describe('Yearn tests', () => {
       });
 
       it('Should initialize last fee timestamp', async () => {
+        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn'])));
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
+          protocolId,
           YEARN_USDC_ADDRESS
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
@@ -280,6 +283,7 @@ describe('Yearn tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
+          protocolId,
           YEARN_USDC_ADDRESS
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
@@ -372,7 +376,8 @@ describe('Yearn tests', () => {
 
           const yTokenBalanceAfterSupply = await yToken().balanceOf(safeAddr);
 
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, poolAddress);
+          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn'])));
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -456,4 +461,5 @@ describe('Yearn tests', () => {
   });
 });
 
-export {};
+export { };
+

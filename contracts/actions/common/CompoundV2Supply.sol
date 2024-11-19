@@ -14,11 +14,11 @@ abstract contract CompoundV2SupplyBase is ActionBase {
     using SafeERC20 for IERC20;
 
     /// @notice Parameters for the supply action
-    /// @param assetId The asset ID
+    /// @param poolId The pool ID
     /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param amount Amount of underlying token to supply
     struct Params {
-        bytes4 assetId;
+        bytes4 poolId;
         uint16 feeBasis;
         uint256 amount;
     }
@@ -34,7 +34,7 @@ abstract contract CompoundV2SupplyBase is ActionBase {
 
         // Check inputs
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-        address cTokenAddress = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.assetId);
+        address cTokenAddress = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
         // Execute action
         (uint256 balanceBefore, uint256 balanceAfter, uint256 feeInTokens) = _compoundSupply(inputData, cTokenAddress);
@@ -42,7 +42,7 @@ abstract contract CompoundV2SupplyBase is ActionBase {
         // Log event
         LOGGER.logActionEvent(
             LogType.BALANCE_UPDATE,
-            _encodeBalanceUpdate(_strategyId, inputData.assetId, balanceBefore, balanceAfter, feeInTokens)
+            _encodeBalanceUpdate(_strategyId, inputData.poolId, balanceBefore, balanceAfter, feeInTokens)
         );
     }
 
@@ -60,9 +60,9 @@ abstract contract CompoundV2SupplyBase is ActionBase {
 
         // Handle fee initialization or collection
         if (balanceBefore == 0) {
-            ADMIN_VAULT.initializeFeeTimestamp(_cTokenAddress);
+            ADMIN_VAULT.initializeFeeTimestamp(protocolName(), _cTokenAddress);
         } else {
-            feeInTokens = _takeFee(_cTokenAddress, _inputData.feeBasis);
+            feeInTokens = _takeFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress);
         }
 
         // If we have an amount to deposit, do that
