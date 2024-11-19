@@ -159,6 +159,11 @@ export const tokenConfig = {
     whale: '0x31d3243CfB54B34Fc9C73e1CB1137124bD6B13E1',
     decimals: 6,
   },
+  sDAI: {
+    address: '0x83f20f44975d03b1b09e64809b757c47f942beea',
+    whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
+    decimals: 18,
+  },
   across_lpUSDC: {
     address: '0xC9b09405959f63F72725828b5d449488b02be1cA',
     whale: '0x9040e41eF5E8b281535a96D9a48aCb8cfaBD9a48',

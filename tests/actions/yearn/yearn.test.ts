@@ -119,6 +119,7 @@ describe('Yearn tests', () => {
     log('Reverting to local snapshot');
     await network.provider.send('evm_revert', [snapshotId]);
   });
+
   describe('Yearn Supply', () => {
     testCases.forEach(({ token, poolAddress, yToken }) => {
       describe(`Testing ${token}`, () => {
@@ -303,6 +304,7 @@ describe('Yearn tests', () => {
       });
     });
   });
+
   describe('Yearn Withdraw', () => {
     beforeEach(async () => {
       // Do empty deposits to initialize the fee timestamps for all pools
@@ -334,7 +336,7 @@ describe('Yearn tests', () => {
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
           const finalyTokenBalance = await yToken().balanceOf(safeAddr);
           expect(finalTokenBalance).to.be.greaterThan(initialTokenBalance);
-          expect(finalyTokenBalance).to.be.lessThan(initialyTokenBalance);
+          expect(finalyTokenBalance).to.be.eq(BigInt(0));
         });
 
         it('Should withdraw the maximum amount', async () => {
@@ -409,17 +411,48 @@ describe('Yearn tests', () => {
     });
 
     describe('General tests', () => {
+      it('Should emit the correct log on withdraw', async () => {
+        const token = 'yUSDC';
+        const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        await fundAccountWithToken(safeAddr, token, amount);
+        const strategyId: number = 42;
+        const poolId: BytesLike = ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10);
+
+        const tx = await executeAction({
+          type: 'YearnWithdraw',
+          amount,
+        });
+
+        const logs = await decodeLoggerLog(tx);
+        log('Logs:', logs);
+
+        // we should expect 1 log, with the correct args
+        expect(logs).to.have.length(1);
+        expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
+
+        // we know it's a BalanceUpdateLog because of the eventName
+        // now we can typecast and check specific properties
+        const txLog = logs[0] as BalanceUpdateLog;
+        expect(txLog).to.have.property('safeAddress', safeAddr);
+        expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+        expect(txLog).to.have.property('poolId', poolId);
+        expect(txLog).to.have.property('balanceBefore');
+        expect(txLog).to.have.property('balanceAfter');
+        expect(txLog).to.have.property('feeInTokens');
+        expect(txLog.balanceBefore).to.equal(amount);
+        expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
+        expect(txLog.feeInTokens).to.equal(BigInt(0));
+      });
+
       it('Should have withdraw action type', async () => {
         const actionType = await yearnWithdrawContract.actionType();
         expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
       });
 
       it('Should reject invalid token', async () => {
-        const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
-        await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
         await expect(
           executeAction({
-            type: 'YearnSupply',
+            type: 'YearnWithdraw',
             poolAddress: '0x0000000000000000000000000000000000000000',
           })
         ).to.be.revertedWith('GS013');

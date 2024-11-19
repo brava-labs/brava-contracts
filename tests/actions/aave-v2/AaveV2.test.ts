@@ -431,6 +431,36 @@ describe('Aave V2 tests', () => {
     });
 
     describe('General tests', () => {
+      it('Should emit the correct log on withdraw', async () => {
+        const token = 'aUSDC_V2';
+        const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
+        await fundAccountWithToken(safeAddr, token, amount);
+        const strategyId: number = 42;
+
+        const tx = await executeAction({
+          type: 'AaveV2Withdraw',
+          assetId: getBytes4(tokenConfig[token].address),
+          amount: ethers.MaxUint256.toString(),
+        });
+
+        const logs = await decodeLoggerLog(tx);
+        log('Logs:', logs);
+
+        expect(logs).to.have.length(1);
+        expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
+
+        const txLog = logs[0] as BalanceUpdateLog;
+        expect(txLog).to.have.property('safeAddress', safeAddr);
+        expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig[token].address));
+        expect(txLog).to.have.property('balanceBefore');
+        expect(txLog).to.have.property('balanceAfter', 0n);
+        expect(txLog).to.have.property('feeInTokens', 0n);
+        expect(txLog.balanceAfter).to.be.a('bigint');
+        expect(txLog.balanceBefore).to.be.a('bigint');
+        // With aave we earn extra tokens over time, so slow tests mean we can't check exact amounts
+        expect(txLog.balanceBefore).to.be.greaterThanOrEqual(amount);
+      });
       it('Should have withdraw action type', async () => {
         const actionType = await aaveWithdrawContract.actionType();
         expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
