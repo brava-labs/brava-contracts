@@ -158,6 +158,11 @@ export const tokenConfig = {
     whale: '0x31d3243CfB54B34Fc9C73e1CB1137124bD6B13E1',
     decimals: 6,
   },
+  sDAI: {
+    address: '0x83f20f44975d03b1b09e64809b757c47f942beea',
+    whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
+    decimals: 18
+  }
 };
 
 export const NEXUS_QUOTES = {
