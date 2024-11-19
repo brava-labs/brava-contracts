@@ -68,22 +68,23 @@ abstract contract ActionBase {
     function actionType() public pure virtual returns (uint8);
 
     /// @notice Takes the fee due from the vault and performs required updates
-    /// @param _vault Address of the vault
+    /// @param _pool Address of the pool
     /// @param _feePercentage Fee percentage in basis points
+    /// @param _feeToken Address of the fee token
     /// @return uint256 The amount of fee taken
-    function _takeFee(address _vault, uint256 _feePercentage) internal returns (uint256) {
-        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_vault);
+    function _takeFee(address _pool, uint256 _feePercentage, address _feeToken) internal returns (uint256) {
+        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(protocolName(), _pool);
         uint256 currentTimestamp = block.timestamp;
         if (lastFeeTimestamp == 0) {
             revert Errors.AdminVault_NotInitialized();
         } else if (lastFeeTimestamp == currentTimestamp) {
             return 0; // Don't take fees twice in the same block
         } else {
-            IERC20 vault = IERC20(_vault);
+            IERC20 vault = IERC20(_feeToken);
             uint256 balance = vault.balanceOf(address(this));
             uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
             vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
-            ADMIN_VAULT.updateFeeTimestamp(_vault);
+            ADMIN_VAULT.updateFeeTimestamp(protocolName(), _pool);
             return fee;
         }
     }

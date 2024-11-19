@@ -51,8 +51,9 @@ describe('Morpho tests', () => {
   let gauntletUSDC: IERC4626;
   // let fUSDT: IFluidLending;
   let adminVault: AdminVault;
-  const MORPHO_fxUSDC_ADDRESS = tokenConfig.fxUSDC.address;
-  // const FLUID_USDT_ADDRESS = tokenConfig.fUSDT.address;
+  const protocolId = BigInt(
+    ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Morpho']))
+  );
 
   // Define test cases for each supported token
   const testCases: Array<{
@@ -191,7 +192,11 @@ describe('Morpho tests', () => {
 
           const morphoBalanceAfterSupply = await mToken().balanceOf(safeAddr);
 
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, poolAddress);
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
 
           // fast forward one year
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -234,7 +239,7 @@ describe('Morpho tests', () => {
         const amount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
         await fundAccountWithToken(safeAddr, 'USDC', amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(MORPHO_fxUSDC_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.fxUSDC.address).slice(0, 10);
 
         const tx = await executeAction({
           type: 'MorphoSupply',
@@ -261,7 +266,8 @@ describe('Morpho tests', () => {
       it('Should initialize the last fee timestamp', async () => {
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          MORPHO_fxUSDC_ADDRESS
+          protocolId,
+          tokenConfig.fxUSDC.address
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
 
@@ -282,7 +288,8 @@ describe('Morpho tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          MORPHO_fxUSDC_ADDRESS
+          protocolId,
+          tokenConfig.fxUSDC.address
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
       });
@@ -391,7 +398,8 @@ describe('Morpho tests', () => {
 
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            MORPHO_fxUSDC_ADDRESS
+            protocolId,
+            tokenConfig.fxUSDC.address
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
@@ -433,7 +441,7 @@ describe('Morpho tests', () => {
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(MORPHO_fxUSDC_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.fxUSDC.address).slice(0, 10);
 
         // First supply to have something to withdraw
         await fundAccountWithToken(safeAddr, token, amount);

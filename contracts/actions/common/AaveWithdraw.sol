@@ -59,7 +59,7 @@ abstract contract AaveWithdrawBase is ActionBase {
         address underlyingAsset = _getUnderlyingAsset(_aTokenAddress);
         balanceBefore = IERC20(_aTokenAddress).balanceOf(address(this));
 
-        feeInTokens = _takeFee(_aTokenAddress, _inputData.feeBasis);
+        feeInTokens = _takeFee(_aTokenAddress, _inputData.feeBasis, _aTokenAddress);
 
         if (amountToWithdraw > IERC20(_aTokenAddress).balanceOf(address(this))) {
             amountToWithdraw = type(uint256).max;

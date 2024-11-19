@@ -1,12 +1,11 @@
-import { BytesLike } from 'ethers';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { actionTypes } from '../../../tests/actions';
 import { AAVE_V3_POOL, tokenConfig } from '../../../tests/constants';
 import {
-  AdminVault,
   AaveV3Supply,
   AaveV3Withdraw,
+  AdminVault,
   IERC20,
   IPool,
   Logger,
@@ -18,10 +17,10 @@ import {
   deploy,
   executeAction,
   getBaseSetup,
-  log,
   getBytes4,
+  log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT, getDAI } from '../../utils-stable';
+import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
 
 describe('Aave V3 tests', () => {
   let signer: Signer;
@@ -184,7 +183,8 @@ describe('Aave V3 tests', () => {
           const aTokenBalanceAfterFirstTx = await aTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, aToken);
+          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3'])));
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, aToken);
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -258,8 +258,10 @@ describe('Aave V3 tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
+        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3'])));
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
+          protocolId,
           tokenConfig.aUSDC_V3.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
@@ -272,6 +274,7 @@ describe('Aave V3 tests', () => {
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
+          protocolId,
           tokenConfig.aUSDC_V3.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
@@ -393,7 +396,8 @@ describe('Aave V3 tests', () => {
           const aTokenBalanceAfterSupply = await aTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, aToken);
+          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3'])));
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, aToken);
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -477,4 +481,5 @@ describe('Aave V3 tests', () => {
   });
 });
 
-export {};
+export { };
+

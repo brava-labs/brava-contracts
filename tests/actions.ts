@@ -33,7 +33,13 @@ interface BaseActionArgs {
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
-  type: 'FluidSupply' | 'YearnSupply' | 'ClearpoolSupply' | 'SparkSupply' | 'MorphoSupply';
+  type:
+    | 'FluidSupply'
+    | 'YearnSupply'
+    | 'ClearpoolSupply'
+    | 'SparkSupply'
+    | 'AcrossSupply'
+    | 'MorphoSupply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -46,6 +52,7 @@ interface WithdrawArgs extends BaseActionArgs {
     | 'YearnWithdraw'
     | 'ClearpoolWithdraw'
     | 'SparkWithdraw'
+    | 'AcrossWithdraw'
     | 'MorphoWithdraw';
   poolAddress?: string;
   feeBasis?: number;
@@ -148,7 +155,6 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
-    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
   YearnSupply: {
     type: 'YearnSupply',
@@ -372,6 +378,34 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
     poolAddress: tokenConfig.sDAI.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+  },
+  AcrossSupply: {
+    type: 'AcrossSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.across_lpUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  AcrossWithdraw: {
+    type: 'AcrossWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.across_lpUSDC.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),

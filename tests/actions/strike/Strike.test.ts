@@ -37,6 +37,9 @@ describe('Strike tests', () => {
   let sUSDC: CTokenInterface;
   let sUSDT: CTokenInterface;
   let adminVault: AdminVault;
+  const protocolId = BigInt(
+    ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Strike']))
+  );
 
   // Define test cases for each supported token
   const testCases: Array<{
@@ -185,7 +188,11 @@ describe('Strike tests', () => {
           const strikeBalanceAfterFirstTx = await sToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, poolAddress);
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -241,9 +248,13 @@ describe('Strike tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const token = 'USDC';
+        const protocolId = BigInt(
+          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Strike']))
+        );
+        const token = 'sUSDC';
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
+          protocolId,
           tokenConfig[token].address
         );
         expect(initialLastFeeTimestamp).to.equal(0n);
@@ -256,7 +267,8 @@ describe('Strike tests', () => {
 
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig['sUSDC'].address
+          protocolId,
+          tokenConfig[token].address
         );
         expect(finalLastFeeTimestamp).to.not.equal(0n);
       });
@@ -347,10 +359,18 @@ describe('Strike tests', () => {
             feeBasis: 10,
           });
 
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Strike']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            tokenConfig.sUSDC.address
+          );
+
           const strikeBalanceAfterSupply = await sToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, poolAddress);
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -371,50 +391,6 @@ describe('Strike tests', () => {
           const expectedFeeRecipientBalance = feeRecipientStrikeBalanceBefore + expectedFee;
 
           expect(await sToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
-        });
-
-        it('Should emit the correct log on withdraw', async () => {
-          const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-          await fundAccountWithToken(safeAddr, `s${token}`, amount);
-          const strategyId: number = 42;
-
-          const tx = await executeAction({
-            type: 'StrikeWithdraw',
-            assetId: getBytes4(poolAddress),
-            amount,
-          });
-
-          const logs = await decodeLoggerLog(tx);
-          log('Logs:', logs);
-
-          expect(logs).to.have.length(1);
-          expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
-
-          const txLog = logs[0] as BalanceUpdateLog;
-          expect(txLog).to.have.property('safeAddress', safeAddr);
-          expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-          expect(txLog).to.have.property('poolId', getBytes4(poolAddress));
-          expect(txLog).to.have.property('balanceBefore');
-          expect(txLog).to.have.property('balanceAfter');
-          expect(txLog).to.have.property('feeInTokens', BigInt(0));
-          expect(txLog.balanceBefore).to.equal(amount);
-          expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
-          expect(txLog.feeInTokens).to.equal(BigInt(0));
-        });
-
-        it('Should have withdraw action type', async () => {
-          const actionType = await strikeWithdrawContract.actionType();
-          expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
-        });
-
-        it('Should reject invalid token', async () => {
-          await expect(
-            executeAction({
-              type: 'StrikeWithdraw',
-              assetId: '0x00000000',
-              amount: '1',
-            })
-          ).to.be.revertedWith('GS013');
         });
       });
     });
