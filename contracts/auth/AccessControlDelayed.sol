@@ -8,7 +8,7 @@ import {Errors} from "../Errors.sol";
 /// @title Add delays to granting roles in access control
 abstract contract AccessControlDelayed is AccessControl {
 
-    event RoleProposed(bytes32 indexed role, address indexed account, uint256 timestamp);
+    event RoleProposed(bytes32 indexed role, address indexed account, uint256 delay);
     event RoleProposalCancelled(bytes32 indexed role, address indexed account);
 
     event DelayChanged(uint256 oldDelay, uint256 newDelay);
