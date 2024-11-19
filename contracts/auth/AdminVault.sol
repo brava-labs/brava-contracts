@@ -51,13 +51,13 @@ contract AdminVault is AccessControlDelayed {
     bytes32 public constant ACTION_EXECUTOR_ROLE = keccak256("ACTION_EXECUTOR_ROLE");
     bytes32 public constant ACTION_DISPOSER_ROLE = keccak256("ACTION_DISPOSER_ROLE");
 
-    // Timestamp tracking for fee collection: user => protocol => pool => timestamp
+    // Timestamp tracking for fee collection: user => protocolId => pool => timestamp
     mapping(address => mapping(uint256 => mapping(address => uint256))) public lastFeeTimestamp;
 
     // TODO improve mapping ID
     // Protocol and pool management: protocol => poolId => poolAddress
     mapping(uint256 => mapping(bytes4 => address)) public protocolPools;
-    // Quick lookup for pool addresses
+    // Quick lookup for pool addresses, limits attack surface when writing timestamps to storage
     mapping(address => bool) public pool;
 
     // Proposal tracking: proposalId => timestamp
