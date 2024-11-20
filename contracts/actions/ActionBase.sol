@@ -82,7 +82,7 @@ abstract contract ActionBase {
     ) internal returns (uint256 feeInTokens) {
         if (actionType() == uint8(ActionType.DEPOSIT_ACTION) && _shareBalance == 0) {
             // If the share balance is zero, we need to initialize the fee timestamp
-            ADMIN_VAULT.initializeFeeTimestamp(protocolName(), _pool);
+            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
             return 0;
         } else {
             // Otherwise, we take the fee
@@ -97,7 +97,7 @@ abstract contract ActionBase {
             uint256 balance = vault.balanceOf(address(this));
             uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
             vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
-            ADMIN_VAULT.updateFeeTimestamp(protocolName(), _pool);
+            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
             return fee;
         }
     }

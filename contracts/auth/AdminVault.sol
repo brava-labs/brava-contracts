@@ -309,23 +309,9 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @dev This must only be called when the user has a zero balance.
     /// @param _protocolName The name of the protocol.
     /// @param _pool The address of the pool.
-    function initializeFeeTimestamp(string calldata _protocolName, address _pool) external {
+    function setFeeTimestamp(string calldata _protocolName, address _pool) external {
         _isPool(_pool);
         uint256 protocolId = _protocolIdFromName(_protocolName);
-        lastFeeTimestamp[msg.sender][protocolId][_pool] = block.timestamp;
-    }
-
-    /// @notice Updates the fee timestamp for a pool.
-    /// @dev This should be called whenever a fee is taken.
-    /// @param _protocolName The name of the protocol.
-    /// @param _pool The address of the pool.
-    function updateFeeTimestamp(string calldata _protocolName, address _pool) external {
-        _isPool(_pool);
-        uint256 protocolId = _protocolIdFromName(_protocolName);
-        if (lastFeeTimestamp[msg.sender][protocolId][_pool] == 0) {
-            // We check it's initialized otherwise we could take too many fees
-            revert Errors.AdminVault_NotInitialized();
-        }
         lastFeeTimestamp[msg.sender][protocolId][_pool] = block.timestamp;
     }
 
@@ -373,6 +359,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
     function getLastFeeTimestamp(string calldata _protocolName, address _pool) external view returns (uint256) {
         uint256 protocolId = _protocolIdFromName(_protocolName);
         if (lastFeeTimestamp[msg.sender][protocolId][_pool] == 0) {
+            // We check it's initialized otherwise we could take too many fees
             revert Errors.AdminVault_NotInitialized();
         }
         return lastFeeTimestamp[msg.sender][protocolId][_pool];
