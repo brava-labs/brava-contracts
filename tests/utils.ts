@@ -588,10 +588,11 @@ async function getSequenceExecutorDebug(): Promise<SequenceExecutorDebug> {
   }
 
   const globalSetup = getGlobalSetup();
+  const adminVaultAddress = await globalSetup.adminVault.getAddress();
   const sequenceExecutorDebug = await deploy<SequenceExecutorDebug>(
     'SequenceExecutorDebug',
     globalSetup.signer,
-    globalSetup.adminVault.getAddress()
+    adminVaultAddress
   );
   return sequenceExecutorDebug;
 }
@@ -607,20 +608,23 @@ async function executeActionDebug(args: ActionArgs): Promise<TransactionResponse
   }
 
   const sequenceExecutorDebug = await getSequenceExecutorDebug();
-  const signer = (await getGlobalSetup()).signer;
   const payload = await encodeAction(args);
+
+  // Ensure actionIds is properly formatted as bytes4
+  const actionId = getBytes4(actionContract.address);
 
   const sequence: SequenceExecutor.SequenceStruct = {
     name: `Debug_${args.type}`,
-    actionIds: [getBytes4(actionContract.address)],
     callData: [payload],
+    actionIds: [actionId],
   };
 
   log('Executing debug action:', args.type);
   log('Action contract:', actionContract.address);
+  log('Action ID:', actionId);
   log('Encoded payload:', payload);
 
-  return executeSequenceDebug(safeAddress, sequence);
+  return executeSequenceDebug(safeAddress, sequence, args.safeTxGas, args.gasPrice, args.baseGas);
 }
 
 // Debug version of executeSequence
