@@ -59,8 +59,7 @@ contract AcrossWithdraw is ActionBase {
         // Get initial balance
         sharesBefore = IERC20(lpToken).balanceOf(address(this));
 
-        // Handle fee collection (no init, that's done in supply)
-        feeInTokens = _takeFee(l1Token, _inputData.feeBasis, lpToken);
+        feeInTokens = _processFee(l1Token, _inputData.feeBasis, lpToken, sharesBefore);
 
         uint256 underlyingBalance = _sharesToUnderlying(sharesBefore, l1Token);
         /// @dev If the withdraw amount is greater or equal than the underlying balance, we withdraw the entire balance

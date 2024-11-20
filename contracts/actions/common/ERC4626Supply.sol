@@ -64,12 +64,7 @@ abstract contract ERC4626Supply is ActionBase {
         // For logging, get the balance before
         sharesBefore = _getBalance(_vaultAddress);
 
-        // Handle fee initialization or collection
-        if (sharesBefore == 0) {
-            ADMIN_VAULT.initializeFeeTimestamp(protocolName(), _vaultAddress);
-        } else {
-            feeInTokens = _takeFee(_vaultAddress, _inputData.feeBasis, _vaultAddress);
-        }
+        feeInTokens = _processFee(_vaultAddress, _inputData.feeBasis, _vaultAddress, sharesBefore);
 
         // This may be a zero value deposit (a fee collection)
         // If not, then we need to do the deposit
