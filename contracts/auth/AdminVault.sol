@@ -5,13 +5,14 @@ pragma solidity =0.8.24;
 import {AccessControlDelayed} from "./AccessControlDelayed.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
 import {Errors} from "../Errors.sol";
+import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 
 /// @title AdminVault
 /// @notice A stateful contract that manages global variables and permissions for the protocol.
 /// @notice Part of the Brava protocol.
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
-contract AdminVault is AccessControlDelayed {
+contract AdminVault is AccessControlDelayed, Multicall {
     /// @notice The Logger contract instance.
     ILogger public immutable LOGGER;
 
