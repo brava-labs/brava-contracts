@@ -4,11 +4,11 @@ pragma solidity =0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Errors} from "../Errors.sol";
+import {Roles} from "./Roles.sol";
 
 /// @title Add delays to granting roles in access control
-abstract contract AccessControlDelayed is AccessControl {
-
-    event RoleProposed(bytes32 indexed role, address indexed account, uint256 delay);
+abstract contract AccessControlDelayed is AccessControl, Roles {
+    event RoleProposed(bytes32 indexed role, address indexed account, uint256 timestamp);
     event RoleProposalCancelled(bytes32 indexed role, address indexed account);
 
     event DelayChanged(uint256 oldDelay, uint256 newDelay);
@@ -23,13 +23,13 @@ abstract contract AccessControlDelayed is AccessControl {
         delay = _delay;
     }
 
-    function grantRoles(bytes32[] calldata roles, address[] calldata accounts) external virtual {
+    function grantRoles(bytes32[] calldata roles, address[] calldata accounts) external {
         for (uint256 i = 0; i < roles.length; i++) {
             grantRole(roles[i], accounts[i]);
         }
     }
 
-    function grantRole(bytes32 role, address account) public virtual override(AccessControl) {
+    function grantRole(bytes32 role, address account) public override(AccessControl) {
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         // Check if role was proposed
         if (proposedRoles[proposalId] == 0) {
@@ -44,20 +44,17 @@ abstract contract AccessControlDelayed is AccessControl {
         super.grantRole(role, account);
     }
 
-    function proposeRoles(
-        bytes32[] calldata roles,
-        address[] calldata accounts
-    ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+    function proposeRoles(bytes32[] calldata roles, address[] calldata accounts) external onlyRole(OWNER_ROLE) {
         for (uint256 i = 0; i < roles.length; i++) {
             _proposeRole(roles[i], accounts[i]);
         }
     }
 
-    function proposeRole(bytes32 role, address account) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+    function proposeRole(bytes32 role, address account) external onlyRole(OWNER_ROLE) {
         _proposeRole(role, account);
     }
 
-    function _proposeRole(bytes32 role, address account) internal virtual {
+    function _proposeRole(bytes32 role, address account) internal {
         if (account == address(0)) {
             revert Errors.InvalidInput("AccessControlDelayed", "_proposeRole");
         }
@@ -92,7 +89,7 @@ abstract contract AccessControlDelayed is AccessControl {
     //   -- Deal with the security hole (remove attackers permissions)
     //   -- Adjust the delay back to a suitable value
     //   -- Cancel any proposals made during this period
-    function changeDelay(uint256 _newDelay) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function changeDelay(uint256 _newDelay) public onlyRole(OWNER_ROLE) {
         // Only overwrite the same delay if there is a proposal we want to cancel
         // Delay must not more than 5 days (to avoid costly mistakes)
         if ((_newDelay == delay && proposedDelay != 0) || _newDelay > 5 days) {
@@ -138,7 +135,7 @@ abstract contract AccessControlDelayed is AccessControl {
         return block.timestamp >= proposedRoles[proposalId];
     }
 
-    function cancelRoleProposal(bytes32 role, address account) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+    function cancelRoleProposal(bytes32 role, address account) external onlyRole(ROLE_CANCELER_ROLE) {
         if (proposedRoles[keccak256(abi.encodePacked(role, account))] == 0) {
             revert Errors.AdminVault_NotProposed();
         }

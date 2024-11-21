@@ -6,11 +6,12 @@ import {ActionBase} from "../actions/ActionBase.sol";
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
 import {Enum} from "../libraries/Enum.sol";
 import {Errors} from "../Errors.sol";
+import {Roles} from "./Roles.sol";
 
 /// @title FeeTakeSafeModule
 /// @notice This is a safe module that will allow a bot (as permissioned by the admin vault) to take fees from the pools
 /// @notice It creates a sequence of deposit actions with 0 amounts to trigger the fee taking mechanism
-contract FeeTakeSafeModule {
+contract FeeTakeSafeModule is Roles {
     struct Sequence {
         string name;
         bytes[] callData;
@@ -25,7 +26,6 @@ contract FeeTakeSafeModule {
     }
 
     IAdminVault public immutable ADMIN_VAULT;
-    bytes32 public constant FEE_TAKER_ROLE = keccak256("FEE_TAKER_ROLE");
     bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint16)"));
     bytes4 public constant EXECUTE_SEQUENCE_SELECTOR = bytes4(keccak256("executeSequence((string,bytes[],bytes4[]))"));
     address public immutable SEQUENCE_EXECUTOR_ADDR;

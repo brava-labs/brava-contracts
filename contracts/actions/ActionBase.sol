@@ -67,24 +67,37 @@ abstract contract ActionBase {
     /// @return uint8 The action type as defined in the ActionType enum
     function actionType() public pure virtual returns (uint8);
 
-    /// @notice Takes the fee due from the vault and performs required updates
+    /// @notice Processes the fee taking, figures out if it's a supply and we need to initialize the fee timestamp
     /// @param _pool Address of the pool
     /// @param _feePercentage Fee percentage in basis points
     /// @param _feeToken Address of the fee token
-    /// @return uint256 The amount of fee taken
-    function _takeFee(address _pool, uint256 _feePercentage, address _feeToken) internal returns (uint256) {
-        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(protocolName(), _pool);
-        uint256 currentTimestamp = block.timestamp;
-        if (lastFeeTimestamp == 0) {
-            revert Errors.AdminVault_NotInitialized();
-        } else if (lastFeeTimestamp == currentTimestamp) {
-            return 0; // Don't take fees twice in the same block
+    /// @param _shareBalance Balance of the shares in the pool
+    /// @return feeInTokens The amount of fee taken
+    /// @dev it's rare but in some cases the _pool does differ from the _feeToken
+    function _processFee(
+        address _pool,
+        uint256 _feePercentage,
+        address _feeToken,
+        uint256 _shareBalance
+    ) internal returns (uint256 feeInTokens) {
+        if (actionType() == uint8(ActionType.DEPOSIT_ACTION) && _shareBalance == 0) {
+            // If the share balance is zero, we need to initialize the fee timestamp
+            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
+            return 0;
         } else {
+            // Otherwise, we take the fee
+            uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(protocolName(), _pool);
+            uint256 currentTimestamp = block.timestamp;
+            if (lastFeeTimestamp == 0) {
+                revert Errors.AdminVault_NotInitialized();
+            } else if (lastFeeTimestamp == currentTimestamp) {
+                return 0; // Don't take fees twice in the same block
+            }
             IERC20 vault = IERC20(_feeToken);
             uint256 balance = vault.balanceOf(address(this));
             uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
             vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
-            ADMIN_VAULT.updateFeeTimestamp(protocolName(), _pool);
+            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
             return fee;
         }
     }

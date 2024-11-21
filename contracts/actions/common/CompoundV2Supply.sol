@@ -58,12 +58,7 @@ abstract contract CompoundV2SupplyBase is ActionBase {
         // For logging, get the balance before
         balanceBefore = cToken.balanceOf(address(this));
 
-        // Handle fee initialization or collection
-        if (balanceBefore == 0) {
-            ADMIN_VAULT.initializeFeeTimestamp(protocolName(), _cTokenAddress);
-        } else {
-            feeInTokens = _takeFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress);
-        }
+        feeInTokens = _processFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress, balanceBefore);
 
         // If we have an amount to deposit, do that
         if (_inputData.amount != 0) {

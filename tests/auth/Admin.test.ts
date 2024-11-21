@@ -11,7 +11,7 @@ import {
   getBaseSetup,
   getBytes4,
   getRoleBytes,
-  log
+  log,
 } from '../utils';
 import { fundAccountWithToken, getUSDC } from '../utils-stable';
 
@@ -595,27 +595,16 @@ describe('AdminVault', function () {
       expect(feeConfig.minBasis).to.equal(100);
       expect(feeConfig.maxBasis).to.equal(200);
     });
-    it('should initialize fee timestamp correctly', async function () {
+    it('should set fee timestamp correctly', async function () {
       await adminVault.proposePool('Fluid', alice.address);
       await adminVault.addPool('Fluid', alice.address);
-      const tx = await adminVault.connect(owner).initializeFeeTimestamp("Protocol", alice.address);
+      const tx = await adminVault.connect(owner).setFeeTimestamp('Protocol', alice.address);
 
       const receipt = await tx.wait();
       const blockTimestamp = (await ethers.provider.getBlock(receipt!.blockNumber))!.timestamp;
-      const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Protocol'])));
-      expect(await adminVault.lastFeeTimestamp(owner.address, protocolId, alice.address)).to.equal(
-        blockTimestamp
+      const protocolId = BigInt(
+        ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Protocol']))
       );
-    });
-
-    it('should update fee timestamp correctly', async function () {
-      await adminVault.proposePool('Fluid', alice.address);
-      await adminVault.addPool('Fluid', alice.address);
-      await adminVault.connect(owner).initializeFeeTimestamp("Protocol", alice.address);
-      const tx = await adminVault.connect(owner).updateFeeTimestamp("Protocol", alice.address);
-      const receipt = await tx.wait();
-      const blockTimestamp = (await ethers.provider.getBlock(receipt!.blockNumber))!.timestamp;
-      const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Protocol'])));
       expect(await adminVault.lastFeeTimestamp(owner.address, protocolId, alice.address)).to.equal(
         blockTimestamp
       );
@@ -774,7 +763,9 @@ describe('AdminVault', function () {
 
       const fUSDCBalanceAfterSupply = await fUSDC.balanceOf(safeAddr);
 
-      const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid'])));
+      const protocolId = BigInt(
+        ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid']))
+      );
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
         protocolId,

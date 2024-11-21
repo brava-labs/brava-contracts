@@ -51,8 +51,7 @@ interface IAdminVault {
     function proposeFeeConfig(address recipient, uint256 min, uint256 max) external;
     function cancelFeeConfigProposal() external;
     function setFeeConfig() external;
-    function initializeFeeTimestamp(string calldata _protocolName, address _vault) external;
-    function updateFeeTimestamp(string calldata _protocolName, address _vault) external;
+    function setFeeTimestamp(string calldata _protocolName, address _vault) external;
 
     // Pool Management Functions
     function proposePool(string calldata protocolName, address poolAddress) external;

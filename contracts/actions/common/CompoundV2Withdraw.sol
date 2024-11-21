@@ -61,7 +61,7 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
             revert Errors.Action_ZeroAmount(protocolName(), actionType());
         }
 
-        feeInTokens = _takeFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress);
+        feeInTokens = _processFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress, balanceBefore);
 
         _withdraw(_cTokenAddress, amountToWithdraw);
         balanceAfter = CTokenInterface(_cTokenAddress).balanceOf(address(this));
