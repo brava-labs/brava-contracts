@@ -1,6 +1,6 @@
 import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
-import * as athenaSdk from 'athenafi-ts-client';
-import { deploySafe, executeSafeTransaction } from 'athenafi-ts-client';
+import * as bravaSdk from 'brava-ts-client';
+import { deploySafe, executeSafeTransaction } from 'brava-ts-client';
 import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
 import { ethers, network } from 'hardhat';
 import {
@@ -29,7 +29,7 @@ import {
 } from './params';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
-export const USE_ATHENA_SDK = process.env.USE_ATHENA_SDK === 'true';
+export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
 
 export function log(...args: unknown[]): void {
   if (isLoggingEnabled) {
@@ -118,7 +118,7 @@ export async function deploy<T extends BaseContract>(
   } else {
     initCode = bytecode;
   }
-  const salt = ethers.keccak256(ethers.toUtf8Bytes('AthenaFi'));
+  const salt = ethers.keccak256(ethers.toUtf8Bytes('Brava'));
   const createXFactory = await ethers.getContractAt('ICreateX', CREATE_X_ADDRESS, signer);
   let contract: T;
   let receipt: TransactionReceipt | null = null;
@@ -389,11 +389,11 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
     return encodedFunctionCall;
   }
 
-  // Use Athena SDK if useSDK is true in the action defaults
+  // Use Brava SDK if useSDK is true in the action defaults
   if (mergedArgs.useSDK) {
     const sdkFunctionName = `${mergedArgs.type}Action`;
-    if (sdkFunctionName in athenaSdk) {
-      const ActionClass = (athenaSdk as any)[sdkFunctionName];
+    if (sdkFunctionName in bravaSdk) {
+      const ActionClass = (bravaSdk as any)[sdkFunctionName];
       if (typeof ActionClass === 'function') {
         // Use sdkArgs to order the arguments correctly
         const orderedArgs = defaults.sdkArgs?.map((argName) => (mergedArgs as any)[argName]) || [];
@@ -401,7 +401,7 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
         return actionInstance.encodeArgs();
       }
     }
-    throw new Error(`Athena SDK function not found for action type: ${mergedArgs.type}`);
+    throw new Error(`Brava SDK function not found for action type: ${mergedArgs.type}`);
   }
 
   // Fall back to custom encoding

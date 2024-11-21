@@ -60,6 +60,6 @@ contract SendToken is ActionBase {
     }
 
     function protocolName() internal pure override returns (string memory) {
-        return "Athena";
+        return "Brava";
     }
 }
