@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ActionBase} from "../ActionBase.sol";
-import {Errors} from "../../Errors.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Errors} from "../../Errors.sol";
 import {CErc20Interface} from "../../interfaces/compound/CTokenInterfaces.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title CompoundV2SupplyBase - Base contract for Compound supply actions
 /// @notice This contract provides base functionality for supplying to Compound-style lending pools
@@ -23,7 +23,7 @@ abstract contract CompoundV2SupplyBase is ActionBase {
         uint256 amount;
     }
 
-    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) { }
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     ///  -----  Core logic -----  ///
 
@@ -66,16 +66,11 @@ abstract contract CompoundV2SupplyBase is ActionBase {
                 ? underlyingAsset.balanceOf(address(this))
                 : _inputData.amount;
 
-            if (amountToDeposit == 0) {
-                // uh-oh, we have no tokens to deposit
-                revert Errors.Action_ZeroAmount(protocolName(), actionType());
-            }
+            require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
             underlyingAsset.safeIncreaseAllowance(_cTokenAddress, amountToDeposit);
             uint256 result = CErc20Interface(_cTokenAddress).mint(amountToDeposit);
-            if (result != 0) {
-                revert Errors.Action_CompoundError(protocolName(), actionType(), result);
-            }
+            require(result == 0, Errors.Action_CompoundError(protocolName(), actionType(), result));
         }
 
         // For logging, get the balance after

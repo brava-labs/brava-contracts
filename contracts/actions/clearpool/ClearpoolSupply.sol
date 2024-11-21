@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 import {IClearpoolPool} from "../../interfaces/clearpool/IClearpoolPool.sol";
+import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title ClearpoolSupply - Supplies tokens to Clearpool pools
 /// @notice This contract allows users to supply tokens to Clearpool lending pools

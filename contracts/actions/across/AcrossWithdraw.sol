@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ActionBase} from "../ActionBase.sol";
-import {Errors} from "../../Errors.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Errors} from "../../Errors.sol";
 import {HubPoolInterface} from "../../interfaces/across/HubPoolInterface.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title AcrossWithdraw - Withdraws tokens from Across Protocol HubPool
 /// @notice This contract allows users to withdraw tokens from Across Protocol's HubPool
@@ -64,13 +64,11 @@ contract AcrossWithdraw is ActionBase {
         uint256 underlyingBalance = _sharesToUnderlying(sharesBefore, l1Token);
         /// @dev If the withdraw amount is greater or equal than the underlying balance, we withdraw the entire balance
         /// @dev Otherwise, some dust might be left behind
-        uint256 amountToWithdraw = _inputData.withdrawAmount >= underlyingBalance 
+        uint256 amountToWithdraw = _inputData.withdrawAmount >= underlyingBalance
             ? sharesBefore
             : _underlyingToShares(_inputData.withdrawAmount, l1Token);
 
-        if (amountToWithdraw == 0) {
-            revert Errors.Action_ZeroAmount(protocolName(), actionType());
-        }
+        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
         // Get LP balance before withdrawal for share calculation
         uint256 lpBalanceBefore = IERC20(lpToken).balanceOf(address(this));
@@ -81,22 +79,23 @@ contract AcrossWithdraw is ActionBase {
         sharesAfter = IERC20(lpToken).balanceOf(address(this));
         // Calculate shares burned
         uint256 sharesBurned = lpBalanceBefore - sharesAfter;
-        if (sharesBurned > _inputData.maxSharesBurned) {
-            revert Errors.Action_MaxSharesBurnedExceeded(
+        require(
+            sharesBurned <= _inputData.maxSharesBurned,
+            Errors.Action_MaxSharesBurnedExceeded(
                 protocolName(),
                 uint8(actionType()),
                 sharesBurned,
                 _inputData.maxSharesBurned
-            );
-        }
+            )
+        );
     }
 
     function _sharesToUnderlying(uint256 _shares, address _l1Token) internal returns (uint256) {
-        return _shares * ACROSS_HUB.exchangeRateCurrent(_l1Token) / 1e18;
+        return (_shares * ACROSS_HUB.exchangeRateCurrent(_l1Token)) / 1e18;
     }
 
     function _underlyingToShares(uint256 _underlying, address _l1Token) internal returns (uint256) {
-        return _underlying * 1e18 / ACROSS_HUB.exchangeRateCurrent(_l1Token);
+        return (_underlying * 1e18) / ACROSS_HUB.exchangeRateCurrent(_l1Token);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

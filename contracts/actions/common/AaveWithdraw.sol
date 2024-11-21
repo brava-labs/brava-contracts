@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IAaveToken} from "../../interfaces/common/IAaveToken.sol";
+import {Errors} from "../../Errors.sol";
 import {IAavePool} from "../../interfaces/common/IAavePool.sol";
+import {IAaveToken} from "../../interfaces/common/IAaveToken.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title AaveWithdrawBase - Base contract for Aave withdraw actions
 /// @notice This contract provides base functionality for withdrawing from Aave-style lending pools
@@ -52,9 +52,7 @@ abstract contract AaveWithdrawBase is ActionBase {
         address _aTokenAddress
     ) internal returns (uint256 balanceBefore, uint256 balanceAfter, uint256 feeInTokens) {
         uint256 amountToWithdraw = _inputData.withdrawAmount;
-        if (amountToWithdraw == 0) {
-            revert Errors.Action_ZeroAmount(protocolName(), actionType());
-        }
+        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
         address underlyingAsset = _getUnderlyingAsset(_aTokenAddress);
         balanceBefore = IERC20(_aTokenAddress).balanceOf(address(this));

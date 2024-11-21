@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ActionBase} from "../ActionBase.sol";
-import {Errors} from "../../Errors.sol";
-import {IOwnerManager} from "../../interfaces/safe/IOwnerManager.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Errors} from "../../Errors.sol";
+import {IOwnerManager} from "../../interfaces/safe/IOwnerManager.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title Helper action to send a token to the specified address
 // TODO tests
@@ -27,9 +27,8 @@ contract SendToken is ActionBase {
     function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable override {
         Params memory inputData = _parseInputs(_callData);
         IOwnerManager ownerManager = IOwnerManager(address(this));
-        if (!ownerManager.isOwner(inputData.to)) {
-            revert Errors.Action_InvalidRecipient(protocolName(), actionType());
-        }
+        require(ownerManager.isOwner(inputData.to), Errors.Action_InvalidRecipient(protocolName(), actionType()));
+
         _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
 
         // Log event

@@ -6,7 +6,7 @@ import 'dotenv/config';
 import { HardhatUserConfig } from 'hardhat/config';
 
 const config: HardhatUserConfig = {
-  solidity: '0.8.24',
+  solidity: '0.8.28',
   paths: {
     tests: './tests',
   },

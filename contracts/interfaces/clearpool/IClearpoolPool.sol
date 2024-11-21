@@ -34,6 +34,7 @@ interface IClearpoolPool {
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     // View Functions
+    //solhint-disable-next-line func-name-mixedcase
     function MINIMUM_LIQUIDITY() external view returns (uint256);
     function accumulativeRewardOf(address account) external view returns (uint256);
     function allowance(address owner, address spender) external view returns (uint256);
