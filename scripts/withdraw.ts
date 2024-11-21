@@ -2,9 +2,8 @@ import {
   executeSafeTransaction,
   getPortfolioUpdateTx,
   Pool,
-  poolToProtocol,
   Portfolio,
-  SafeOperation,
+  SafeOperation
 } from 'brava-ts-client';
 import { Signer } from 'ethers';
 import { ethers } from 'hardhat';
@@ -17,11 +16,9 @@ export async function withdraw(
   amount: bigint,
   strategyId: number
 ) {
-  const protocol = poolToProtocol(pool);
   const currentPortfolio: Portfolio = {
     positions: [
       {
-        protocol,
         pool,
         amount,
         strategyId,
@@ -32,7 +29,6 @@ export async function withdraw(
   const targetPortfolio: Portfolio = {
     positions: [
       {
-        protocol,
         pool,
         amount: 0n,
         strategyId,
