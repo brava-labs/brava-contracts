@@ -7,6 +7,9 @@ on:
       - 'contracts/actions/**'
       - 'contracts/auth/**'
 
+env:
+  TENDERLY_AUTOMATIC_VERIFICATION: false
+
 jobs:
   action-test:
     runs-on: ubuntu-latest
