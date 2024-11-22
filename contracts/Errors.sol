@@ -23,6 +23,8 @@ contract Errors {
     error AdminVault_NotAdded();
     error AdminVault_AlreadyAdded();
     error AdminVault_NotPool(address _pool);
+    error AdminVault_AlreadyGranted();
+    error AdminVault_NotGranted();
 
     // FeeTakeSafeModule errors
     error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);

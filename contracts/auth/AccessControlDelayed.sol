@@ -3,35 +3,48 @@ pragma solidity =0.8.28;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Errors} from "../Errors.sol";
+import {ILogger} from "../interfaces/ILogger.sol";
 import {Roles} from "./Roles.sol";
 
 /// @title Add delays to granting roles in access control
+/// @dev We should intercept calls to grantRole and implement a proposal system
+///      to allow for a delay to pass before the role is granted.
 abstract contract AccessControlDelayed is AccessControl, Roles {
-    // TODO: Should these be in the logger?
-    event RoleProposed(bytes32 indexed role, address indexed account, uint256 timestamp);
-    event RoleProposalCancelled(bytes32 indexed role, address indexed account);
-    event DelayChanged(uint256 oldDelay, uint256 newDelay);
-
     /// @notice The maximum delay for a role proposal, to avoid costly mistakes
     uint256 public constant MAX_DELAY = 5 days;
 
-    uint256 public delay; // How long after a proposal can the role be granted
-    uint256 public proposedDelay; // New delay to be set after delayReductionLockTime
-    uint256 public delayReductionLockTime; // Time when the new delay can be set/used
-    // mapping of proposed roles to the timestamp they can be granted
+    ILogger public immutable LOGGER;
+
+    /// @notice The delay period for any proposals in the system
+    uint256 public delay;
+    /// @notice The new delay to be set after delayReductionLockTime
+    uint256 public proposedDelay;
+    /// @notice The time when the new delay can be set/used
+    uint256 public delayReductionLockTime;
+
+    /// @notice mapping of proposed roles to the timestamp they can be granted
     mapping(bytes32 => uint256) public proposedRoles;
 
-    constructor(uint256 _delay) {
+    constructor(uint256 _delay, address _logger) {
         delay = _delay;
+        LOGGER = ILogger(_logger);
     }
 
-    // TODO: test multicall works here, then we can delete this
-    function grantRoles(bytes32[] calldata roles, address[] calldata accounts) external {
-        for (uint256 i = 0; i < roles.length; i++) {
-            grantRole(roles[i], accounts[i]);
-        }
+    /// @notice Proposes a role with a delay
+    /// @dev We must check that the account is not the zero address and that the role is not already granted or proposed
+    function proposeRole(bytes32 role, address account) external onlyRole(OWNER_ROLE) {
+        require(account != address(0), Errors.InvalidInput("AccessControlDelayed", "_proposeRole"));
+        require(!hasRole(role, account), Errors.AdminVault_AlreadyGranted());
+        bytes32 proposalId = keccak256(abi.encodePacked(role, account));
+        require(proposedRoles[proposalId] == 0, Errors.AdminVault_AlreadyProposed());
+
+        // add to list of proposed roles with the wait time
+        proposedRoles[proposalId] = _getDelayTimestamp();
+        LOGGER.logAdminVaultEvent(104, abi.encode(role, account));
     }
 
+    /// @notice Grants a role after the delay has passed
+    /// @dev We must check that the role was proposed and the delay has passed
     function grantRole(bytes32 role, address account) public override(AccessControl) {
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         require(proposedRoles[proposalId] != 0, Errors.AdminVault_NotProposed());
@@ -40,30 +53,32 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
             Errors.AdminVault_DelayNotPassed(block.timestamp, proposedRoles[proposalId])
         );
 
-        // role was proposed and delay has passed, delete proposal and grant role
+        // Role was proposed and delay has passed. Now delete proposal and grant role
         delete proposedRoles[proposalId];
         super.grantRole(role, account);
+        /// @dev AccessControl will silently execute if the role is already granted
+        ///      this doesn't happen here because we checked when the proposal was made
+        ///      and revoking the role will also clear proposals.
+        ///      So to grant any role, it MUST have been proposed and not already granted.
+        LOGGER.logAdminVaultEvent(204, abi.encode(role, account));
     }
 
-    // TODO: test multicall works here, then we can delete this
-    function proposeRoles(bytes32[] calldata roles, address[] calldata accounts) external onlyRole(OWNER_ROLE) {
-        for (uint256 i = 0; i < roles.length; i++) {
-            _proposeRole(roles[i], accounts[i]);
-        }
+    /// @notice Cancels a role proposal
+    /// @dev We must check that the proposal exists
+    function cancelRoleProposal(bytes32 role, address account) external onlyRole(ROLE_CANCELER_ROLE) {
+        require(proposedRoles[keccak256(abi.encodePacked(role, account))] != 0, Errors.AdminVault_NotProposed());
+        delete proposedRoles[keccak256(abi.encodePacked(role, account))];
+        LOGGER.logAdminVaultEvent(304, abi.encode(role, account));
     }
 
-    function proposeRole(bytes32 role, address account) external onlyRole(OWNER_ROLE) {
-        _proposeRole(role, account);
-    }
-
-    function _proposeRole(bytes32 role, address account) internal {
-        require(account != address(0), Errors.InvalidInput("AccessControlDelayed", "_proposeRole"));
-        bytes32 proposalId = keccak256(abi.encodePacked(role, account));
-        require(proposedRoles[proposalId] == 0, Errors.AdminVault_AlreadyProposed());
-
-        // add to list of proposed roles with the wait time
-        proposedRoles[proposalId] = _getDelayTimestamp();
-        emit RoleProposed(role, account, proposedRoles[proposalId]);
+    /// @notice Revokes a role from the given account
+    /// @dev We must check that the account has the role, and also remove any proposals
+    function revokeRole(bytes32 role, address account) public override(AccessControl) {
+        require(hasRole(role, account), Errors.AdminVault_NotGranted());
+        super._revokeRole(role, account);
+        // no need to check if the proposal exists, we're just setting it to 0
+        delete proposedRoles[keccak256(abi.encodePacked(role, account))];
+        LOGGER.logAdminVaultEvent(404, abi.encode(role, account));
     }
 
     // A helper to find the time when a role proposal will be available to grant
@@ -102,7 +117,7 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
             delete delayReductionLockTime;
             delete proposedDelay;
         }
-        emit DelayChanged(delay, _newDelay);
+        LOGGER.logAdminVaultEvent(400, abi.encode(delay, _newDelay));
         if (_newDelay >= delay) {
             // New delay is longer, just set it
             delay = _newDelay;
@@ -113,9 +128,9 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
         }
     }
 
-    // an internal function that will return the timestamp to wait until,
-    // factors in the the delayReductionLockTime
-    // if after the lock time we can set delay to the new value
+    /// @notice Returns the timestamp to wait until,
+    /// @dev Factors in the the delayReductionLockTime
+    /// @dev If after the lock time we can set delay to the new value
     function _getDelayTimestamp() internal returns (uint256) {
         if (block.timestamp < delayReductionLockTime) {
             // We haven't reached the lock time yet,
@@ -131,13 +146,9 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
         return block.timestamp + delay;
     }
 
+    /// @notice Checks if the proposal has passed the wait time
+    /// @return True if the proposal has passed the wait time
     function _checkProposalWaitTime(bytes32 proposalId) internal view returns (bool) {
         return block.timestamp >= proposedRoles[proposalId];
-    }
-
-    function cancelRoleProposal(bytes32 role, address account) external onlyRole(ROLE_CANCELER_ROLE) {
-        require(proposedRoles[keccak256(abi.encodePacked(role, account))] != 0, Errors.AdminVault_NotProposed());
-        delete proposedRoles[keccak256(abi.encodePacked(role, account))];
-        emit RoleProposalCancelled(role, account);
     }
 }

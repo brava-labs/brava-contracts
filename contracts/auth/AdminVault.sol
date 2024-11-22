@@ -3,7 +3,6 @@ pragma solidity =0.8.28;
 
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 import {Errors} from "../Errors.sol";
-import {ILogger} from "../interfaces/ILogger.sol";
 import {AccessControlDelayed} from "./AccessControlDelayed.sol";
 
 /// @title AdminVault
@@ -12,9 +11,6 @@ import {AccessControlDelayed} from "./AccessControlDelayed.sol";
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract AdminVault is AccessControlDelayed, Multicall {
-    /// @notice The Logger contract instance.
-    ILogger public immutable LOGGER;
-
     /// @notice The maximum fee basis points.
     /// @dev 1000 = 10%
     uint256 public constant MAX_FEE_BASIS = 1000;
@@ -59,10 +55,8 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _initialOwner The address to be granted all initial
     /// @param _delay The required delay period for proposals (in seconds).
     /// @param _logger The address of the Logger contract.
-    constructor(address _initialOwner, uint256 _delay, address _logger) AccessControlDelayed(_delay) {
+    constructor(address _initialOwner, uint256 _delay, address _logger) AccessControlDelayed(_delay, _logger) {
         require(_initialOwner != address(0) && _logger != address(0), Errors.InvalidInput("AdminVault", "constructor"));
-
-        LOGGER = ILogger(_logger);
 
         // Set initial fee configuration
         feeConfig = FeeConfig({recipient: _initialOwner, minBasis: 0, maxBasis: MAX_FEE_BASIS, proposalTime: 0});
