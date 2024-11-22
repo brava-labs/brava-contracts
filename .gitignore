@@ -24,3 +24,6 @@ scripts/local
 
 # CLOC
 .clocignore
+
+# MacOS
+.DS_Store
