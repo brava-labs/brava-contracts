@@ -263,7 +263,7 @@ type BaseSetup = {
 
 export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
-  const logger = await deployUpgradeable<Logger>('Logger', deploySigner);
+  const logger = await deploy<Logger>('Logger', deploySigner);
   const adminVault = await deploy<AdminVault>(
     'AdminVault',
     deploySigner,
