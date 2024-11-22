@@ -2,10 +2,9 @@ import {
   executeSafeTransaction,
   getPortfolioUpdateTx,
   Pool,
-  poolToProtocol,
   Portfolio,
   portfolioUpdateToBalanceUpdates,
-  SafeOperation,
+  SafeOperation
 } from 'brava-ts-client';
 import { Signer } from 'ethers';
 import { ethers } from 'hardhat';
@@ -18,11 +17,9 @@ export async function deposit(
   amount: bigint,
   strategyId: number
 ) {
-  const protocol = poolToProtocol(pool);
   const targetPortfolio: Portfolio = {
     positions: [
       {
-        protocol,
         pool,
         amount,
         strategyId,
