@@ -6,7 +6,13 @@ import '@tenderly/hardhat-tenderly';
 import 'dotenv/config';
 import { HardhatUserConfig } from 'hardhat/config';
 
-const config: HardhatUserConfig = {
+interface HardhatUserConfigExtended extends HardhatUserConfig {
+  upgrades?: {
+    skipVerify: boolean;
+  };
+}
+
+const config: HardhatUserConfigExtended = {
   solidity: '0.8.28',
   paths: {
     tests: './tests',
@@ -31,6 +37,9 @@ const config: HardhatUserConfig = {
     project: process.env.TENDERLY_PROJECT!,
     username: process.env.TENDERLY_USERNAME!,
   },
+  upgrades: {
+    skipVerify: true // Add this line to skip verification on Hardhat network
+  }
 };
 
 export default config;
