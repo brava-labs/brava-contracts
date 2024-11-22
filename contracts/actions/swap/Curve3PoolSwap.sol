@@ -88,7 +88,7 @@ contract Curve3PoolSwap is ActionBase {
         return uint8(ActionType.SWAP_ACTION);
     }
     /// @inheritdoc ActionBase
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Curve";
     }
 }

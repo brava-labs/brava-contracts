@@ -15,7 +15,7 @@ contract AaveV3Supply is AaveSupplyBase {
         IPool(POOL).supply(_underlyingAsset, _amount, address(this), 0);
     }
 
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "AaveV3";
     }
 }

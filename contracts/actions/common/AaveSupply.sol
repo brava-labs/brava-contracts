@@ -101,5 +101,5 @@ abstract contract AaveSupplyBase is ActionBase {
     function _supply(address _underlyingAsset, uint256 _amount) internal virtual;
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure virtual override returns (string memory);
+    function protocolName() public pure virtual override returns (string memory);
 }

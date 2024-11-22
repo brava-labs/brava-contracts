@@ -93,5 +93,5 @@ abstract contract AaveWithdrawBase is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure virtual override returns (string memory);
+    function protocolName() public pure virtual override returns (string memory);
 }

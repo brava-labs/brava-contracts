@@ -15,7 +15,7 @@ contract MorphoWithdraw is ERC4626Withdraw {
     /// @inheritdoc ERC4626Withdraw
     /// @notice Returns the protocol name
     /// @return string "Morpho"
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Morpho";
     }
 }

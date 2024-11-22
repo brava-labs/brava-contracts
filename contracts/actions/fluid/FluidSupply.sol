@@ -15,7 +15,7 @@ contract FluidSupply is ERC4626Supply {
     /// @inheritdoc ERC4626Supply
     /// @notice Returns the protocol name
     /// @return string "Fluid"
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Fluid";
     }
 }

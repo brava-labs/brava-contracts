@@ -47,7 +47,7 @@ contract ClearpoolWithdraw is ERC4626Withdraw {
     }
 
     /// @inheritdoc ERC4626Withdraw
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Clearpool";
     }
 }

@@ -138,5 +138,5 @@ abstract contract ERC4626Supply is ActionBase {
     /// @inheritdoc ActionBase
     /// @notice Returns the protocol name
     /// @return string Protocol name for the specific implementation
-    function protocolName() internal pure virtual override returns (string memory);
+    function protocolName() public pure virtual override returns (string memory);
 }

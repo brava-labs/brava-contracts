@@ -13,7 +13,7 @@ contract SparkSupply is ERC4626Supply {
     constructor(address _adminVault, address _logger) ERC4626Supply(_adminVault, _logger) {}
 
     /// @inheritdoc ERC4626Supply
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Spark";
     }
 }

@@ -121,5 +121,5 @@ abstract contract ERC4626Withdraw is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure virtual override returns (string memory);
+    function protocolName() public pure virtual override returns (string memory);
 }

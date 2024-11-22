@@ -108,7 +108,7 @@ contract AcrossWithdraw is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Across";
     }
 }

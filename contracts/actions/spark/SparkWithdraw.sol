@@ -13,7 +13,7 @@ contract SparkWithdraw is ERC4626Withdraw {
     constructor(address _adminVault, address _logger) ERC4626Withdraw(_adminVault, _logger) {}
 
     /// @inheritdoc ERC4626Withdraw
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Spark";
     }
 }

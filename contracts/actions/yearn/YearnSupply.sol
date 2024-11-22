@@ -20,7 +20,7 @@ contract YearnSupply is ERC4626Supply {
     }
 
     /// @inheritdoc ERC4626Supply
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Yearn";
     }
 }

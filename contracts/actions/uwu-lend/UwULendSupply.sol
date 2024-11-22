@@ -15,7 +15,7 @@ contract UwULendSupply is AaveSupplyBase {
         ILendingPool(POOL).deposit(_underlyingAsset, _amount, address(this), 0);
     }
 
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "UwULend";
     }
 }

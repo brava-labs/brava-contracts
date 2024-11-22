@@ -147,5 +147,5 @@ abstract contract ActionBase {
 
     /// @notice Returns the name of the protocol
     /// @return string The name of the protocol
-    function protocolName() internal pure virtual returns (string memory);
+    function protocolName() public pure virtual returns (string memory);
 }

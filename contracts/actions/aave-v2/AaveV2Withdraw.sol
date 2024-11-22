@@ -10,7 +10,7 @@ contract AaveV2Withdraw is AaveWithdrawBase {
         address _poolAddress
     ) AaveWithdrawBase(_adminVault, _logger, _poolAddress) {}
 
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "AaveV2";
     }
 }

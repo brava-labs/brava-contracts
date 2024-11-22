@@ -50,7 +50,7 @@ contract PullToken is ActionBase {
         params = abi.decode(_callData, (Params));
     }
 
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Brava";
     }
 }
