@@ -188,7 +188,8 @@ export async function deployUpgradeable<T extends BaseContract>(
         txOverrides: {
           maxFeePerGas,
           maxPriorityFeePerGas,
-        }
+        },
+        verifySourceCode: false
       }
     );
     await proxy.waitForDeployment();
