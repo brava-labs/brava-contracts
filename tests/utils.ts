@@ -216,8 +216,9 @@ export async function deployUpgradeable<T extends BaseContract>(
           txOverrides: {
             maxFeePerGas: maxFeePerGas ? maxFeePerGas * BigInt(2) : undefined,
             maxPriorityFeePerGas: maxPriorityFeePerGas ? maxPriorityFeePerGas * BigInt(2) : undefined,
-          }
-        }
+          },
+          verifySourceCode: false
+        },
       );
       await proxy.waitForDeployment();
 
@@ -238,7 +239,8 @@ export async function deployUpgradeable<T extends BaseContract>(
         {
           kind: 'transparent',
           initializer: 'initialize',
-          salt: ethers.id('Brava')
+          salt: ethers.id('Brava'),
+          verifySourceCode: false
         }
       );
       await proxy.waitForDeployment();
