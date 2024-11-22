@@ -802,17 +802,5 @@ describe('AdminVault', function () {
       // take fees in the fToken
       expect(await fUSDC.balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
     });
-
-    it.skip('should recover ETH correctly', async function () {
-      // We should consider removing the withdrawStuckFunds function
-      // as it could pose a security risk to users funds
-      // should it be executed using a delegate call on a safe
-    });
-
-    it.skip('should recover ERC20 tokens correctly', async function () {
-      // We should consider removing the withdrawStuckFunds function
-      // as it could pose a security risk to users funds
-      // should it be executed using a delegate call on a safe
-    });
   });
 });
