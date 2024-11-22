@@ -8,7 +8,6 @@ import {IOwnerManager} from "../../interfaces/safe/IOwnerManager.sol";
 import {ActionBase} from "../ActionBase.sol";
 
 /// @title Helper action to send a token to the specified address
-// TODO tests
 contract SendToken is ActionBase {
     using SafeERC20 for IERC20;
 
