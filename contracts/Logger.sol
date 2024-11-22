@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
 import {ActionBase} from "./actions/ActionBase.sol";
 import {ILogger} from "./interfaces/ILogger.sol";
@@ -20,7 +20,7 @@ contract Logger is ILogger {
     // The logId initial digit is the type of event:
     // 1XX = Proposal, 2XX = Grant, 3XX = Cancel, 4XX = Removal
     // The next two digits are what category this permission change belongs to:
-    // 00 = DelayChange, 01 = Action, 02 = Pool, 03 = Fees
+    // 00 = DelayChange, 01 = Action, 02 = Pool, 03 = Fees, 04 = Role
     function logAdminVaultEvent(uint256 _logId, bytes memory _data) public {
         emit AdminVaultEvent(_logId, _data);
     }

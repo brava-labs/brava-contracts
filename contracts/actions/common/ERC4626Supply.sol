@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ActionBase} from "../ActionBase.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Errors} from "../../Errors.sol";
 import {IERC4626} from "../../interfaces/common/IERC4626.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title ERC4626Supply - Supplies tokens to any ERC4626 vault
 /// @notice This contract allows users to supply tokens to any ERC4626-compliant vault
@@ -75,24 +75,22 @@ abstract contract ERC4626Supply is ActionBase {
                 ? underlyingToken.balanceOf(address(this))
                 : _inputData.amount;
 
-            if (amountToDeposit == 0) {
-                // uh-oh, we have no tokens to deposit
-                revert Errors.Action_ZeroAmount(protocolName(), uint8(actionType()));
-            }
+            require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), uint8(actionType())));
 
             // Perform the deposit
             underlyingToken.safeIncreaseAllowance(_vaultAddress, amountToDeposit);
             uint256 shares = _deposit(_vaultAddress, amountToDeposit);
 
             // Did that work as expected?
-            if (shares < _inputData.minSharesReceived) {
-                revert Errors.Action_InsufficientSharesReceived(
+            require(
+                shares >= _inputData.minSharesReceived,
+                Errors.Action_InsufficientSharesReceived(
                     protocolName(),
                     uint8(actionType()),
                     shares,
                     _inputData.minSharesReceived
-                );
-            }
+                )
+            );
         }
 
         // For logging, get the new balance

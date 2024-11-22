@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {Errors} from "../Errors.sol";
-import {ILogger} from "../interfaces/ILogger.sol";
-import {IAdminVault} from "../interfaces/IAdminVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IAdminVault} from "../interfaces/IAdminVault.sol";
+import {ILogger} from "../interfaces/ILogger.sol";
+import {Errors} from "../Errors.sol";
 
 /// @title ActionBase - Base contract for all actions in the protocol
 /// @notice Implements common functionality and interfaces for all actions
@@ -87,12 +87,13 @@ abstract contract ActionBase {
         } else {
             // Otherwise, we take the fee
             uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(protocolName(), _pool);
+            require(lastFeeTimestamp != 0, Errors.AdminVault_NotInitialized());
+
             uint256 currentTimestamp = block.timestamp;
-            if (lastFeeTimestamp == 0) {
-                revert Errors.AdminVault_NotInitialized();
-            } else if (lastFeeTimestamp == currentTimestamp) {
+            if (lastFeeTimestamp == currentTimestamp) {
                 return 0; // Don't take fees twice in the same block
             }
+
             IERC20 vault = IERC20(_feeToken);
             uint256 balance = vault.balanceOf(address(this));
             uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
 /// @title Stores all the important contract addresses used throughout the system.
 /// @notice Contract addresses can be changed by the owner with a timelock.

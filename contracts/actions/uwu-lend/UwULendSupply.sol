@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {AaveSupplyBase} from "../common/AaveSupply.sol";
 import {ILendingPool} from "../../interfaces/aave-v2/ILendingPool.sol";
+import {AaveSupplyBase} from "../common/AaveSupply.sol";
 
 contract UwULendSupply is AaveSupplyBase {
     constructor(

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
-import {IERC721Metadata as IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC721Metadata as IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {Errors} from "../../Errors.sol";
 import {ICoverBroker, BuyCoverParams, PoolAllocationRequest} from "../../interfaces/nexus-mutual/ICoverBroker.sol";
 import {TokenAddressesMainnet} from "../../libraries/TokenAddressesMainnet.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title BuyCover - Purchases cover for a specific asset and protocol
 /// @notice This contract allows users to buy cover from Nexus Mutual
@@ -47,9 +47,10 @@ contract BuyCover is ActionBase {
         Params memory inputData = _parseInputs(_callData);
 
         // Check inputs
-        if (inputData.buyCoverParams.length == 0 || inputData.poolAllocationRequests.length == 0) {
-            revert Errors.InvalidInput("BuyCover", "executeAction");
-        }
+        require(
+            inputData.buyCoverParams.length != 0 && inputData.poolAllocationRequests.length != 0,
+            Errors.InvalidInput("BuyCover", "executeAction")
+        );
 
         // Execute action
         (uint32 period, uint256 amount, uint256 coverId) = _buyCover(inputData);

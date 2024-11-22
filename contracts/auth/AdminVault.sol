@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
+pragma solidity =0.8.28;
 
-pragma solidity =0.8.24;
-
-import {AccessControlDelayed} from "./AccessControlDelayed.sol";
-import {ILogger} from "../interfaces/ILogger.sol";
-import {Errors} from "../Errors.sol";
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
+import {Errors} from "../Errors.sol";
+import {AccessControlDelayed} from "./AccessControlDelayed.sol";
 
 /// @title AdminVault
 /// @notice A stateful contract that manages global variables and permissions for the protocol.
@@ -13,9 +11,6 @@ import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract AdminVault is AccessControlDelayed, Multicall {
-    /// @notice The Logger contract instance.
-    ILogger public immutable LOGGER;
-
     /// @notice The maximum fee basis points.
     /// @dev 1000 = 10%
     uint256 public constant MAX_FEE_BASIS = 1000;
@@ -60,12 +55,8 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _initialOwner The address to be granted all initial
     /// @param _delay The required delay period for proposals (in seconds).
     /// @param _logger The address of the Logger contract.
-    constructor(address _initialOwner, uint256 _delay, address _logger) AccessControlDelayed(_delay) {
-        if (_initialOwner == address(0) || _logger == address(0)) {
-            revert Errors.InvalidInput("AdminVault", "constructor");
-        }
-
-        LOGGER = ILogger(_logger);
+    constructor(address _initialOwner, uint256 _delay, address _logger) AccessControlDelayed(_delay, _logger) {
+        require(_initialOwner != address(0) && _logger != address(0), Errors.InvalidInput("AdminVault", "constructor"));
 
         // Set initial fee configuration
         feeConfig = FeeConfig({recipient: _initialOwner, minBasis: 0, maxBasis: MAX_FEE_BASIS, proposalTime: 0});
@@ -126,16 +117,9 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _min The minimum fee in basis points
     /// @param _max The maximum fee in basis points
     function proposeFeeConfig(address _recipient, uint256 _min, uint256 _max) external onlyRole(FEE_PROPOSER_ROLE) {
-        if (_recipient == address(0)) {
-            revert Errors.InvalidInput("AdminVault", "proposeFeeConfig");
-        }
-        if (_max > 1000) {
-            // 10% max
-            revert Errors.AdminVault_FeePercentageOutOfRange(_max, 0, MAX_FEE_BASIS);
-        }
-        if (_min >= _max) {
-            revert Errors.AdminVault_InvalidFeeRange(_min, _max);
-        }
+        require(_recipient != address(0), Errors.InvalidInput("AdminVault", "proposeFeeConfig"));
+        require(_max <= MAX_FEE_BASIS, Errors.AdminVault_FeePercentageOutOfRange(_max, 0, MAX_FEE_BASIS));
+        require(_min <= _max, Errors.AdminVault_InvalidFeeRange(_min, _max));
 
         pendingFeeConfig = FeeConfig({
             recipient: _recipient,
@@ -158,12 +142,11 @@ contract AdminVault is AccessControlDelayed, Multicall {
 
     /// @notice Sets the pending fee configuration after the proposal delay has passed
     function setFeeConfig() external onlyRole(FEE_EXECUTOR_ROLE) {
-        if (pendingFeeConfig.proposalTime == 0) {
-            revert Errors.AdminVault_NotProposed();
-        }
-        if (block.timestamp < pendingFeeConfig.proposalTime) {
-            revert Errors.AdminVault_DelayNotPassed(block.timestamp, pendingFeeConfig.proposalTime);
-        }
+        require(pendingFeeConfig.proposalTime != 0, Errors.AdminVault_NotProposed());
+        require(
+            block.timestamp >= pendingFeeConfig.proposalTime,
+            Errors.AdminVault_DelayNotPassed(block.timestamp, pendingFeeConfig.proposalTime)
+        );
 
         LOGGER.logAdminVaultEvent(
             203,
@@ -173,7 +156,6 @@ contract AdminVault is AccessControlDelayed, Multicall {
         // Update active config (note: proposalTime remains 0 for active config)
         pendingFeeConfig.proposalTime = 0;
         feeConfig = pendingFeeConfig;
-
         delete pendingFeeConfig;
     }
 
@@ -187,16 +169,17 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _protocolName The name of the protocol.
     /// @param _poolAddress The address of the pool.
     function proposePool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_PROPOSER_ROLE) {
-        if (_poolAddress == address(0) || bytes(_protocolName).length == 0) {
-            revert Errors.InvalidInput("AdminVault", "proposePool");
-        }
+        require(
+            _poolAddress != address(0) && bytes(_protocolName).length != 0,
+            Errors.InvalidInput("AdminVault", "proposePool")
+        );
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = _protocolIdFromName(_protocolName);
-        if (protocolPools[protocolId][poolId] != address(0)) {
-            revert Errors.AdminVault_AlreadyAdded();
-        }
+        require(protocolPools[protocolId][poolId] == address(0), Errors.AdminVault_AlreadyAdded());
+
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
         poolProposals[proposalId] = _getDelayTimestamp();
+
         LOGGER.logAdminVaultEvent(102, abi.encode(protocolId, _poolAddress));
     }
 
@@ -210,10 +193,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = _protocolIdFromName(_protocolName);
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
-        if (poolProposals[proposalId] == 0) {
-            revert Errors.AdminVault_NotProposed();
-        }
+        require(poolProposals[proposalId] != 0, Errors.AdminVault_NotProposed());
+
         poolProposals[proposalId] = 0;
+
         LOGGER.logAdminVaultEvent(302, abi.encode(protocolId, _poolAddress));
     }
 
@@ -223,19 +206,19 @@ contract AdminVault is AccessControlDelayed, Multicall {
     function addPool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_EXECUTOR_ROLE) {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = _protocolIdFromName(_protocolName);
-        if (protocolPools[protocolId][poolId] != address(0)) {
-            revert Errors.AdminVault_AlreadyAdded();
-        }
-        if (bytes(_protocolName).length == 0 || _poolAddress == address(0)) {
-            revert Errors.InvalidInput("AdminVault", "addPool");
-        }
+        require(protocolPools[protocolId][poolId] == address(0), Errors.AdminVault_AlreadyAdded());
+        require(
+            bytes(_protocolName).length != 0 && _poolAddress != address(0),
+            Errors.InvalidInput("AdminVault", "addPool")
+        );
+
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
-        if (poolProposals[proposalId] == 0) {
-            revert Errors.AdminVault_NotProposed();
-        }
-        if (block.timestamp < poolProposals[proposalId]) {
-            revert Errors.AdminVault_DelayNotPassed(block.timestamp, poolProposals[proposalId]);
-        }
+        require(poolProposals[proposalId] != 0, Errors.AdminVault_NotProposed());
+        require(
+            block.timestamp >= poolProposals[proposalId],
+            Errors.AdminVault_DelayNotPassed(block.timestamp, poolProposals[proposalId])
+        );
+
         protocolPools[protocolId][poolId] = _poolAddress;
         pool[_poolAddress] = true;
         LOGGER.logAdminVaultEvent(202, abi.encode(protocolId, _poolAddress));
@@ -258,12 +241,12 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _actionId The identifier of the action.
     /// @param _actionAddress The address of the action contract.
     function proposeAction(bytes4 _actionId, address _actionAddress) external onlyRole(ACTION_PROPOSER_ROLE) {
-        if (actionAddresses[_actionId] != address(0)) {
-            revert Errors.AdminVault_AlreadyAdded();
-        }
-        if (_actionAddress == address(0) || _actionId == bytes4(0)) {
-            revert Errors.InvalidInput("AdminVault", "proposeAction");
-        }
+        require(actionAddresses[_actionId] == address(0), Errors.AdminVault_AlreadyAdded());
+        require(
+            _actionAddress != address(0) && _actionId != bytes4(0),
+            Errors.InvalidInput("AdminVault", "proposeAction")
+        );
+
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         actionProposals[proposalId] = _getDelayTimestamp();
         LOGGER.logAdminVaultEvent(101, abi.encode(_actionId, _actionAddress));
@@ -282,16 +265,16 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _actionId The identifier of the action.
     /// @param _actionAddress The address of the action contract to add.
     function addAction(bytes4 _actionId, address _actionAddress) external onlyRole(ACTION_EXECUTOR_ROLE) {
-        if (actionAddresses[_actionId] != address(0)) {
-            revert Errors.AdminVault_AlreadyAdded();
-        }
+        require(actionAddresses[_actionId] == address(0), Errors.AdminVault_AlreadyAdded());
+        require(_actionAddress != address(0) && _actionId != bytes4(0), Errors.InvalidInput("AdminVault", "addAction"));
+
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
-        if (actionProposals[proposalId] == 0) {
-            revert Errors.AdminVault_NotProposed();
-        }
-        if (block.timestamp < actionProposals[proposalId]) {
-            revert Errors.AdminVault_DelayNotPassed(block.timestamp, actionProposals[proposalId]);
-        }
+        require(actionProposals[proposalId] != 0, Errors.AdminVault_NotProposed());
+        require(
+            block.timestamp >= actionProposals[proposalId],
+            Errors.AdminVault_DelayNotPassed(block.timestamp, actionProposals[proposalId])
+        );
+
         actionAddresses[_actionId] = _actionAddress;
         LOGGER.logAdminVaultEvent(201, abi.encode(_actionId, _actionAddress));
     }
@@ -300,10 +283,6 @@ contract AdminVault is AccessControlDelayed, Multicall {
         delete actionAddresses[_actionId];
         LOGGER.logAdminVaultEvent(401, abi.encode(_actionId));
     }
-
-    /// Fee timestamp management
-    ///  - Initialize
-    ///  - Update
 
     /// @notice Initializes the fee timestamp for a pool.
     /// @dev This must only be called when the user has a zero balance.
@@ -321,12 +300,8 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @dev this would give them access to the storage slot of their choice. It's only a timestamp they could put there, but still not good.
     /// @param _pool The address to check.
     function _isPool(address _pool) internal view {
-        if (!pool[_pool]) {
-            revert Errors.AdminVault_NotPool(_pool);
-        }
+        require(pool[_pool], Errors.AdminVault_NotPool(_pool));
     }
-
-    /// Getters
 
     /// @notice Retrieves the address of a pool for a given protocol and pool ID.
     /// @param _protocolName The name of the protocol.
@@ -335,9 +310,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
     function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address) {
         uint256 protocolId = _protocolIdFromName(_protocolName);
         address poolAddress = protocolPools[protocolId][_poolId];
-        if (poolAddress == address(0)) {
-            revert Errors.AdminVault_NotFound(_protocolName, _poolId);
-        }
+        require(poolAddress != address(0), Errors.AdminVault_NotFound(_protocolName, _poolId));
         return poolAddress;
     }
 
@@ -346,9 +319,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @return The address of the action contract.
     function getActionAddress(bytes4 _actionId) external view returns (address) {
         address actionAddress = actionAddresses[_actionId];
-        if (actionAddress == address(0)) {
-            revert Errors.AdminVault_NotFound("action", _actionId);
-        }
+        require(actionAddress != address(0), Errors.AdminVault_NotFound("action", _actionId));
         return actionAddress;
     }
 
@@ -358,10 +329,8 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @return The last fee timestamp.
     function getLastFeeTimestamp(string calldata _protocolName, address _pool) external view returns (uint256) {
         uint256 protocolId = _protocolIdFromName(_protocolName);
-        if (lastFeeTimestamp[msg.sender][protocolId][_pool] == 0) {
-            // We check it's initialized otherwise we could take too many fees
-            revert Errors.AdminVault_NotInitialized();
-        }
+        require(lastFeeTimestamp[msg.sender][protocolId][_pool] != 0, Errors.AdminVault_NotInitialized());
+
         return lastFeeTimestamp[msg.sender][protocolId][_pool];
     }
 
@@ -369,9 +338,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @notice Used by action contracts to ensure they are taking fees within the allowed range.
     /// @param _feeBasis The fee basis to check.
     function checkFeeBasis(uint256 _feeBasis) external view {
-        if (_feeBasis < feeConfig.minBasis || _feeBasis > feeConfig.maxBasis) {
-            revert Errors.AdminVault_FeePercentageOutOfRange(_feeBasis, feeConfig.minBasis, feeConfig.maxBasis);
-        }
+        require(
+            _feeBasis >= feeConfig.minBasis && _feeBasis <= feeConfig.maxBasis,
+            Errors.AdminVault_FeePercentageOutOfRange(_feeBasis, feeConfig.minBasis, feeConfig.maxBasis)
+        );
     }
 
     /// @notice Retrieves the proposal time for a given pool.
@@ -392,8 +362,6 @@ contract AdminVault is AccessControlDelayed, Multicall {
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         return actionProposals[proposalId];
     }
-
-    /// Helper functions
 
     /// @notice Generates a pool ID from an address.
     /// @param _addr The address to generate the pool ID from.

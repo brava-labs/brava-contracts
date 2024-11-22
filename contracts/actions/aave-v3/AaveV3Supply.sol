@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
 import {AaveSupplyBase} from "../common/AaveSupply.sol";
 import {IPool} from "../../interfaces/aave-v3/IPoolInstance.sol";

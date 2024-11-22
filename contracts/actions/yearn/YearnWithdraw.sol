@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
+import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 
 /// @title YearnWithdraw - Burns yTokens and receives underlying tokens in return
 /// @notice This contract allows users to withdraw tokens from a Yearn vault
@@ -12,10 +12,7 @@ contract YearnWithdraw is ERC4626Withdraw {
 
     /// @inheritdoc ERC4626Withdraw
     /// @dev We are overriding because Yearn doesn't implement an Owner parameter for withdrawals, it's always the caller
-    function _executeWithdraw(
-        address vault,
-        uint256 amount
-    ) internal virtual override returns (uint256 _sharesBurned) {
+    function _executeWithdraw(address vault, uint256 amount) internal virtual override returns (uint256 _sharesBurned) {
         _sharesBurned = IYearnVault(vault).withdraw(amount);
     }
 

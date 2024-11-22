@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
 import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CErc20Interface, CTokenInterface} from "../../interfaces/compound/CTokenInterfaces.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title CompoundV2WithdrawBase - Base contract for Compound withdraw actions
 /// @notice This contract provides base functionality for withdrawing from Compound-style lending pools
 /// @dev To be inherited by specific Compound version implementations
 abstract contract CompoundV2WithdrawBase is ActionBase {
-
     /// @notice Parameters for the withdraw action
     /// @param poolId The pool ID
     /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
@@ -21,7 +19,7 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
         uint256 withdrawAmount;
     }
 
-    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) { }
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     ///  -----  Core logic -----  ///
 
@@ -31,7 +29,10 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
         address cTokenAddress = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
-        (uint256 balanceBefore, uint256 balanceAfter, uint256 feeInTokens) = _compoundWithdraw(inputData, cTokenAddress);
+        (uint256 balanceBefore, uint256 balanceAfter, uint256 feeInTokens) = _compoundWithdraw(
+            inputData,
+            cTokenAddress
+        );
 
         LOGGER.logActionEvent(
             LogType.BALANCE_UPDATE,
@@ -57,9 +58,7 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
         if (amountToWithdraw > underlyingBalance) {
             amountToWithdraw = underlyingBalance;
         }
-        if (amountToWithdraw == 0) {
-            revert Errors.Action_ZeroAmount(protocolName(), actionType());
-        }
+        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
         feeInTokens = _processFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress, balanceBefore);
 
@@ -90,9 +89,7 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
     /// @param _amount Amount to withdraw in underlying tokens
     function _withdraw(address _cTokenAddress, uint256 _amount) internal virtual {
         uint256 result = CErc20Interface(_cTokenAddress).redeemUnderlying(_amount);
-        if (result != 0) {
-            revert Errors.Action_CompoundError(protocolName(), actionType(), result);
-        }
+        require(result == 0, Errors.Action_CompoundError(protocolName(), actionType(), result));
     }
 
     /// @dev Override for non-standard balance calculations

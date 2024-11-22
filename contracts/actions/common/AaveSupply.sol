@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ActionBase} from "../ActionBase.sol";
-import {Errors} from "../../Errors.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Errors} from "../../Errors.sol";
 import {IAaveToken} from "../../interfaces/common/IAaveToken.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title AaveSupplyBase - Base contract for Aave supply actions
 /// @notice This contract provides base functionality for supplying to Aave-style lending pools
@@ -68,10 +68,7 @@ abstract contract AaveSupplyBase is ActionBase {
                 ? underlyingAsset.balanceOf(address(this))
                 : _inputData.amount;
 
-            if (amountToDeposit == 0) {
-                // uh-oh, we have no tokens to deposit
-                revert Errors.Action_ZeroAmount(protocolName(), actionType());
-            }
+            require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
             underlyingAsset.safeIncreaseAllowance(POOL, amountToDeposit);
             _supply(underlyingAssetAddress, amountToDeposit);

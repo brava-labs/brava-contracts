@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ActionBase} from "../ActionBase.sol";
-import {Errors} from "../../Errors.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Errors} from "../../Errors.sol";
 import {HubPoolInterface} from "../../interfaces/across/HubPoolInterface.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title AcrossSupply - Supplies tokens to Across Protocol HubPool
 /// @notice This contract allows users to supply tokens to Across Protocol's HubPool
@@ -51,7 +51,6 @@ contract AcrossSupply is ActionBase {
     function _supplyToPool(
         Params memory _inputData
     ) internal returns (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) {
-
         address l1Token = ADMIN_VAULT.getPoolAddress(protocolName(), _inputData.poolId);
         // Get the LP token address
         HubPoolInterface.PooledToken memory pooledToken = ACROSS_HUB.pooledTokens(l1Token);
@@ -68,9 +67,7 @@ contract AcrossSupply is ActionBase {
                 ? IERC20(l1Token).balanceOf(address(this))
                 : _inputData.amount;
 
-            if (amountToDeposit == 0) {
-                revert Errors.Action_ZeroAmount(protocolName(), actionType());
-            }
+            require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
             // Approve and supply
             IERC20(l1Token).safeIncreaseAllowance(address(ACROSS_HUB), amountToDeposit);
@@ -79,14 +76,15 @@ contract AcrossSupply is ActionBase {
             // Check received shares meet minimum
             sharesAfter = IERC20(lpToken).balanceOf(address(this));
             uint256 sharesReceived = sharesAfter - sharesBefore;
-            if (sharesReceived < _inputData.minSharesReceived) {
-                revert Errors.Action_InsufficientSharesReceived(
+            require(
+                sharesReceived >= _inputData.minSharesReceived,
+                Errors.Action_InsufficientSharesReceived(
                     protocolName(),
                     uint8(actionType()),
                     sharesReceived,
                     _inputData.minSharesReceived
-                );
-            }
+                )
+            );
         }
     }
 

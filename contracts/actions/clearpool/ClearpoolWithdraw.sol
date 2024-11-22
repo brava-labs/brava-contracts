@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 import {IClearpoolPool} from "../../interfaces/clearpool/IClearpoolPool.sol";
+import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 
 /// @title ClearpoolWithdraw - Withdraws tokens from Clearpool pools
 /// @notice This contract allows users to withdraw tokens from Clearpool lending pools

@@ -127,6 +127,70 @@ describe('AdminVault', function () {
           adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), ethers.ZeroAddress)
         ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
       });
+      it('should be able to batch propose and grant roles', async function () {
+        // Create the calldata for proposing roles
+        const proposeRoleCalls = [
+          // Alice as FEE_PROPOSER
+          adminVault.interface.encodeFunctionData('proposeRole', [
+            getRoleBytes('FEE_PROPOSER_ROLE'),
+            alice.address,
+          ]),
+          // Bobby as FEE_CANCELER
+          adminVault.interface.encodeFunctionData('proposeRole', [
+            getRoleBytes('FEE_CANCELER_ROLE'),
+            bobby.address,
+          ]),
+          // Carol as FEE_EXECUTOR
+          adminVault.interface.encodeFunctionData('proposeRole', [
+            getRoleBytes('FEE_EXECUTOR_ROLE'),
+            carol.address,
+          ]),
+        ];
+
+        // Execute multicall for proposals
+        await adminVault.connect(admin).multicall(proposeRoleCalls);
+
+        // Verify proposals were made
+        expect(
+          await adminVault.getRoleProposalTime(getRoleBytes('FEE_PROPOSER_ROLE'), alice.address)
+        ).to.not.equal(0);
+        expect(
+          await adminVault.getRoleProposalTime(getRoleBytes('FEE_CANCELER_ROLE'), bobby.address)
+        ).to.not.equal(0);
+        expect(
+          await adminVault.getRoleProposalTime(getRoleBytes('FEE_EXECUTOR_ROLE'), carol.address)
+        ).to.not.equal(0);
+
+        // Create the calldata for granting roles
+        const grantRoleCalls = [
+          // Grant FEE_PROPOSER to Alice
+          adminVault.interface.encodeFunctionData('grantRole', [
+            getRoleBytes('FEE_PROPOSER_ROLE'),
+            alice.address,
+          ]),
+          // Grant FEE_CANCELER to Bobby
+          adminVault.interface.encodeFunctionData('grantRole', [
+            getRoleBytes('FEE_CANCELER_ROLE'),
+            bobby.address,
+          ]),
+          // Grant FEE_EXECUTOR to Carol
+          adminVault.interface.encodeFunctionData('grantRole', [
+            getRoleBytes('FEE_EXECUTOR_ROLE'),
+            carol.address,
+          ]),
+        ];
+
+        // Execute multicall for grants
+        await adminVault.connect(admin).multicall(grantRoleCalls);
+
+        // Verify roles were granted
+        expect(await adminVault.hasRole(getRoleBytes('FEE_PROPOSER_ROLE'), alice.address)).to.be
+          .true;
+        expect(await adminVault.hasRole(getRoleBytes('FEE_CANCELER_ROLE'), bobby.address)).to.be
+          .true;
+        expect(await adminVault.hasRole(getRoleBytes('FEE_EXECUTOR_ROLE'), carol.address)).to.be
+          .true;
+      });
       it('should have the correct roles for each function', async function () {
         // First check all functions have some role assigned to them
         // Fee management

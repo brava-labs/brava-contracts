@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
 import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
 import {IERC4626} from "../../interfaces/common/IERC4626.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title ERC4626Withdraw - Burns vault shares and receives underlying tokens in return
 /// @notice This contract allows users to withdraw tokens from any ERC4626 vault
@@ -67,23 +67,21 @@ abstract contract ERC4626Withdraw is ActionBase {
             ? maxWithdrawAmount
             : _inputData.withdrawRequest;
 
-        if (amountToWithdraw == 0) {
-            //uh-oh, nothing to withdraw
-            revert Errors.Action_ZeroAmount(protocolName(), uint8(actionType()));
-        }
+        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), uint8(actionType())));
 
         // Perform the withdraw
         uint256 sharesBurned = _executeWithdraw(_vaultAddress, amountToWithdraw);
 
         // check we didn't burn more shares than we were allowed to
-        if (sharesBurned > _inputData.maxSharesBurned) {
-            revert Errors.Action_MaxSharesBurnedExceeded(
+        require(
+            sharesBurned <= _inputData.maxSharesBurned,
+            Errors.Action_MaxSharesBurnedExceeded(
                 protocolName(),
                 uint8(actionType()),
                 sharesBurned,
                 _inputData.maxSharesBurned
-            );
-        }
+            )
+        );
 
         // for logging, get the balance after
         sharesAfter = _getBalance(_vaultAddress);

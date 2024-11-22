@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
 /// @title Errors
 /// @notice This contract contains all custom errors used across the protocol
@@ -23,6 +23,8 @@ contract Errors {
     error AdminVault_NotAdded();
     error AdminVault_AlreadyAdded();
     error AdminVault_NotPool(address _pool);
+    error AdminVault_AlreadyGranted();
+    error AdminVault_NotGranted();
 
     // FeeTakeSafeModule errors
     error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);
