@@ -1,3 +1,4 @@
+# TODO coverage is not working with current test setup
 name: Run full test and coverage
 on:
   workflow_dispatch:
