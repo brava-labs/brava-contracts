@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // ref: https://github.com/safe-global/safe-smart-account/blob/7a872e48ca57daa7db9ba583248f3d9545fe538d/contracts/proxies/SafeProxy.sol
-pragma solidity ^0.8.0;
+pragma solidity =0.8.28;
 
 /**
  * @title IProxy - Helper interface to access the singleton address of the Proxy on-chain.
