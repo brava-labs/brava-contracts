@@ -8,6 +8,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title CompoundV2WithdrawBase - Base contract for Compound withdraw actions
 /// @notice This contract provides base functionality for withdrawing from Compound-style lending pools
 /// @dev To be inherited by specific Compound version implementations
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract CompoundV2WithdrawBase is ActionBase {
     /// @notice Parameters for the withdraw action
     /// @param poolId The pool ID
@@ -98,5 +99,5 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure virtual override returns (string memory);
+    function protocolName() public pure virtual override returns (string memory);
 }

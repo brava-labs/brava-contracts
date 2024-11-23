@@ -10,6 +10,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title AaveWithdrawBase - Base contract for Aave withdraw actions
 /// @notice This contract provides base functionality for withdrawing from Aave-style lending pools
 /// @dev To be inherited by specific Aave version implementations
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract AaveWithdrawBase is ActionBase {
     /// @notice Address of the Aave lending pool
     address public immutable POOL;
@@ -93,5 +94,5 @@ abstract contract AaveWithdrawBase is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure virtual override returns (string memory);
+    function protocolName() public pure virtual override returns (string memory);
 }

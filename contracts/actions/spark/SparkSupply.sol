@@ -5,7 +5,7 @@ import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title SparkSupply - Supplies DAI to Spark (Sky) vault
 /// @notice This contract allows users to supply DAI to a Spark vault
-/// @dev Inherits from ERC4626Supply as Spark implements ERC4626
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract SparkSupply is ERC4626Supply {
     /// @notice Initializes the SparkSupply contract
     /// @param _adminVault Address of the admin vault
@@ -13,7 +13,7 @@ contract SparkSupply is ERC4626Supply {
     constructor(address _adminVault, address _logger) ERC4626Supply(_adminVault, _logger) {}
 
     /// @inheritdoc ERC4626Supply
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Spark";
     }
 }

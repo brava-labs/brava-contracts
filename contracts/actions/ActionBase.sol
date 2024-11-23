@@ -10,6 +10,7 @@ import {Errors} from "../Errors.sol";
 /// @title ActionBase - Base contract for all actions in the protocol
 /// @notice Implements common functionality and interfaces for all actions
 /// @dev This contract should be inherited by all specific action contracts
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract ActionBase {
     using SafeERC20 for IERC20;
 
@@ -147,5 +148,5 @@ abstract contract ActionBase {
 
     /// @notice Returns the name of the protocol
     /// @return string The name of the protocol
-    function protocolName() internal pure virtual returns (string memory);
+    function protocolName() public pure virtual returns (string memory);
 }

@@ -11,6 +11,7 @@ import {Roles} from "./Roles.sol";
 /// @title FeeTakeSafeModule
 /// @notice This is a safe module that will allow a bot (as permissioned by the admin vault) to take fees from the pools
 /// @notice It creates a sequence of deposit actions with 0 amounts to trigger the fee taking mechanism
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract FeeTakeSafeModule is Roles {
     struct Sequence {
         string name;

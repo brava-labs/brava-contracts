@@ -10,6 +10,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title CompoundV2SupplyBase - Base contract for Compound supply actions
 /// @notice This contract provides base functionality for supplying to Compound-style lending pools
 /// @dev To be inherited by specific Compound version implementations
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract CompoundV2SupplyBase is ActionBase {
     using SafeERC20 for IERC20;
 
@@ -95,5 +96,5 @@ abstract contract CompoundV2SupplyBase is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure virtual override returns (string memory);
+    function protocolName() public pure virtual override returns (string memory);
 }

@@ -170,8 +170,14 @@ describe('UwU Lend tests', () => {
           const uTokenBalanceAfterFirstTx = await uTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['UwULend'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, uToken);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['UwULend']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            uToken
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -237,14 +243,19 @@ describe('UwU Lend tests', () => {
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
         expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.uUSDT.address));
         expect(txLog).to.have.property('balanceBefore', 0n);
-        expect(txLog).to.have.property('balanceAfter', amount);
+        expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens', 0n);
         expect(txLog.balanceAfter).to.be.a('bigint');
         expect(txLog.balanceAfter).to.not.equal(BigInt(0));
+        // With aave we earn extra tokens over time, so slow tests mean we can't check exact amounts
+        // We check 1 wei less because of edges cases in the aave protocol
+        expect(txLog.balanceAfter).to.be.greaterThanOrEqual(amount - 1n);
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['UwULend'])));
+        const protocolId = BigInt(
+          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['UwULend']))
+        );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           protocolId,
@@ -378,8 +389,14 @@ describe('UwU Lend tests', () => {
           const uTokenBalanceAfterSupply = await uTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['UwULend'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, uToken);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['UwULend']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            uToken
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -464,5 +481,4 @@ describe('UwU Lend tests', () => {
   });
 });
 
-export { };
-
+export {};

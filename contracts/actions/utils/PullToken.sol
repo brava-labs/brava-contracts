@@ -6,7 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ActionBase} from "../ActionBase.sol";
 
 /// @title Helper action to pull a token from the specified address
-// TODO tests
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract PullToken is ActionBase {
     using SafeERC20 for IERC20;
     /// @param tokenAddr Address of token
@@ -50,7 +50,7 @@ contract PullToken is ActionBase {
         params = abi.decode(_callData, (Params));
     }
 
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Brava";
     }
 }

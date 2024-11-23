@@ -8,6 +8,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title ERC4626Withdraw - Burns vault shares and receives underlying tokens in return
 /// @notice This contract allows users to withdraw tokens from any ERC4626 vault
 /// @dev Inherits from ActionBase and implements generic withdraw functionality
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract ERC4626Withdraw is ActionBase {
     /// @notice Parameters for the withdraw action
     /// @param poolId ID of vault contract
@@ -121,5 +122,5 @@ abstract contract ERC4626Withdraw is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure virtual override returns (string memory);
+    function protocolName() public pure virtual override returns (string memory);
 }
