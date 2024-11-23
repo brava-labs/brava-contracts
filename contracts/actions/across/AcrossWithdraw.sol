@@ -9,6 +9,7 @@ import {ActionBase} from "../ActionBase.sol";
 
 /// @title AcrossWithdraw - Withdraws tokens from Across Protocol HubPool
 /// @notice This contract allows users to withdraw tokens from Across Protocol's HubPool
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract AcrossWithdraw is ActionBase {
     using SafeERC20 for IERC20;
 

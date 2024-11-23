@@ -5,6 +5,8 @@ pragma solidity =0.8.28;
 import {ActionBase} from "./actions/ActionBase.sol";
 import {ILogger} from "./interfaces/ILogger.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract Logger is ILogger, Initializable {
 
 

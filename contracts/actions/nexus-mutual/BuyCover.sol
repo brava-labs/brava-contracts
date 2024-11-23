@@ -12,6 +12,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title BuyCover - Purchases cover for a specific asset and protocol
 /// @notice This contract allows users to buy cover from Nexus Mutual
 /// @dev Inherits from ActionBase and implements the buy cover functionality for Nexus Mutual protocol
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract BuyCover is ActionBase {
     using SafeERC20 for IERC20;
 

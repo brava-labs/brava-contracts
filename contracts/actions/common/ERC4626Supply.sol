@@ -10,6 +10,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title ERC4626Supply - Supplies tokens to any ERC4626 vault
 /// @notice This contract allows users to supply tokens to any ERC4626-compliant vault
 /// @dev Inherits from ActionBase and implements generic supply functionality
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract ERC4626Supply is ActionBase {
     using SafeERC20 for IERC20;
 

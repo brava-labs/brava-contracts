@@ -10,6 +10,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title Curve3PoolSwap - Swaps tokens using Curve 3Pool
 /// @notice This contract allows users to swap tokens using the Curve 3Pool
 /// @dev Inherits from ActionBase and implements the swap functionality for Curve 3Pool
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract Curve3PoolSwap is ActionBase {
     using SafeERC20 for IERC20;
 

@@ -10,6 +10,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title AaveSupplyBase - Base contract for Aave supply actions
 /// @notice This contract provides base functionality for supplying to Aave-style lending pools
 /// @dev To be inherited by specific Aave version implementations
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract AaveSupplyBase is ActionBase {
     using SafeERC20 for IERC20;
 

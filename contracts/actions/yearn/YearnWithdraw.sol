@@ -6,7 +6,7 @@ import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 
 /// @title YearnWithdraw - Burns yTokens and receives underlying tokens in return
 /// @notice This contract allows users to withdraw tokens from a Yearn vault
-/// @dev Inherits from ERC4626Withdraw and overrides withdraw functionality for Yearn protocol
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract YearnWithdraw is ERC4626Withdraw {
     constructor(address _adminVault, address _logger) ERC4626Withdraw(_adminVault, _logger) {}
 
