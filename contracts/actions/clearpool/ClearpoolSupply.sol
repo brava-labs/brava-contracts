@@ -6,7 +6,7 @@ import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title ClearpoolSupply - Supplies tokens to Clearpool pools
 /// @notice This contract allows users to supply tokens to Clearpool lending pools
-/// @dev Inherits from ERC4626Supply and adapts Clearpool's interface
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract ClearpoolSupply is ERC4626Supply {
     constructor(address _adminVault, address _logger) ERC4626Supply(_adminVault, _logger) {}
 

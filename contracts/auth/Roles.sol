@@ -2,6 +2,7 @@
 
 pragma solidity =0.8.28;
 
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract Roles {
     // Role definitions
     // Access to the private keys associated with each address granted roles will be managed off-chain.

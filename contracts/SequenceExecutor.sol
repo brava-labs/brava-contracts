@@ -23,6 +23,7 @@ import {IAdminVault} from "./interfaces/IAdminVault.sol";
  *
  *
  */
+ /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract SequenceExecutor {
     /// @dev List of actions grouped as a sequence
     /// @param name Name of the sequence useful for logging what sequence is executing

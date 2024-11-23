@@ -6,7 +6,7 @@ import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title ERC4626Supply - Supplies tokens to Yearn vault
 /// @notice This contract allows users to supply tokens to a Yearn vault
-/// @dev Inherits from ERC4626Supply and overrides _getUnderlying for Yearn's non-standard ERC4626 implementation
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract YearnSupply is ERC4626Supply {
     /// @notice Initializes the YearnSupply contract
     /// @param _adminVault Address of the admin vault

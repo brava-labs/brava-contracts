@@ -5,6 +5,7 @@ pragma solidity =0.8.28;
 import {ActionBase} from "./actions/ActionBase.sol";
 import {ILogger} from "./interfaces/ILogger.sol";
 
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract Logger is ILogger {
     /// @notice Logs an event from an action
     /// @param _logType The type of the log

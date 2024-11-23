@@ -5,7 +5,7 @@ import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 
 /// @title FluidWithdraw - Withdraws tokens from Fluid vault
 /// @notice This contract allows users to withdraw tokens from a Fluid vault
-/// @dev Inherits from VaultWithdraw as Fluid implements ERC4626
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract FluidWithdraw is ERC4626Withdraw {
     /// @notice Initializes the FluidWithdraw contract
     /// @param _adminVault Address of the admin vault

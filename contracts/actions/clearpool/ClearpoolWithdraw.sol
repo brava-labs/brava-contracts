@@ -6,7 +6,7 @@ import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 
 /// @title ClearpoolWithdraw - Withdraws tokens from Clearpool pools
 /// @notice This contract allows users to withdraw tokens from Clearpool lending pools
-/// @dev Inherits from ERC4626Withdraw and adapts Clearpool's interface
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract ClearpoolWithdraw is ERC4626Withdraw {
     constructor(address _adminVault, address _logger) ERC4626Withdraw(_adminVault, _logger) {}
 

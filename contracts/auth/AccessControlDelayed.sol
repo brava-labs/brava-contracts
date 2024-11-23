@@ -9,6 +9,7 @@ import {Roles} from "./Roles.sol";
 /// @title Add delays to granting roles in access control
 /// @dev We should intercept calls to grantRole and implement a proposal system
 ///      to allow for a delay to pass before the role is granted.
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract AccessControlDelayed is AccessControl, Roles {
     /// @notice The maximum delay for a role proposal, to avoid costly mistakes
     uint256 public constant MAX_DELAY = 5 days;

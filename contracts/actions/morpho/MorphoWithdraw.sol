@@ -5,7 +5,7 @@ import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 
 /// @title MorphoWithdraw - Withdraws tokens from Morpho vault
 /// @notice This contract allows users to withdraw tokens from a Morpho vault
-/// @dev Inherits from VaultWithdraw as Morpho implements ERC4626
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract MorphoWithdraw is ERC4626Withdraw {
     /// @notice Initializes the MorphoWithdraw contract
     /// @param _adminVault Address of the admin vault
