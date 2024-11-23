@@ -4,8 +4,20 @@ pragma solidity =0.8.28;
 
 import {ActionBase} from "./actions/ActionBase.sol";
 import {ILogger} from "./interfaces/ILogger.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+contract Logger is ILogger, Initializable {
 
-contract Logger is ILogger {
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the contract
+    function initialize() external initializer {
+        // No initialization needed for this contract
+    }
+
     /// @notice Logs an event from an action
     /// @param _logType The type of the log
     /// @param _data The data to log

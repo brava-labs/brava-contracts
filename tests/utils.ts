@@ -2,7 +2,7 @@ import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@ne
 import * as bravaSdk from 'brava-ts-client';
 import { deploySafe, executeSafeTransaction } from 'brava-ts-client';
 import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
-import { ethers, network } from 'hardhat';
+import { ethers, network, upgrades } from 'hardhat';
 import {
   AdminVault,
   ISafe,
@@ -158,6 +158,101 @@ export async function deploy<T extends BaseContract>(
   return contract;
 }
 
+export async function deployUpgradeable<T extends BaseContract>(
+  contractName: string,
+  signer: Signer,
+  args: unknown[] = []
+): Promise<T> {
+  log(`Deploying deterministic upgradeable ${contractName} with args:`, args);
+  
+  const factory = await ethers.getContractFactory(contractName, signer);
+  const feeData = await ethers.provider.getFeeData();
+  
+  // Add safety margin to gas prices
+  const maxFeePerGas = feeData.maxFeePerGas ? 
+    (feeData.maxFeePerGas * BigInt(150)) / BigInt(100) : // 50% buffer
+    undefined;
+  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?
+    (feeData.maxPriorityFeePerGas * BigInt(150)) / BigInt(100) : // 50% buffer
+    undefined;
+
+  try {
+    // Try deploying with calculated gas prices first
+    const proxy = await upgrades.deployProxy(
+      factory, 
+      args,
+      {
+        kind: 'transparent',
+        initializer: 'initialize',
+        salt: ethers.id('Brava'),
+        txOverrides: {
+          maxFeePerGas,
+          maxPriorityFeePerGas,
+        }
+      }
+    );
+    await proxy.waitForDeployment();
+
+    const address = await proxy.getAddress();
+    log(`${contractName} proxy deployed at:`, address);
+    
+    const implementationAddress = await upgrades.erc1967.getImplementationAddress(address);
+    log(`${contractName} implementation deployed at:`, implementationAddress);
+    
+    return proxy as unknown as T;
+  } catch (error) {
+    log(`Failed first deployment attempt with gas prices, trying with higher values:`, error);
+    
+    // Try with doubled gas prices
+    try {
+      const proxy = await upgrades.deployProxy(
+        factory, 
+        args,
+        {
+          kind: 'transparent',
+          initializer: 'initialize',
+          salt: ethers.id('Brava'),
+          txOverrides: {
+            maxFeePerGas: maxFeePerGas ? maxFeePerGas * BigInt(2) : undefined,
+            maxPriorityFeePerGas: maxPriorityFeePerGas ? maxPriorityFeePerGas * BigInt(2) : undefined,
+          }
+        }
+      );
+      await proxy.waitForDeployment();
+
+      const address = await proxy.getAddress();
+      log(`${contractName} proxy deployed at:`, address);
+      
+      const implementationAddress = await upgrades.erc1967.getImplementationAddress(address);
+      log(`${contractName} implementation deployed at:`, implementationAddress);
+      
+      return proxy as unknown as T;
+    } catch (error) {
+      // If that also fails, try without gas price specifications
+      log(`Failed with higher gas prices, trying without gas overrides:`, error);
+      
+      const proxy = await upgrades.deployProxy(
+        factory, 
+        args,
+        {
+          kind: 'transparent',
+          initializer: 'initialize',
+          salt: ethers.id('Brava')
+        }
+      );
+      await proxy.waitForDeployment();
+
+      const address = await proxy.getAddress();
+      log(`${contractName} proxy deployed at:`, address);
+      
+      const implementationAddress = await upgrades.erc1967.getImplementationAddress(address);
+      log(`${contractName} implementation deployed at:`, implementationAddress);
+      
+      return proxy as unknown as T;
+    }
+  }
+}
+
 type BaseSetup = {
   logger: Logger;
   adminVault: AdminVault;
@@ -168,7 +263,7 @@ type BaseSetup = {
 
 export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
-  const logger = await deploy<Logger>('Logger', deploySigner);
+  const logger = await deployUpgradeable<Logger>('Logger', deploySigner);
   const adminVault = await deploy<AdminVault>(
     'AdminVault',
     deploySigner,
