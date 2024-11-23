@@ -1,10 +1,9 @@
 // TODO: consider using absolute imports
-import { ethers, Signer, expect } from '.';
 import { network } from 'hardhat';
-import { Curve3PoolSwap, IERC20 } from '../typechain-types';
+import { ethers, Signer } from '.';
 // import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from 'tests/constants';
-import { deploy, log, getBaseSetup } from '../tests/utils';
-// import { executeSafeTransaction } from 'athena-sdk';
+import { getBaseSetup, log } from '../tests/utils';
+// import { executeSafeTransaction } from 'brava-ts-client';
 // import { fundAccountWithToken, getStables } from 'tests/utils-stable';
 
 // A template for a test file

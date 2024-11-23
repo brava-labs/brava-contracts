@@ -1,24 +1,15 @@
-import { expect, ethers, Signer } from './.';
 import { network } from 'hardhat';
 import {
-  encodeAction,
-  getBaseSetup,
-  deploy,
-  getBytes4,
-  executeSequence,
-  executeAction,
-  log,
-} from './utils';
-import { fundAccountWithToken } from './utils-stable';
-import { tokenConfig, CURVE_3POOL_ADDRESS } from './constants';
-import {
   AdminVault,
+  Curve3PoolSwap,
   FluidSupply,
   FluidWithdraw,
   SequenceExecutor,
-  Curve3PoolSwap,
 } from '../typechain-types';
-import { Swap } from 'athena-sdk';
+import { ethers, Signer } from './.';
+import { CURVE_3POOL_ADDRESS, tokenConfig } from './constants';
+import { deploy, encodeAction, executeSequence, getBaseSetup, getBytes4, log } from './utils';
+import { fundAccountWithToken } from './utils-stable';
 
 describe('Sequence tests', () => {
   let snapshotId: string;

@@ -1,38 +1,39 @@
 {
-  "name": "athena-contracts",
+  "name": "brava-contracts",
   "version": "1.0.0",
-  "description": "AthenaFi smart contracts",
+  "description": "Brava smart contracts",
   "main": "index.js",
   "scripts": {
     "hardhat-run": "hardhat run",
     "test": "hardhat test",
     "test:logging": "ENABLE_LOGGING=true hardhat test",
-    "test:sdk": "USE_ATHENA_SDK=true hardhat test",
+    "test:sdk": "USE_BRAVA_SDK=true hardhat test",
     "coverage": "hardhat coverage",
     "lint": "hardhat check"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/amorphicxyz/athena-contracts.git"
+    "url": "git+https://github.com/brava-labs/brava-contracts.git"
   },
-  "author": "amorphicxyz",
+  "author": "brava-labs",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/amorphicxyz/athena-contracts/issues"
+    "url": "https://github.com/brava-labs/brava-contracts/issues"
   },
-  "homepage": "https://github.com/amorphicxyz/athena-contracts#readme",
+  "homepage": "https://github.com/brava-labs/brava-contracts#readme",
   "devDependencies": {
-    "@nexusmutual/sdk": "^0.4.13",
-    "@nomicfoundation/hardhat-ledger": "^1.0.3",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@tenderly/hardhat-tenderly": "^2.2.2",
-    "hardhat": "^2.22.7"
+    "@nexusmutual/sdk": "0.5.6",
+    "@nomicfoundation/hardhat-ledger": "1.0.3",
+    "@nomicfoundation/hardhat-toolbox": "5.0.0",
+    "@openzeppelin/hardhat-upgrades": "3.5.0",
+    "@tenderly/hardhat-tenderly": "2.5.1",
+    "hardhat": "2.22.16"
   },
   "dependencies": {
-    "@nomiclabs/hardhat-solhint": "^4.0.0",
-    "@openzeppelin/contracts": "^5.0.2",
-    "athena-sdk": "github:amorphicxyz/athena-sdk#DEL-54",
-    "dotenv": "^16.4.5",
-    "ethers": "6.13.2"
+    "@nomiclabs/hardhat-solhint": "4.0.1",
+    "@openzeppelin/contracts": "5.1.0",
+    "brava-ts-client": "0.0.2",
+    "dotenv": "16.4.5",
+    "ethers": "6.13.4"
   }
 }

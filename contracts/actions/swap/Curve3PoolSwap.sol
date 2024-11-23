@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
-import {ICurve3Pool} from "../../interfaces/curve/ICurve3Pool.sol";
 import {IERC20Metadata as IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Errors} from "../../Errors.sol";
+import {ICurve3Pool} from "../../interfaces/curve/ICurve3Pool.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title Curve3PoolSwap - Swaps tokens using Curve 3Pool
 /// @notice This contract allows users to swap tokens using the Curve 3Pool
 /// @dev Inherits from ActionBase and implements the swap functionality for Curve 3Pool
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract Curve3PoolSwap is ActionBase {
     using SafeERC20 for IERC20;
 
@@ -44,24 +45,22 @@ contract Curve3PoolSwap is ActionBase {
         _curve3PoolSwap(params);
     }
 
-    /// @inheritdoc ActionBase
-    function actionType() public pure override returns (uint8) {
-        return uint8(ActionType.SWAP_ACTION);
-    }
-
     /// @notice Executes the Curve 3Pool swap
     /// @param _params Struct containing swap parameters
     function _curve3PoolSwap(Params memory _params) internal {
-        if (
-            !(_params.fromToken >= 0 && _params.fromToken < 3 && _params.toToken >= 0 && _params.toToken < 3) ||
-            _params.fromToken == _params.toToken
-        ) {
-            revert Errors.Curve3Pool__InvalidTokenIndices(_params.fromToken, _params.toToken);
-        }
+        require(
+            _params.fromToken >= 0 &&
+                _params.fromToken < 3 &&
+                _params.toToken >= 0 &&
+                _params.toToken < 3 &&
+                _params.fromToken != _params.toToken,
+            Errors.Curve3Pool__InvalidTokenIndices(_params.fromToken, _params.toToken)
+        );
 
-        if (_params.amountIn == 0 || _params.minAmountOut == 0) {
-            revert Errors.InvalidInput("Curve3PoolSwap", "executeAction");
-        }
+        require(
+            _params.amountIn != 0 && _params.minAmountOut != 0,
+            Errors.InvalidInput("Curve3PoolSwap", "executeAction")
+        );
 
         IERC20 tokenIn = IERC20(POOL.coins(uint256(uint128(_params.fromToken))));
         IERC20 tokenOut = IERC20(POOL.coins(uint256(uint128(_params.toToken))));
@@ -75,7 +74,7 @@ contract Curve3PoolSwap is ActionBase {
         uint256 balanceAfter = tokenOut.balanceOf(address(this));
         uint256 amountOut = balanceAfter - balanceBefore;
 
-        LOGGER.logActionEvent("Curve3PoolSwap", abi.encode(_params, amountOut));
+        LOGGER.logActionEvent(LogType.CURVE_3POOL_SWAP, abi.encode(_params, amountOut));
     }
 
     /// @notice Parses the input data from bytes to Params struct
@@ -86,7 +85,11 @@ contract Curve3PoolSwap is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure override returns (string memory) {
+    function actionType() public pure override returns (uint8) {
+        return uint8(ActionType.SWAP_ACTION);
+    }
+    /// @inheritdoc ActionBase
+    function protocolName() public pure override returns (string memory) {
         return "Curve";
     }
 }

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
+
+import {ActionBase} from "../actions/ActionBase.sol";
 
 interface ILogger {
-    event ActionEvent(address indexed caller, string indexed logName, bytes data);
-    event AdminVaultEvent(string indexed logName, bytes data);
+    event ActionEvent(address caller, ActionBase.LogType logId, bytes data);
+    event AdminVaultEvent(uint256 logId, bytes data);
 
-    function logActionEvent(string memory _logName, bytes memory _data) external;
-    function logAdminVaultEvent(string memory _logName, bytes memory _data) external;
+    function logActionEvent(ActionBase.LogType _logType, bytes memory _data) external;
+    function logAdminVaultEvent(uint256 _logId, bytes memory _data) external;
 }

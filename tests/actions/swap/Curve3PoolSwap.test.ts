@@ -1,13 +1,13 @@
-import { executeSafeTransaction } from 'athena-sdk';
 import { BigNumberish } from 'ethers';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
-import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../constants';
 import { Curve3PoolSwap, IERC20Metadata } from '../../../typechain-types';
-import { Curve3PoolSwapParams } from '../../params';
-import { deploy, executeAction, getBaseSetup, log } from '../../utils';
-import { fundAccountWithToken, getStables } from '../../utils-stable';
 import { actionTypes } from '../../actions';
+import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../constants';
+import { ACTION_LOG_IDS, Curve3PoolSwapLog } from '../../logs';
+import { Curve3PoolSwapParams } from '../../params';
+import { decodeLoggerLog, deploy, executeAction, getBaseSetup, getBytes4, log } from '../../utils';
+import { fundAccountWithToken, getStables } from '../../utils-stable';
 
 interface SwapParams {
   fromToken: number;
@@ -75,10 +75,15 @@ describe('Curve3PoolSwap tests', () => {
       'Curve3PoolSwap',
       signer,
       await adminVault.getAddress(),
-      baseSetup.logger.getAddress(),
+      await baseSetup.logger.getAddress(),
       CURVE_3POOL_ADDRESS
     );
     ({ USDC, USDT, DAI } = await getStables());
+
+    const poolAddress = await curve3PoolSwap.getAddress();
+
+    await adminVault.proposeAction(getBytes4(poolAddress), poolAddress);
+    await adminVault.addAction(getBytes4(poolAddress), poolAddress);
 
     // Take local snapshot before running tests
     log('Taking local snapshot');
@@ -156,6 +161,27 @@ describe('Curve3PoolSwap tests', () => {
       expect(await USDT.decimals()).to.equal(tokenConfig.USDT.decimals);
       expect(await DAI.symbol()).to.equal('DAI');
       expect(await DAI.decimals()).to.equal(tokenConfig.DAI.decimals);
+    });
+    it('should emit the correct log', async () => {
+      await fundAccountWithToken(safeAddr, 'DAI', 1000);
+
+      const swapAmount = ethers.parseUnits('100', tokenConfig.DAI.decimals);
+      const tx = await executeAction({
+        type: 'Curve3PoolSwap',
+        tokenIn: 'DAI',
+        tokenOut: 'USDC',
+        amount: swapAmount,
+      });
+      const logs = (await decodeLoggerLog(tx)) as Curve3PoolSwapLog[];
+      const log = logs[0];
+
+      expect(log.eventId).to.equal(BigInt(ACTION_LOG_IDS.CURVE_3POOL_SWAP));
+      expect(log.safeAddress).to.equal(safeAddr);
+      expect(log.fromToken).to.equal(BigInt(CURVE_3POOL_INDICES.DAI));
+      expect(log.toToken).to.equal(BigInt(CURVE_3POOL_INDICES.USDC));
+      expect(log.amountIn).to.equal(swapAmount);
+      expect(log.minAmountOut).to.equal(1n);
+      expect(log.actualAmountOut).to.be.greaterThan(0n);
     });
     it('Should have swap action type', async () => {
       const actionType = await curve3PoolSwap.actionType();
@@ -239,4 +265,5 @@ describe('Curve3PoolSwap tests', () => {
   });
 });
 
-export {};
+export { };
+

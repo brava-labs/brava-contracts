@@ -1,5 +1,8 @@
-import { tokenConfig } from './constants';
+import { CoverAsset } from '@nexusmutual/sdk';
 import { ethers } from 'ethers';
+import { tokenConfig } from './constants';
+import { getBytes4 } from './utils';
+
 export const actionTypes = {
   DEPOSIT_ACTION: 0,
   WITHDRAW_ACTION: 1,
@@ -10,11 +13,117 @@ export const actionTypes = {
   CUSTOM_ACTION: 6,
 };
 
-// Define default values for each action type
-export interface ActionEncoding {
-  inputParams: string[];
-  encodingVariables: string[];
+// Base interface for common properties
+interface BaseActionArgs {
+  useSDK?: boolean;
+  value?: number;
+  safeOperation?: number;
+  safeAddress?: string;
+  signer?: ethers.Signer;
+  encoding?: {
+    inputParams: string[];
+    encodingVariables: string[];
+  };
+  sdkArgs?: string[];
+  safeTxGas?: number;
+  gasPrice?: number;
+  baseGas?: number;
+  debug?: boolean;
 }
+
+// Specific interfaces for each action type
+interface SupplyArgs extends BaseActionArgs {
+  type:
+    | 'FluidSupply'
+    | 'YearnSupply'
+    | 'ClearpoolSupply'
+    | 'SparkSupply'
+    | 'AcrossSupply'
+    | 'MorphoSupply';
+  poolAddress?: string;
+  feeBasis?: number;
+  amount?: string | BigInt;
+  minSharesReceived?: string | BigInt;
+}
+
+interface WithdrawArgs extends BaseActionArgs {
+  type:
+    | 'FluidWithdraw'
+    | 'YearnWithdraw'
+    | 'ClearpoolWithdraw'
+    | 'SparkWithdraw'
+    | 'AcrossWithdraw'
+    | 'MorphoWithdraw';
+  poolAddress?: string;
+  feeBasis?: number;
+  amount?: string | BigInt;
+  maxSharesBurned?: string | BigInt;
+}
+
+interface SwapArgs extends BaseActionArgs {
+  type: 'Curve3PoolSwap';
+  tokenIn: keyof typeof tokenConfig;
+  tokenOut: keyof typeof tokenConfig;
+  amount: string | BigInt;
+  minAmount?: string;
+}
+
+interface TokenTransferArgs extends BaseActionArgs {
+  type: 'PullToken' | 'SendToken';
+  token: keyof typeof tokenConfig;
+  amount: string | BigInt;
+  from?: string;
+  to?: string;
+}
+
+export interface BuyCoverArgs extends BaseActionArgs {
+  type: 'BuyCover';
+  productId: number;
+  amountToInsure: string;
+  daysToInsure: number;
+  coverAddress?: string;
+  coverAsset: CoverAsset;
+}
+
+export interface AaveV3Args extends BaseActionArgs {
+  type: 'AaveV3Supply' | 'AaveV3Withdraw';
+  assetId: string;
+  amount: string | BigInt;
+  feeBasis?: number;
+}
+
+export interface AaveV2Args extends BaseActionArgs {
+  type: 'AaveV2Supply' | 'AaveV2Withdraw';
+  assetId: string;
+  amount: string | BigInt;
+  feeBasis?: number;
+}
+
+interface StrikeArgs extends BaseActionArgs {
+  type: 'StrikeSupply' | 'StrikeWithdraw';
+  assetId: string;
+  amount: string | BigInt;
+  feeBasis?: number;
+}
+
+export interface UwULendArgs extends BaseActionArgs {
+  type: 'UwULendSupply' | 'UwULendWithdraw';
+  assetId: string;
+  amount: string | BigInt;
+  feeBasis?: number;
+}
+
+// Union type for all action args
+export type ActionArgs =
+  | SupplyArgs
+  | WithdrawArgs
+  | SwapArgs
+  | TokenTransferArgs
+  | BuyCoverArgs
+  | AaveV3Args
+  | AaveV2Args
+  | StrikeArgs
+  | UwULendArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
@@ -31,6 +140,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
+    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
   },
   FluidWithdraw: {
     type: 'FluidWithdraw',
@@ -67,7 +177,6 @@ export const actionDefaults: Record<string, ActionArgs> = {
     safeOperation: 1,
     poolAddress: tokenConfig.USDC.pools.yearn,
     feeBasis: 0,
-    minAmount: '0',
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
     encoding: {
@@ -77,7 +186,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   Curve3PoolSwap: {
     type: 'Curve3PoolSwap',
-    useSDK: true,
+    useSDK: false,
     tokenIn: 'USDC',
     tokenOut: 'USDT',
     amount: '0',
@@ -113,34 +222,226 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['tokenAddress', 'to', 'amount'],
     },
   },
-  // Add more action types and their defaults as needed
+  BuyCover: {
+    type: 'BuyCover',
+    useSDK: true,
+    productId: 152, // this pool allows all payment types
+    amountToInsure: '1.0',
+    daysToInsure: 28,
+    coverAsset: CoverAsset.DAI,
+    value: 0,
+    safeOperation: 1,
+  },
+  AaveV3Supply: {
+    useSDK: false,
+    type: 'AaveV3Supply',
+    assetId: getBytes4(tokenConfig.aUSDC_V3.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  AaveV3Withdraw: {
+    type: 'AaveV3Withdraw',
+    assetId: getBytes4(tokenConfig.aUSDC_V3.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  AaveV2Withdraw: {
+    type: 'AaveV2Withdraw',
+    assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  AaveV2Supply: {
+    type: 'AaveV2Supply',
+    assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  StrikeWithdraw: {
+    type: 'StrikeWithdraw',
+    assetId: getBytes4(tokenConfig.sUSDC.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  StrikeSupply: {
+    type: 'StrikeSupply',
+    assetId: getBytes4(tokenConfig.sUSDC.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  ClearpoolSupply: {
+    useSDK: false,
+    type: 'ClearpoolSupply',
+    poolAddress: tokenConfig.cpALP_USDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    value: 0,
+    safeOperation: 1,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
+  },
+  ClearpoolWithdraw: {
+    type: 'ClearpoolWithdraw',
+    useSDK: false,
+    poolAddress: tokenConfig.cpALP_USDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  UwULendWithdraw: {
+    type: 'UwULendWithdraw',
+    assetId: getBytes4(tokenConfig.uUSDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  UwULendSupply: {
+    type: 'UwULendSupply',
+    assetId: getBytes4(tokenConfig.uUSDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  SparkSupply: {
+    type: 'SparkSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.sDAI.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  SparkWithdraw: {
+    type: 'SparkWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.sDAI.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+  },
+  AcrossSupply: {
+    type: 'AcrossSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.across_lpUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  AcrossWithdraw: {
+    type: 'AcrossWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.across_lpUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+  },
+  MorphoSupply: {
+    type: 'MorphoSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.fxUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
+  },
+  MorphoWithdraw: {
+    type: 'MorphoWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.fxUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
+  },
 };
-
-import { Signer } from 'ethers';
-
-// We only need to know the type, everything else could be set to default values
-export interface ActionArgs {
-  useSDK?: boolean;
-  protocol?: 'fluid' | 'yearn';
-  type: string;
-  safeAddress?: string;
-  value?: number;
-  actionAddress?: string;
-  safeOperation?: number;
-  token?: keyof typeof tokenConfig;
-  tokenIn?: keyof typeof tokenConfig;
-  tokenOut?: keyof typeof tokenConfig;
-  amount?: BigInt | string;
-  feeBasis?: number;
-  minAmount?: string;
-  signer?: Signer;
-  inputParams?: string[];
-  minSharesReceived?: string;
-  maxSharesBurned?: string;
-  encoding?: ActionEncoding;
-  poolId?: string;
-  poolAddress?: string;
-  tokenAddress?: string;
-  from?: string;
-  to?: string;
-}

@@ -1,21 +1,35 @@
-import { ethers, network } from 'hardhat';
+import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
+import * as bravaSdk from 'brava-ts-client';
+import { deploySafe, executeSafeTransaction } from 'brava-ts-client';
+import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
+import { ethers, network, upgrades } from 'hardhat';
 import {
-  Signer,
-  BaseContract,
-  Log,
-  TransactionResponse,
-  TransactionReceipt,
-  BytesLike,
-} from 'ethers';
-import { tokenConfig, ROLES, CURVE_3POOL_INDICES } from './constants';
-import { actionDefaults, ActionArgs } from './actions';
-import { deploySafe, executeSafeTransaction } from 'athena-sdk';
-import * as athenaSDK from 'athena-sdk';
-import { Logger, AdminVault, ISafe, SequenceExecutor } from '../typechain-types';
-import { BalanceUpdateLog, BuyCoverLog } from './logs';
+  AdminVault,
+  ISafe,
+  ISafeProxyFactory,
+  Logger,
+  Proxy,
+  SequenceExecutor,
+  SequenceExecutorDebug,
+} from '../typechain-types';
+import { ActionArgs, actionDefaults, BuyCoverArgs } from './actions';
+import {
+  CREATE_X_ADDRESS,
+  CURVE_3POOL_INDICES,
+  NEXUS_QUOTES,
+  ROLES,
+  SAFE_PROXY_FACTORY_ADDRESS,
+  tokenConfig,
+} from './constants';
+import { BaseLog, LogDefinitions, LOGGER_INTERFACE } from './logs';
+import {
+  BuyCoverInputTypes,
+  NexusMutualBuyCoverParamTypes,
+  NexusMutualPoolAllocationRequestTypes,
+} from './params';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
-export const USE_ATHENA_SDK = process.env.USE_ATHENA_SDK === 'true';
+export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
 
 export function log(...args: unknown[]): void {
   if (isLoggingEnabled) {
@@ -27,77 +41,60 @@ export function formatAmount(amount: bigint, decimals: number): string {
   return (amount / BigInt(10 ** decimals)).toString();
 }
 
-async function processLoggerInput(
-  input: TransactionResponse | TransactionReceipt | Log[]
-): Promise<readonly Log[]> {
-  if (Array.isArray(input)) {
-    return input; // It's already Log[]
-  } else if ('wait' in input) {
-    const receipt = await input.wait();
-    return receipt?.logs ?? []; // It's TransactionResponse
-  } else if ('logs' in input) {
-    return input.logs; // It's TransactionReceipt
-  }
-  throw new Error('Invalid input type');
-}
-
-/// takes a hash and returns the event name if it matches one of the known events
-/// we need to do this because in events an indexed string is only emitted as a hash
-function matchHashToEvent(hash: string): string | null {
-  const knownEvents = ['BalanceUpdate', 'BuyCover'];
-  return knownEvents.find((event) => ethers.keccak256(ethers.toUtf8Bytes(event)) === hash) ?? hash;
-}
-
-// give me a transaction response, a transaction receipt, or an array of logs
-// I don't care which, just point me at the logger and I'll decode the logs for you
+// Decode a log from the logger
+// This function will take in a TransactionResponse, TransactionReceipt or an array of logs
+// and return an array of decoded logs
 export async function decodeLoggerLog(
-  input: TransactionResponse | TransactionReceipt | Log[],
-  loggerAddress: string
-): Promise<(BalanceUpdateLog | BuyCoverLog)[]> {
-  const logs = await processLoggerInput(input);
+  input: TransactionResponse | TransactionReceipt | Log[]
+): Promise<BaseLog[]> {
+  log('Decoding logger log');
+
+  let logs: Log[];
+  if (Array.isArray(input)) {
+    logs = input;
+  } else if ('wait' in input) {
+    // It's a TransactionResponse, wait for the receipt
+    const receipt = await input.wait();
+    if (!receipt) {
+      throw new Error('Problem decoding log: Transaction receipt not found');
+    }
+    logs = receipt.logs as Log[];
+  } else {
+    // It's a TransactionReceipt
+    logs = input.logs as Log[];
+  }
+
   const abiCoder = new ethers.AbiCoder();
-  const logger = await ethers.getContractAt('Logger', loggerAddress);
+  const loggerInterface = new ethers.Interface(LOGGER_INTERFACE);
 
-  const relevantLogs = logs.filter(
-    (log: any) => log.address.toLowerCase() === loggerAddress.toLowerCase()
-  );
+  // TODO: Deal with the AdminVaultEvent logs
 
-  return relevantLogs.map((log: any) => {
-    const decodedLog = logger.interface.parseLog(log)!;
-    const eventName = matchHashToEvent(decodedLog.args[1].hash);
+  // The event signature for ActionEvent
+  const actionEventTopic = loggerInterface.getEvent('ActionEvent')!.topicHash;
 
+  const relevantLogs = logs.filter((log: Log) => log.topics[0] === actionEventTopic);
+
+  return relevantLogs.map((log: Log) => {
+    const parsedLog = loggerInterface.parseLog({
+      topics: log.topics as string[],
+      data: log.data,
+    })!;
+
+    const eventId = parsedLog.args.logId;
     const baseLog = {
-      eventName,
-      safeAddress: decodedLog.args[0],
+      eventId,
+      safeAddress: parsedLog.args.caller,
     };
 
-    if (eventName === 'BalanceUpdate') {
-      const decodedBytes = abiCoder.decode(
-        ['uint16', 'bytes4', 'uint256', 'uint256', 'uint256'],
-        decodedLog.args[2]
-      );
-      return {
-        ...baseLog,
-        strategyId: decodedBytes[0],
-        poolId: decodedBytes[1].toString(),
-        balanceBefore: decodedBytes[2],
-        balanceAfter: decodedBytes[3],
-        feeInTokens: decodedBytes[4],
-      } as BalanceUpdateLog;
-    } else if (eventName === 'BuyCover') {
-      const decodedBytes = abiCoder.decode(
-        ['uint16', 'bytes4', 'uint32', 'uint256'],
-        decodedLog.args[2]
-      );
-      return {
-        ...baseLog,
-        strategyId: decodedBytes[0],
-        poolId: decodedBytes[1].toString(),
-        coverId: decodedBytes[2].toString(),
-      } as BuyCoverLog;
-    } else {
-      throw new Error(`Unknown event type: ${eventName}`);
+    const logDefinition = LogDefinitions[eventId];
+    if (!logDefinition) {
+      throw new Error(`Problem decoding log: Unknown event type: ${eventId}`);
     }
+
+    const decodedBytes = abiCoder.decode(logDefinition.types, parsedLog.args.data);
+    const extendedLog = logDefinition.decode(baseLog, decodedBytes);
+
+    return extendedLog;
   });
 }
 
@@ -109,14 +106,30 @@ export async function deploy<T extends BaseContract>(
   log(`Deploying ${contractName} with args:`, ...args);
   const feeData = await ethers.provider.getFeeData();
   const factory = await ethers.getContractFactory(contractName, signer);
+  const bytecode = factory.bytecode;
+  let initCode = '';
+  const contractAbi = factory.interface.formatJson();
+  const constructorAbi = JSON.parse(contractAbi).find((item: any) => item.type === 'constructor');
+  if (constructorAbi) {
+    const constructorTypes = constructorAbi.inputs.map((input: any) => input.type);
+    const abiCoder = new ethers.AbiCoder();
+    const constructorArgs = abiCoder.encode(constructorTypes, args);
+    initCode = ethers.concat([bytecode, constructorArgs]);
+  } else {
+    initCode = bytecode;
+  }
+  const salt = ethers.keccak256(ethers.toUtf8Bytes('Brava'));
+  const createXFactory = await ethers.getContractAt('ICreateX', CREATE_X_ADDRESS, signer);
   let contract: T;
+  let receipt: TransactionReceipt | null = null;
   try {
     // By default try and deploy with gasOverrides from the provider
     const gasOverrides = {
       maxFeePerGas: feeData.maxFeePerGas,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
     };
-    contract = (await factory.deploy(...args, gasOverrides)) as T;
+    const tx = await createXFactory['deployCreate2(bytes32,bytes)'](salt, initCode, gasOverrides);
+    receipt = await tx.wait();
   } catch (error) {
     // If the deployment fails, try and deploy with 0 gas
     const gasOverrides = {
@@ -124,38 +137,155 @@ export async function deploy<T extends BaseContract>(
       maxPriorityFeePerGas: '0',
     };
     try {
-      contract = (await factory.deploy(...args, gasOverrides)) as T;
+      const tx = await createXFactory['deployCreate2(bytes32,bytes)'](salt, initCode, gasOverrides);
+      receipt = await tx.wait();
     } catch (error) {
       // now we really are out of options
       log(`Error deploying ${contractName} with gas overrides:`, error);
       throw error;
     }
   }
-  log(`${contractName} deployed at:`, await contract.getAddress());
-  deployedContracts[contractName] = { address: await contract.getAddress(), contract };
-  return contract.waitForDeployment() as Promise<T>;
+  const contractCreationEvent = receipt?.logs.find(
+    (log: any) => log.eventName === 'ContractCreation'
+  );
+  if (!contractCreationEvent) {
+    throw new Error(`Contract creation event not found for ${contractName}`);
+  }
+  const addr = ethers.getAddress(contractCreationEvent.topics[1].slice(26));
+  contract = (await ethers.getContractAt(contractName, addr, signer)) as unknown as T;
+  log(`${contractName} deployed at:`, addr);
+  deployedContracts[contractName] = { address: addr, contract };
+  return contract;
 }
 
-export async function deployBaseSetup(signer?: Signer): Promise<typeof globalSetup> {
+export async function deployUpgradeable<T extends BaseContract>(
+  contractName: string,
+  signer: Signer,
+  args: unknown[] = []
+): Promise<T> {
+  log(`Deploying deterministic upgradeable ${contractName} with args:`, args);
+  
+  const factory = await ethers.getContractFactory(contractName, signer);
+  const feeData = await ethers.provider.getFeeData();
+  
+  // Add safety margin to gas prices
+  const maxFeePerGas = feeData.maxFeePerGas ? 
+    (feeData.maxFeePerGas * BigInt(150)) / BigInt(100) : // 50% buffer
+    undefined;
+  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?
+    (feeData.maxPriorityFeePerGas * BigInt(150)) / BigInt(100) : // 50% buffer
+    undefined;
+
+  try {
+    // Try deploying with calculated gas prices first
+    const proxy = await upgrades.deployProxy(
+      factory, 
+      args,
+      {
+        kind: 'transparent',
+        initializer: 'initialize',
+        salt: ethers.id('Brava'),
+        txOverrides: {
+          maxFeePerGas,
+          maxPriorityFeePerGas,
+        }
+      }
+    );
+    await proxy.waitForDeployment();
+
+    const address = await proxy.getAddress();
+    log(`${contractName} proxy deployed at:`, address);
+    
+    const implementationAddress = await upgrades.erc1967.getImplementationAddress(address);
+    log(`${contractName} implementation deployed at:`, implementationAddress);
+    
+    return proxy as unknown as T;
+  } catch (error) {
+    log(`Failed first deployment attempt with gas prices, trying with higher values:`, error);
+    
+    // Try with doubled gas prices
+    try {
+      const proxy = await upgrades.deployProxy(
+        factory, 
+        args,
+        {
+          kind: 'transparent',
+          initializer: 'initialize',
+          salt: ethers.id('Brava'),
+          txOverrides: {
+            maxFeePerGas: maxFeePerGas ? maxFeePerGas * BigInt(2) : undefined,
+            maxPriorityFeePerGas: maxPriorityFeePerGas ? maxPriorityFeePerGas * BigInt(2) : undefined,
+          }
+        }
+      );
+      await proxy.waitForDeployment();
+
+      const address = await proxy.getAddress();
+      log(`${contractName} proxy deployed at:`, address);
+      
+      const implementationAddress = await upgrades.erc1967.getImplementationAddress(address);
+      log(`${contractName} implementation deployed at:`, implementationAddress);
+      
+      return proxy as unknown as T;
+    } catch (error) {
+      // If that also fails, try without gas price specifications
+      log(`Failed with higher gas prices, trying without gas overrides:`, error);
+      
+      const proxy = await upgrades.deployProxy(
+        factory, 
+        args,
+        {
+          kind: 'transparent',
+          initializer: 'initialize',
+          salt: ethers.id('Brava')
+        }
+      );
+      await proxy.waitForDeployment();
+
+      const address = await proxy.getAddress();
+      log(`${contractName} proxy deployed at:`, address);
+      
+      const implementationAddress = await upgrades.erc1967.getImplementationAddress(address);
+      log(`${contractName} implementation deployed at:`, implementationAddress);
+      
+      return proxy as unknown as T;
+    }
+  }
+}
+
+type BaseSetup = {
+  logger: Logger;
+  adminVault: AdminVault;
+  safeProxyFactory: ISafeProxyFactory;
+  safe: ISafe;
+  signer: Signer;
+};
+
+export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
-  const logger = await deploy<Logger>('Logger', deploySigner);
+  const logger = await deployUpgradeable<Logger>('Logger', deploySigner);
   const adminVault = await deploy<AdminVault>(
     'AdminVault',
     deploySigner,
     await deploySigner.getAddress(),
     0,
-    logger.getAddress()
+    await logger.getAddress()
   );
-  const safeAddress = await deploySafe(deploySigner);
+  const proxy = await deploy<Proxy>('Proxy', deploySigner, SAFE_PROXY_FACTORY_ADDRESS);
+  const safeProxyFactory = await ethers.getContractAt(
+    'ISafeProxyFactory',
+    await proxy.getAddress()
+  );
+  const safeAddress = await deploySafe(deploySigner, await safeProxyFactory.getAddress());
   const safe = await ethers.getContractAt('ISafe', safeAddress);
   log('Safe deployed at:', safeAddress);
-  return { logger, adminVault, safe, signer: deploySigner };
+  return { logger, adminVault, safeProxyFactory, safe, signer: deploySigner };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
 let baseSetupSnapshotId: string | null = null;
 
-export async function getBaseSetup(signer?: Signer): Promise<typeof globalSetup> {
+export async function getBaseSetup(signer?: Signer): Promise<BaseSetup> {
   if (baseSetupCache && baseSetupSnapshotId) {
     log('Reverting to snapshot');
     await network.provider.send('evm_revert', [baseSetupSnapshotId]);
@@ -197,6 +327,7 @@ let globalSetup:
   | {
       logger: Logger;
       adminVault: AdminVault;
+      safeProxyFactory: ISafeProxyFactory;
       safe: ISafe;
       signer: Signer;
     }
@@ -205,6 +336,7 @@ let globalSetup:
 export function setGlobalSetup(params: {
   logger: Logger;
   adminVault: AdminVault;
+  safeProxyFactory: ISafeProxyFactory;
   safe: ISafe;
   signer: Signer;
 }) {
@@ -233,6 +365,106 @@ export function getDeployedContract(name: string): DeployedContract | undefined 
   return deployedContracts[name];
 }
 
+async function prepareNexusMutualCoverPurchase(args: Partial<BuyCoverArgs>): Promise<{
+  encodedFunctionCall: string;
+  buyCoverParams: any;
+  poolAllocationRequests: any[];
+}> {
+  const mergedArgs = { ...actionDefaults.BuyCover, ...args } as BuyCoverArgs;
+  const globalSetup = await getGlobalSetup();
+  const safeAddress = await globalSetup.safe.getAddress();
+
+  const { productId, amountToInsure, daysToInsure, coverAsset, coverAddress } = mergedArgs;
+  let response: GetQuoteApiResponse | ErrorApiResponse;
+
+  // Use destinationAddress if provided, otherwise fall back to safeAddress
+  const coverOwnerAddress = coverAddress || safeAddress;
+  log('Cover owner address:', coverOwnerAddress);
+
+  // Check if we're using an old block timestamp, if so use the saved quote
+  const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp;
+  if (blockTimestamp && blockTimestamp < Date.now() / 1000 - 3600) {
+    log('Using saved quote for Nexus Mutual cover purchase');
+    response = NEXUS_QUOTES[coverAsset as keyof typeof NEXUS_QUOTES];
+    response.result!.buyCoverInput.buyCoverParams.owner = coverOwnerAddress;
+  } else {
+    // get the token decimals, if coverAsset is ETH, use 18
+    // If cover asset = 0, use 18
+    // if cover asset = 1, use tokenConfig[DAI].decimals
+    // if cover asset = 6, use tokenConfig[USDC].decimals
+    let decimals = 18;
+    switch (coverAsset) {
+      case CoverAsset.ETH:
+        decimals = 18;
+        break;
+      case CoverAsset.DAI:
+        decimals = tokenConfig.DAI.decimals;
+        break;
+      case CoverAsset.USDC:
+        decimals = tokenConfig.USDC.decimals;
+        break;
+    }
+
+    response = await nexusSdk.getQuoteAndBuyCoverInputs(
+      productId,
+      ethers.parseUnits(amountToInsure, decimals).toString(),
+      daysToInsure,
+      coverAsset,
+      coverOwnerAddress
+    );
+  }
+
+  if (!response.result) {
+    throw new Error(
+      `Failed to prepare Nexus Mutual cover purchase: ${response.error?.message || 'Unknown error'}`
+    );
+  }
+
+  let { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
+
+  /// THE NEXUS SDK SOMETIMES RETURNS A PREMIUM THAT IS TOO LOW
+  /// THIS IS A HACK TO MAKE IT HIGHER JUST FOR OUR TESTS
+  /// This only seems necessary when we aren't using ETH as the cover asset
+  // if (coverAsset !== CoverAsset.ETH) {
+  //   buyCoverParams.maxPremiumInAsset = (
+  //     BigInt(buyCoverParams.maxPremiumInAsset) * BigInt(2)
+  //   ).toString();
+  // }
+
+  const abiCoder = new ethers.AbiCoder();
+  const buyCoverParamsEncoded = abiCoder.encode([NexusMutualBuyCoverParamTypes], [buyCoverParams]);
+  const poolAllocationRequestsEncoded = poolAllocationRequests.map((request) =>
+    abiCoder.encode([NexusMutualPoolAllocationRequestTypes], [request])
+  );
+
+  const encodedParamsCombined = abiCoder.encode(
+    [BuyCoverInputTypes],
+    [
+      {
+        owner: coverOwnerAddress,
+        buyCoverParams: buyCoverParamsEncoded,
+        poolAllocationRequests: poolAllocationRequestsEncoded,
+      },
+    ]
+  );
+
+  const buyCover = getDeployedContract('BuyCover');
+  if (!buyCover) {
+    throw new Error('BuyCover contract not deployed');
+  }
+
+  const encodedFunctionCall = buyCover.contract.interface.encodeFunctionData('executeAction', [
+    encodedParamsCombined,
+    1,
+  ]);
+
+  return {
+    encodedFunctionCall,
+    buyCoverParams,
+    poolAllocationRequests,
+  };
+}
+
 // Helper function to encode an action
 // This function will use default values for any parameters not specified
 // It will also use the global setup to get the safe address and signer
@@ -244,47 +476,68 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
     throw new Error(`Unknown action type: ${args.type}`);
   }
 
-  const mergedArgs = { ...defaults, ...args };
-  const { encoding } = defaults;
+  const mergedArgs = { ...defaults, ...args } as ActionArgs;
 
-  const encodingValues = encoding!.encodingVariables.map((variable) => {
-    let value = (mergedArgs as Record<string, any>)[variable];
+  // Nexus is special, lets just use their SDK
+  if (mergedArgs.type === 'BuyCover') {
+    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase(mergedArgs);
+    return encodedFunctionCall;
+  }
+
+  // Use Brava SDK if useSDK is true in the action defaults
+  if (mergedArgs.useSDK) {
+    const sdkFunctionName = `${mergedArgs.type}Action`;
+    if (sdkFunctionName in bravaSdk) {
+      const ActionClass = (bravaSdk as any)[sdkFunctionName];
+      if (typeof ActionClass === 'function') {
+        // Use sdkArgs to order the arguments correctly
+        const orderedArgs = defaults.sdkArgs?.map((argName) => (mergedArgs as any)[argName]) || [];
+        const actionInstance = new ActionClass(...orderedArgs);
+        return actionInstance.encodeArgs();
+      }
+    }
+    throw new Error(`Brava SDK function not found for action type: ${mergedArgs.type}`);
+  }
+
+  // Fall back to custom encoding
+  const { encoding } = mergedArgs;
+  if (!encoding) {
+    throw new Error(`No encoding found for action type: ${args.type}`);
+  }
+
+  const encodingValues = encoding.encodingVariables.map((variable) => {
+    let value = (mergedArgs as any)[variable];
 
     // Handle poolId special case
     if (variable === 'poolId') {
-      if (mergedArgs.poolId) {
+      if ('poolId' in mergedArgs) {
         return mergedArgs.poolId;
-      } else if (mergedArgs.poolAddress) {
-        return getBytes4(mergedArgs.poolAddress);
+      } else if ('poolAddress' in mergedArgs) {
+        return getBytes4(mergedArgs.poolAddress!);
       } else {
         throw new Error(`Missing required parameter: poolId or poolAddress for ${args.type}`);
       }
     }
 
     // Handle Curve swap special case
-    // we generally have token name, but we need to change to the curve token index
-    if (variable === 'fromToken') {
-      if (mergedArgs.tokenIn && mergedArgs.tokenIn in CURVE_3POOL_INDICES) {
-        return CURVE_3POOL_INDICES[mergedArgs.tokenIn as keyof typeof CURVE_3POOL_INDICES];
-      } else {
-        throw new Error(`Invalid or missing token parameter for ${args.type}`);
-      }
-    }
-    // the same for toToken
-    if (variable === 'toToken') {
-      if (mergedArgs.tokenOut && mergedArgs.tokenOut in CURVE_3POOL_INDICES) {
-        return CURVE_3POOL_INDICES[mergedArgs.tokenOut as keyof typeof CURVE_3POOL_INDICES];
-      } else {
-        throw new Error(`Invalid or missing token parameter for ${args.type}`);
+    if (variable === 'fromToken' || variable === 'toToken') {
+      if ('tokenIn' in mergedArgs && 'tokenOut' in mergedArgs) {
+        const tokenKey = variable === 'fromToken' ? 'tokenIn' : 'tokenOut';
+        const token = mergedArgs[tokenKey];
+        if (token in CURVE_3POOL_INDICES) {
+          return CURVE_3POOL_INDICES[token as keyof typeof CURVE_3POOL_INDICES];
+        } else {
+          throw new Error(`Invalid token parameter for ${args.type}`);
+        }
       }
     }
 
     // Handle PullToken and SendToken special case
     if (variable === 'tokenAddress') {
-      if (mergedArgs.tokenAddress) {
+      if ('tokenAddress' in mergedArgs) {
         return mergedArgs.tokenAddress;
-      } else if (mergedArgs.token) {
-        return tokenConfig[mergedArgs.token as keyof typeof tokenConfig].address;
+      } else if ('token' in mergedArgs) {
+        return tokenConfig[mergedArgs.token].address;
       } else {
         throw new Error(`Missing required parameter: token for ${args.type}`);
       }
@@ -297,10 +550,10 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
   });
 
   log('Encoding action:', args.type);
-  log('Encoding params:', encoding!.inputParams);
+  log('Encoding params:', encoding.inputParams);
   log('Encoding values:', encodingValues);
   const inputParams = ethers.AbiCoder.defaultAbiCoder().encode(
-    encoding!.inputParams,
+    encoding.inputParams,
     encodingValues
   );
   const actionContract = getDeployedContract(args.type);
@@ -318,11 +571,19 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
 
 // New executeAction function that uses encodeAction
 export async function executeAction(args: ActionArgs): Promise<TransactionResponse> {
+  // If debug is true, execute the action using the debug version
+  if (args.debug) {
+    return executeActionDebug(args);
+  }
+
   const {
     safeAddress = (await getGlobalSetup()).safe.getAddress(),
     value = actionDefaults[args.type]?.value ?? 0,
     safeOperation = actionDefaults[args.type]?.safeOperation ?? 0,
     signer = (await getGlobalSetup()).signer,
+    safeTxGas = actionDefaults[args.type]?.safeTxGas ?? 0,
+    gasPrice = actionDefaults[args.type]?.gasPrice ?? 0,
+    baseGas = actionDefaults[args.type]?.baseGas ?? 0,
   } = args;
 
   const actionContract = getDeployedContract(args.type);
@@ -332,22 +593,41 @@ export async function executeAction(args: ActionArgs): Promise<TransactionRespon
 
   const payload = await encodeAction(args);
 
-  // execute the action
+  const safe = await getGlobalSetup().safe;
+  const signature =
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ['address', 'bytes32'],
+      [await signer.getAddress(), ethers.ZeroHash]
+    ) + '01';
+
+  // // execute the action
   return executeSafeTransaction(
     await Promise.resolve(safeAddress),
     actionContract.address,
     value,
     payload,
     safeOperation,
-    signer
+    signer,
+    {
+      safeTxGas,
+      gasPrice,
+      baseGas,
+    }
   );
 }
 
 export async function executeSequence(
   safeAddr: string,
-  sequence: SequenceExecutor.SequenceStruct
+  sequence: SequenceExecutor.SequenceStruct,
+  debug?: boolean,
+  safeTxGas?: number,
+  gasPrice?: number,
+  baseGas?: number
 ): Promise<TransactionResponse> {
-  // lets start with a dumb function, just read in an run it
+  if (debug) {
+    return executeSequenceDebug(safeAddr, sequence, safeTxGas, gasPrice, baseGas);
+  }
+
   // get the sequence executor address
   const sequenceExecutorAddress = getDeployedContract('SequenceExecutor')?.address;
   if (!sequenceExecutorAddress) {
@@ -366,7 +646,11 @@ export async function executeSequence(
   log('Executing sequence');
   log('Sequence executor address:', sequenceExecutorAddress);
   log('Safe address:', safeAddr);
-  return executeSafeTransaction(safeAddr, sequenceExecutorAddress, 0, payload, 1, signer);
+  return executeSafeTransaction(safeAddr, sequenceExecutorAddress, 0, payload, 1, signer, {
+    safeTxGas,
+    gasPrice,
+    baseGas,
+  });
 }
 
 type RoleName = keyof typeof ROLES;
@@ -389,4 +673,77 @@ export function getRoleName(roleBytes: string): RoleName | undefined {
 
 export function getBytes4(address: string): string {
   return ethers.keccak256(address).slice(0, 10);
+}
+
+// Helper function to deploy SequenceExecutorDebug if we need it
+async function getSequenceExecutorDebug(): Promise<SequenceExecutorDebug> {
+  const deployedContract = getDeployedContract('SequenceExecutorDebug');
+  if (deployedContract) {
+    return deployedContract.contract as SequenceExecutorDebug;
+  }
+
+  const globalSetup = getGlobalSetup();
+  const adminVaultAddress = await globalSetup.adminVault.getAddress();
+  const sequenceExecutorDebug = await deploy<SequenceExecutorDebug>(
+    'SequenceExecutorDebug',
+    globalSetup.signer,
+    adminVaultAddress
+  );
+  return sequenceExecutorDebug;
+}
+
+// Debug version of executeAction
+// We need to convert it to a sequence in order to run it through the debug executor
+async function executeActionDebug(args: ActionArgs): Promise<TransactionResponse> {
+  const globalSetup = getGlobalSetup();
+  const safeAddress = await globalSetup.safe.getAddress();
+  const actionContract = getDeployedContract(args.type);
+  if (!actionContract) {
+    throw new Error(`Contract ${args.type} not deployed`);
+  }
+
+  const sequenceExecutorDebug = await getSequenceExecutorDebug();
+  const payload = await encodeAction(args);
+
+  // Ensure actionIds is properly formatted as bytes4
+  const actionId = getBytes4(actionContract.address);
+
+  const sequence: SequenceExecutor.SequenceStruct = {
+    name: `Debug_${args.type}`,
+    callData: [payload],
+    actionIds: [actionId],
+  };
+
+  log('Executing debug action:', args.type);
+  log('Action contract:', actionContract.address);
+  log('Action ID:', actionId);
+  log('Encoded payload:', payload);
+
+  return executeSequenceDebug(safeAddress, sequence, args.safeTxGas, args.gasPrice, args.baseGas);
+}
+
+// Debug version of executeSequence
+async function executeSequenceDebug(
+  safeAddr: string,
+  sequence: SequenceExecutor.SequenceStruct,
+  safeTxGas?: number,
+  gasPrice?: number,
+  baseGas?: number
+): Promise<TransactionResponse> {
+  const sequenceExecutorDebug = await getSequenceExecutorDebug();
+  const signer = (await getGlobalSetup()).signer;
+
+  log('Executing debug sequence');
+
+  const payload = sequenceExecutorDebug.interface.encodeFunctionData('executeSequence', [sequence]);
+
+  return executeSafeTransaction(
+    safeAddr,
+    await sequenceExecutorDebug.getAddress(),
+    0,
+    payload,
+    1,
+    signer,
+    { safeTxGas, gasPrice, baseGas }
+  );
 }

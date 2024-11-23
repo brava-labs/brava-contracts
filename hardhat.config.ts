@@ -1,18 +1,15 @@
 import '@nomicfoundation/hardhat-ledger';
 import '@nomicfoundation/hardhat-toolbox';
 import '@nomiclabs/hardhat-solhint';
-import * as tenderly from '@tenderly/hardhat-tenderly';
+import '@openzeppelin/hardhat-upgrades';
+import '@tenderly/hardhat-tenderly';
 import 'dotenv/config';
 import { HardhatUserConfig } from 'hardhat/config';
 
-tenderly.setup({
-  automaticVerifications: !!process.env.TENDERLY_AUTOMATIC_VERIFICATION,
-});
-
 const config: HardhatUserConfig = {
-  solidity: '0.8.24',
+  solidity: '0.8.28',
   paths: {
-    tests: './tests/',
+    tests: './tests',
   },
   networks: {
     virtualMainnet: {
@@ -22,7 +19,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: 'https://mainnet.gateway.tenderly.co/' + process.env.TENDERLY_API_KEY!,
-        blockNumber: 20840000,
+        blockNumber: 20978000, // If this is updated, also update the quotes for Nexus Mutual in constants.ts. Or just use latest
         enabled: true,
       },
     },

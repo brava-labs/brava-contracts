@@ -18,3 +18,12 @@ node_modules
 
 # Ethers deployments
 deployments
+
+# Local scripts
+scripts/local
+
+# CLOC
+.clocignore
+
+# MacOS
+.DS_Store

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
 /// @title Errors
 /// @notice This contract contains all custom errors used across the protocol
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract Errors {
     // Generic errors
     error InvalidInput(string _contract, string _function);
@@ -22,10 +23,14 @@ contract Errors {
     error AdminVault_AlreadyProposed();
     error AdminVault_NotAdded();
     error AdminVault_AlreadyAdded();
+    error AdminVault_NotPool(address _pool);
+    error AdminVault_AlreadyGranted();
+    error AdminVault_NotGranted();
 
     // FeeTakeSafeModule errors
     error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);
     error FeeTakeSafeModule_InvalidActionType(bytes4 _actionId);
+    error FeeTakeSafeModule_ExecutionFailed();
 
     // Generic Action errors
     error Action_ZeroAmount(string _protocolName, uint8 _actionType);
@@ -41,7 +46,14 @@ contract Errors {
         uint256 _sharesBurned,
         uint256 _maxAllowed
     );
+    error Action_InvalidPool(string _protocolName, uint8 _actionType);
+
+    // CompoundV2Supply errors
+    error Action_CompoundError(string _protocolName, uint8 _actionType, uint256 _errorCode);
 
     // Curve3PoolSwap errors
     error Curve3Pool__InvalidTokenIndices(int128 _fromToken, int128 _toToken);
+
+    // SendToken errors
+    error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
 }

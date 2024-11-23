@@ -1,13 +1,13 @@
-# AthenaFi Smart Contracts 🏛️
+# Brava Smart Contracts 🏛️
 
-Welcome to the AthenaFi smart contract repository! 🚀 This project houses the smart contracts powering the AthenaFi system. We're currently in an exciting early stage of development.
+Welcome to the Brava smart contract repository! 🚀 This project houses the smart contracts powering the Brava system. We're currently in an exciting early stage of development.
 
 ## 🛠️ Setup
 
 1. Clone the repository
 
    ```
-   git clone https://github.com/your-repo/athenaFi-smart-contracts.git
+   git clone https://github.com/brava-labs/brava-smart-contracts.git
    ```
 
 2. Install dependencies:
@@ -22,7 +22,7 @@ Welcome to the AthenaFi smart contract repository! 🚀 This project houses the 
    ALCHEMY_API_KEY=your_alchemy_api_key_here
    ```
 
-4. 🔗 Visit the [athena-sdk repository](https://github.com/your-repo/athena-sdk) and follow the installation instructions.
+4. 🔗 Visit the [brava-ts-client repository](https://github.com/brava-labs/brava-ts-client.git) and follow the installation instructions.
 
 ## 🧪 Running Tests
 
@@ -48,7 +48,7 @@ npm run test -- --grep Curve
 
 This project uses Hardhat for Ethereum development. The main configuration can be found in `hardhat.config.ts`.
 
-🔗 This project relies on the athena-sdk.
+🔗 This project relies on the brava-ts-client.
 
 ## 📜 Contract Overview
 
@@ -81,7 +81,7 @@ Sequences of actions are executed through the Sequence Executor, which uses `del
 - **Security** 🛡️: Action types provide fine-grained control over operations, enhancing system security.
 - **Transparency** 🔍: Centralized logging and action type system improve error reporting and traceability.
 
-This architecture enables users to perform sophisticated DeFi strategies efficiently and securely, all within the context of their Safe smart wallet, without AthenaFi taking custody of funds. 🚀💼
+This architecture enables users to perform sophisticated DeFi strategies efficiently and securely, all within the context of their Safe smart wallet, without Brava taking custody of funds. 🚀💼
 
 ## 🤝 Contributing
 

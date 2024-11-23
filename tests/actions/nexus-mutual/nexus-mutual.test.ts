@@ -1,101 +1,18 @@
-import { executeSafeTransaction, BuyCoverAction } from 'athena-sdk';
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { BuyCover } from '../../../typechain-types';
 import { NEXUS_MUTUAL_NFT_ADDRESS } from '../../constants';
-import { deploy, getBaseSetup, log } from '../../utils';
+import { deploy, getBaseSetup, log, executeAction, getBytes4, decodeLoggerLog } from '../../utils';
 import { fundAccountWithToken } from '../../utils-stable';
-import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
-import {
-  NexusMutualBuyCoverParamTypes,
-  NexusMutualPoolAllocationRequestTypes,
-  BuyCoverInputTypes,
-} from '../../params';
-import { actionTypes } from '../../actions';
+import { CoverAsset } from '@nexusmutual/sdk';
+import { actionTypes, ActionArgs } from '../../actions';
+import { ACTION_LOG_IDS } from '../../logs';
 
 describe('BuyCover tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let buyCover: BuyCover;
   let snapshotId: string;
-
-  // TODO: Change from manually encoding to using the SDK
-  async function prepareNexusMutualCoverPurchase(
-    options: {
-      productId?: number;
-      amountToInsure?: string;
-      daysToInsure?: number;
-      coverAsset?: CoverAsset;
-      coverOwnerAddress?: string;
-    } = {}
-  ) {
-    // set some defaults
-    const {
-      productId = 152, // this pool allows all payment types
-      amountToInsure = '1.0',
-      daysToInsure = 28,
-      coverAsset = CoverAsset.DAI,
-      coverOwnerAddress = safeAddr,
-    } = options;
-
-    const response = await nexusSdk.getQuoteAndBuyCoverInputs(
-      productId,
-      ethers.parseEther(amountToInsure).toString(),
-      daysToInsure,
-      coverAsset,
-      coverOwnerAddress
-    );
-
-    if (!response.result) {
-      throw new Error(
-        `Failed to prepare Nexus Mutual cover purchase: ${
-          response.error?.message || 'Unknown error'
-        }`
-      );
-    }
-
-    let { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
-
-    /// THE NEXUS SDK SOMETIMES RETURNS A PREMIUM THAT IS TOO LOW
-    /// THIS IS A HACK TO MAKE IT HIGHER JUST FOR OUR TESTS
-    /// This only seems necessary when we aren't using ETH as the cover asset
-    if (coverAsset !== CoverAsset.ETH) {
-      buyCoverParams.maxPremiumInAsset = (
-        BigInt(buyCoverParams.maxPremiumInAsset) * BigInt(2)
-      ).toString();
-    }
-
-    const abiCoder = new ethers.AbiCoder();
-    const buyCoverParamsEncoded = abiCoder.encode(
-      [NexusMutualBuyCoverParamTypes],
-      [buyCoverParams]
-    );
-    const poolAllocationRequestsEncoded = poolAllocationRequests.map((request) =>
-      abiCoder.encode([NexusMutualPoolAllocationRequestTypes], [request])
-    );
-
-    const encodedParamsCombined = abiCoder.encode(
-      [BuyCoverInputTypes],
-      [
-        {
-          owner: coverOwnerAddress,
-          buyCoverParams: buyCoverParamsEncoded,
-          poolAllocationRequests: poolAllocationRequestsEncoded,
-        },
-      ]
-    );
-
-    const encodedFunctionCall = buyCover.interface.encodeFunctionData('executeAction', [
-      encodedParamsCombined,
-      1,
-    ]);
-
-    return {
-      encodedFunctionCall,
-      buyCoverParams,
-      poolAllocationRequests,
-    };
-  }
 
   before(async () => {
     [signer] = await ethers.getSigners();
@@ -112,67 +29,58 @@ describe('BuyCover tests', () => {
       await baseSetup.adminVault.getAddress(),
       await baseSetup.logger.getAddress()
     );
+    const buyCoverAddress = await buyCover.getAddress();
+    await baseSetup.adminVault.proposeAction(getBytes4(buyCoverAddress), buyCoverAddress);
+    await baseSetup.adminVault.addAction(getBytes4(buyCoverAddress), buyCoverAddress);
   });
 
   beforeEach(async () => {
+    log('Taking local snapshot');
     snapshotId = await network.provider.send('evm_snapshot');
   });
 
   afterEach(async () => {
+    log('Reverting to local snapshot');
     await network.provider.send('evm_revert', [snapshotId]);
-
-    // IMPORTANT: take a new snapshot, they can't be reused!
-    snapshotId = await network.provider.send('evm_snapshot');
   });
 
   it('should buy cover from Nexus Mutual using ETH', async () => {
     await signer.sendTransaction({
       to: safeAddr,
-      value: ethers.parseEther('1.0'),
+      value: ethers.parseEther('2.0'),
     });
 
-    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
-      productId: 231,
+    const buyCoverArgs: ActionArgs = {
+      type: 'BuyCover',
+      productId: 156,
+      amountToInsure: '1.0',
+      daysToInsure: 28,
       coverAsset: CoverAsset.ETH,
-    });
+      coverAddress: safeAddr,
+      debug: false,
+    };
 
-    const tx = await executeSafeTransaction(
-      safeAddr,
-      await buyCover.getAddress(),
-      0,
-      encodedFunctionCall,
-      1,
-      signer,
-      {
-        safeTxGas: 2000000,
-      }
-    );
+    const tx = await executeAction({ ...buyCoverArgs });
     await tx.wait();
 
     // check the coverage here
   });
+
   it('should buy cover from Nexus Mutual using a stablecoin', async () => {
+    // Currently only DAI works (Nexus Mutual doesn't support USDT and their USDC is broken)
     const fundAmount = 1000; // 1000 DAI
     await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
 
-    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
+    const buyCoverArgs: ActionArgs = {
+      type: 'BuyCover',
       productId: 231,
       amountToInsure: '1.0',
       daysToInsure: 28,
       coverAsset: CoverAsset.DAI,
-    });
+      coverAddress: safeAddr,
+    };
 
-    const tx = await executeSafeTransaction(
-      safeAddr,
-      await buyCover.getAddress(),
-      0,
-      encodedFunctionCall,
-      1,
-      signer,
-      {
-        safeTxGas: 2000000,
-      }
-    );
+    const tx = await executeAction({ ...buyCoverArgs });
     await tx.wait();
 
     // check the coverage here
@@ -185,24 +93,16 @@ describe('BuyCover tests', () => {
     const nft = await ethers.getContractAt('IERC721', NEXUS_MUTUAL_NFT_ADDRESS);
     expect(await nft.balanceOf(safeAddr)).to.equal(0);
 
-    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
+    const buyCoverArgs: ActionArgs = {
+      type: 'BuyCover',
       productId: 231,
       amountToInsure: '1.0',
       daysToInsure: 28,
       coverAsset: CoverAsset.DAI,
-    });
+      coverAddress: safeAddr,
+    };
 
-    const tx = await executeSafeTransaction(
-      safeAddr,
-      await buyCover.getAddress(),
-      0,
-      encodedFunctionCall,
-      1,
-      signer,
-      {
-        safeTxGas: 2000000,
-      }
-    );
+    const tx = await executeAction({ ...buyCoverArgs });
     await tx.wait();
 
     expect(await nft.balanceOf(safeAddr)).to.equal(1);
@@ -215,31 +115,22 @@ describe('BuyCover tests', () => {
     const nft = await ethers.getContractAt('IERC721Metadata', NEXUS_MUTUAL_NFT_ADDRESS);
     expect(await nft.balanceOf(safeAddr)).to.equal(0);
 
-    const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase({
+    const buyCoverArgs: ActionArgs = {
+      type: 'BuyCover',
       productId: 231,
       amountToInsure: '1.0',
       daysToInsure: 28,
       coverAsset: CoverAsset.DAI,
-    });
+      coverAddress: safeAddr,
+    };
 
-    const tx = await executeSafeTransaction(
-      safeAddr,
-      await buyCover.getAddress(),
-      0,
-      encodedFunctionCall,
-      1,
-      signer,
-      {
-        safeTxGas: 2000000,
-      }
-    );
-
+    const tx = await executeAction({ ...buyCoverArgs });
     const receipt = await tx.wait();
 
     expect(await nft.balanceOf(safeAddr)).to.equal(1);
 
     // filter relevant logs
-    const relevantLogs = receipt.logs.filter(
+    const relevantLogs = receipt!.logs.filter(
       (log: any) => log.address.toLowerCase() === NEXUS_MUTUAL_NFT_ADDRESS.toLowerCase()
     );
 
@@ -260,15 +151,44 @@ describe('BuyCover tests', () => {
 
     // expect the name and description to be correct
     expect(metadataJson.name).to.equal('Nexus Mutual: Cover NFT');
-    // We can't check the description without correctly pasing the amount (and expiry?)
+    // We can't check the description without correctly parsing the amount (and expiry?)
     // expect(metadataJson.description).to.equal(
     //   'This NFT represents a cover purchase made for: fx Protocol + Curve + Convex \n' +
     //     '-Amount Covered: 1.07 DAI' +
     //     ' -Expiry Date: Oct 10 2024'
     // );
   });
+
+  it('Should emit the correct log', async () => {
+    const fundAmount = 1000; // 1000 DAI
+    await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
+
+    const buyCoverArgs: ActionArgs = {
+      type: 'BuyCover',
+      productId: 231,
+      amountToInsure: '1.0',
+      daysToInsure: 28,
+      coverAsset: CoverAsset.DAI,
+      coverAddress: safeAddr,
+    };
+
+    log('Executing action...');
+    const tx = await executeAction({ ...buyCoverArgs });
+    const receipt = await tx.wait();
+    log('Tx executed', receipt);
+    const logs = await decodeLoggerLog(receipt!);
+    log('Logs:', logs);
+
+    expect(logs).to.have.length(1);
+    expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BUY_COVER));
+    expect(logs[0]).to.have.property('strategyId', BigInt(1));
+    expect(logs[0]).to.have.property('period', (28 * 24 * 60 * 60).toString());
+    expect(logs[0]).to.have.property('amount', ethers.parseUnits('1.0', 18).toString());
+    expect(logs[0]).to.have.property('coverId');
+  });
+
   it('Should have cover action type', async () => {
-    const actionType = await buyCover.actionType();
-    expect(actionType).to.equal(actionTypes.COVER_ACTION);
+    const actionType = (await buyCover.actionType()) as bigint;
+    expect(actionType).to.equal(BigInt(actionTypes.COVER_ACTION));
   });
 });

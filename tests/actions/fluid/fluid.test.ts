@@ -1,26 +1,26 @@
-import { expect, ethers, Signer } from '../..';
+import { BytesLike } from 'ethers';
 import { network } from 'hardhat';
+import { ethers, expect, Signer } from '../..';
+import { actionTypes } from '../../../tests/actions';
+import { tokenConfig } from '../../../tests/constants';
 import {
-  IERC20,
+  AdminVault,
   FluidSupply,
   FluidWithdraw,
+  IERC20,
   IFluidLending,
   Logger,
-  AdminVault,
 } from '../../../typechain-types';
+import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
+  calculateExpectedFee,
+  decodeLoggerLog,
   deploy,
+  executeAction,
   getBaseSetup,
   log,
-  decodeLoggerLog,
-  calculateExpectedFee,
-  executeAction,
 } from '../../utils';
-import { BalanceUpdateLog } from '../../logs';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
-import { tokenConfig } from '../../../tests/constants';
-import { actionTypes } from '../../../tests/actions';
-import { BytesLike } from 'ethers';
 
 describe('Fluid tests', () => {
   let signer: Signer;
@@ -40,6 +40,24 @@ describe('Fluid tests', () => {
   const FLUID_USDC_ADDRESS = tokenConfig.fUSDC.address;
   const FLUID_USDT_ADDRESS = tokenConfig.fUSDT.address;
 
+  // Run tests for each supported token
+  const testCases: Array<{
+    token: keyof typeof tokenConfig;
+    poolAddress: string;
+    fToken: () => IFluidLending;
+  }> = [
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.fUSDC.address,
+      fToken: () => fUSDC,
+    },
+    {
+      token: 'USDT',
+      poolAddress: tokenConfig.fUSDT.address,
+      fToken: () => fUSDT,
+    },
+  ];
+
   before(async () => {
     [signer] = await ethers.getSigners();
     const baseSetup = await getBaseSetup(signer);
@@ -50,7 +68,7 @@ describe('Fluid tests', () => {
     loggerAddress = (await baseSetup.logger.getAddress()) as string;
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
-    // Fetch the USDC token
+    // Fetch the USDC and USDT tokens
     USDC = await getUSDC();
     USDT = await getUSDT();
 
@@ -72,7 +90,7 @@ describe('Fluid tests', () => {
     fUSDC = await ethers.getContractAt('IFluidLending', FLUID_USDC_ADDRESS);
     fUSDT = await ethers.getContractAt('IFluidLending', FLUID_USDT_ADDRESS);
 
-    // grant the fUSDC and fUSDT contracts the POOL_ROLE
+    // Grant the fUSDC and fUSDT contracts the POOL_ROLE
     await adminVault.proposePool('Fluid', FLUID_USDC_ADDRESS);
     await adminVault.proposePool('Fluid', FLUID_USDT_ADDRESS);
     await adminVault.addPool('Fluid', FLUID_USDC_ADDRESS);
@@ -91,310 +109,348 @@ describe('Fluid tests', () => {
   });
 
   describe('Fluid Supply', () => {
-    it('Should deposit USDC', async () => {
-      const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
-      await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
+    testCases.forEach(({ token, poolAddress, fToken }) => {
+      describe(`Testing ${token}`, () => {
+        it('Should deposit', async () => {
+          const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          await fundAccountWithToken(safeAddr, token, amount);
 
-      const initialUSDCBalance = await USDC.balanceOf(safeAddr);
-      const initialFluidBalance = await fUSDC.balanceOf(safeAddr);
+          const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const initialFluidBalance = await fToken().balanceOf(safeAddr);
 
-      await executeAction({
-        type: 'FluidSupply',
-        amount: supplyAmount,
+          await executeAction({
+            type: 'FluidSupply',
+            poolAddress,
+            amount,
+          });
+
+          const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const finalfTokenBalance = await fToken().balanceOf(safeAddr);
+
+          expect(finalTokenBalance).to.equal(initialTokenBalance - amount);
+          expect(finalfTokenBalance).to.be.greaterThan(initialFluidBalance);
+        });
+
+        it('Should deposit max', async () => {
+          const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          await fundAccountWithToken(safeAddr, token, amount);
+
+          const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const initialFluidBalance = await fToken().balanceOf(safeAddr);
+
+          expect(initialTokenBalance).to.equal(amount);
+
+          await executeAction({
+            type: 'FluidSupply',
+            poolAddress,
+            amount: ethers.MaxUint256,
+          });
+
+          expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
+          expect(await fToken().balanceOf(safeAddr)).to.be.greaterThan(initialFluidBalance);
+        });
+
+        it('Should take fees on deposit', async () => {
+          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          await fundAccountWithToken(safeAddr, token, amount);
+
+          const feeConfig = await adminVault.feeConfig();
+          const feeRecipient = feeConfig.recipient;
+          const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
+          const feeRecipientfTokenBalanceBefore = await fToken().balanceOf(feeRecipient);
+
+          // Do an initial deposit
+          const firstTx = await executeAction({
+            type: 'FluidSupply',
+            poolAddress,
+            amount,
+            feeBasis: 10,
+          });
+
+          const fTokenBalanceAfterFirstTx = await fToken().balanceOf(safeAddr);
+
+          // Time travel 1 year
+          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid'])));
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
+          await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
+
+          // Do another deposit to trigger fees
+          const secondTx = await executeAction({
+            type: 'FluidSupply',
+            poolAddress,
+            amount: '0',
+            feeBasis: 10,
+          });
+
+          const firstTxReceipt =
+            (await firstTx.wait()) ??
+            (() => {
+              throw new Error('First deposit transaction failed');
+            })();
+          const secondTxReceipt =
+            (await secondTx.wait()) ??
+            (() => {
+              throw new Error('Second deposit transaction failed');
+            })();
+
+          // Calculate expected fee
+          const expectedFee = await calculateExpectedFee(
+            firstTxReceipt,
+            secondTxReceipt,
+            10,
+            fTokenBalanceAfterFirstTx
+          );
+          const expectedFeeRecipientBalance = feeRecipientfTokenBalanceBefore + expectedFee;
+
+          // Check fees were taken in fTokens, not underlying
+          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
+            feeRecipientTokenBalanceBefore
+          );
+          expect(await fToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
+        });
       });
-
-      const finalUSDCBalance = await USDC.balanceOf(safeAddr);
-      const finalfTokenBalance = await fUSDC.balanceOf(safeAddr);
-
-      expect(finalUSDCBalance).to.equal(initialUSDCBalance - supplyAmount);
-      expect(finalfTokenBalance).to.be.greaterThan(initialFluidBalance);
-    });
-    it('Should deposit USDT', async () => {
-      const token = 'USDT';
-      const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-      await fundAccountWithToken(safeAddr, token, amount);
-
-      const initialUSDTBalance = await USDT.balanceOf(safeAddr);
-      const initialFluidBalance = await fUSDT.balanceOf(safeAddr);
-
-      await executeAction({
-        type: 'FluidSupply',
-        poolAddress: tokenConfig[token].pools.fluid,
-        amount,
-      });
-
-      const finalUSDTBalance = await USDT.balanceOf(safeAddr);
-      const finalfTokenBalance = await fUSDT.balanceOf(safeAddr);
-
-      expect(finalUSDTBalance).to.equal(initialUSDTBalance - amount);
-      expect(finalfTokenBalance).to.be.greaterThan(initialFluidBalance);
-    });
-    it('Should deposit max', async () => {
-      const token = 'USDT';
-      const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-      await fundAccountWithToken(safeAddr, token, amount);
-
-      expect(await USDT.balanceOf(safeAddr)).to.equal(amount);
-
-      await executeAction({
-        type: 'FluidSupply',
-        poolAddress: tokenConfig[token].pools.fluid,
-        amount: ethers.MaxUint256,
-      });
-
-      expect(await USDT.balanceOf(safeAddr)).to.equal(0);
-      expect(await fUSDT.balanceOf(safeAddr)).to.be.greaterThan(0);
-    });
-    it('Should emit the correct log on deposit', async () => {
-      const token = 'USDC';
-      const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-      await fundAccountWithToken(safeAddr, token, amount);
-      const strategyId: number = 42;
-      const poolId: BytesLike = ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10);
-
-      const tx = await executeAction({
-        type: 'FluidSupply',
-        amount,
-      });
-
-      const logs = await decodeLoggerLog(tx, loggerAddress);
-      log('Logs:', logs);
-
-      // we should expect 1 log, with the correct args
-      expect(logs).to.have.length(1);
-      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
-
-      // we know it's a BalanceUpdateLog because of the eventName
-      // now we can typecast and check specific properties
-      const txLog = logs[0] as BalanceUpdateLog;
-      expect(txLog).to.have.property('safeAddress', safeAddr);
-      expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-      expect(txLog).to.have.property('poolId', poolId);
-      expect(txLog).to.have.property('balanceBefore', BigInt(0));
-      expect(txLog).to.have.property('balanceAfter');
-      expect(txLog).to.have.property('feeInTokens');
-      expect(txLog.balanceAfter).to.be.a('bigint');
-      expect(txLog.balanceAfter).to.not.equal(BigInt(0));
     });
 
-    it('Should have deposit action type', async () => {
-      const actionType = await fluidSupplyContract.actionType();
-      expect(actionType).to.equal(actionTypes.DEPOSIT_ACTION);
-    });
-    it('Should initialize last fee timestamp', async () => {
-      const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
-        safeAddr,
-        FLUID_USDC_ADDRESS
-      );
-      expect(initialLastFeeTimestamp).to.equal(BigInt(0));
+    describe('General tests', () => {
+      it('Should emit the correct log on deposit', async () => {
+        const token = 'USDC';
+        const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        await fundAccountWithToken(safeAddr, token, amount);
+        const strategyId: number = 42;
+        const poolId: BytesLike = ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10);
 
-      await fundAccountWithToken(safeAddr, 'USDC', 1000);
-
-      const tx = await executeAction({
-        type: 'FluidSupply',
-      });
-
-      //get the block timestamp of the tx
-      const txReceipt = await tx.wait();
-      if (!txReceipt) {
-        throw new Error('Transaction receipt not found');
-      }
-      const block = await ethers.provider.getBlock(txReceipt.blockNumber);
-      if (!block) {
-        throw new Error('Block not found');
-      }
-      const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, FLUID_USDC_ADDRESS);
-      expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
-    });
-    it('Should reject invalid token', async () => {
-      await expect(
-        executeAction({
+        const tx = await executeAction({
           type: 'FluidSupply',
-          poolAddress: '0x0000000000000000000000000000000000000000',
-        })
-      ).to.be.revertedWith('GS013');
+          amount,
+        });
+
+        const logs = await decodeLoggerLog(tx);
+        log('Logs:', logs);
+
+        // we should expect 1 log, with the correct args
+        expect(logs).to.have.length(1);
+        expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
+
+        // we know it's a BalanceUpdateLog because of the eventName
+        // now we can typecast and check specific properties
+        const txLog = logs[0] as BalanceUpdateLog;
+        expect(txLog).to.have.property('safeAddress', safeAddr);
+        expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+        expect(txLog).to.have.property('poolId', poolId);
+        expect(txLog).to.have.property('balanceBefore', BigInt(0));
+        expect(txLog).to.have.property('balanceAfter');
+        expect(txLog).to.have.property('feeInTokens');
+        expect(txLog.balanceAfter).to.be.a('bigint');
+        expect(txLog.balanceAfter).to.not.equal(BigInt(0));
+      });
+
+      it('Should initialize last fee timestamp', async () => {
+        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid'])));
+        const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
+          safeAddr,
+          protocolId,
+          FLUID_USDC_ADDRESS
+        );
+        expect(initialLastFeeTimestamp).to.equal(BigInt(0));
+
+        await fundAccountWithToken(safeAddr, 'USDC', 1000);
+
+        const tx = await executeAction({
+          type: 'FluidSupply',
+        });
+
+        //get the block timestamp of the tx
+        const txReceipt = await tx.wait();
+        if (!txReceipt) {
+          throw new Error('Transaction receipt not found');
+        }
+        const block = await ethers.provider.getBlock(txReceipt.blockNumber);
+        if (!block) {
+          throw new Error('Block not found');
+        }
+        const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
+          safeAddr,
+          protocolId,
+          FLUID_USDC_ADDRESS
+        );
+        expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
+      });
+
+      it('Should have deposit action type', async () => {
+        const actionType = await fluidSupplyContract.actionType();
+        expect(actionType).to.equal(actionTypes.DEPOSIT_ACTION);
+      });
+
+      it('Should reject invalid token', async () => {
+        await expect(
+          executeAction({
+            type: 'FluidSupply',
+            poolAddress: '0x0000000000000000000000000000000000000000',
+          })
+        ).to.be.revertedWith('GS013');
+      });
     });
   });
 
   describe('Fluid Withdraw', () => {
     beforeEach(async () => {
-      // Do an empty deposit to initialize the fee timestamp
-      await executeAction({
-        type: 'FluidSupply',
-      });
-    });
-    it('Should withdraw USDC', async () => {
-      const amount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
-      await fundAccountWithToken(safeAddr, 'fUSDC', amount);
-
-      const initialUSDCBalance = await USDC.balanceOf(safeAddr);
-      const initialfUSDCBalance = await fUSDC.balanceOf(safeAddr);
-
-      const tx = await executeAction({
-        type: 'FluidWithdraw',
-        amount,
-      });
-
-      const finalUSDCBalance = await USDC.balanceOf(safeAddr);
-      const finalfUSDCBalance = await fUSDC.balanceOf(safeAddr);
-      expect(finalUSDCBalance).to.equal(initialUSDCBalance + amount);
-      expect(finalfUSDCBalance).to.be.lessThan(initialfUSDCBalance);
-    });
-
-    it('Should withdraw USDT', async () => {
-      // Initialize the fee timestamp for fUSDT
-      await executeAction({
-        type: 'FluidSupply',
-        poolAddress: tokenConfig.USDT.pools.fluid,
-        amount: '0',
-      });
-
-      await fundAccountWithToken(safeAddr, 'fUSDT', 100);
-      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDT.decimals);
-
-      const initialUSDTBalance = await USDT.balanceOf(safeAddr);
-      const initialfUSDTBalance = await fUSDT.balanceOf(safeAddr);
-
-      await executeAction({
-        type: 'FluidWithdraw',
-        poolAddress: tokenConfig.USDT.pools.fluid,
-        amount: withdrawAmount,
-      });
-
-      const finalUSDTBalance = await USDT.balanceOf(safeAddr);
-      const finalfUSDTBalance = await fUSDT.balanceOf(safeAddr);
-      expect(finalUSDTBalance).to.equal(initialUSDTBalance + withdrawAmount);
-      expect(finalfUSDTBalance).to.be.lessThan(initialfUSDTBalance);
-    });
-    it('Should emit the correct log on withdraw', async () => {
-      const token = 'USDC';
-      const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-      await fundAccountWithToken(safeAddr, 'fUSDC', amount);
-      const strategyId: number = 42;
-      const poolId: BytesLike = ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10);
-
-      const tx = await executeAction({
-        type: 'FluidWithdraw',
-        token,
-        amount,
-      });
-
-      const logs = await decodeLoggerLog(tx, loggerAddress);
-      log('Logs:', logs);
-
-      // we should expect 1 log, with the correct args
-      expect(logs).to.have.length(1);
-      expect(logs[0]).to.have.property('eventName', 'BalanceUpdate');
-
-      // we know it's a BalanceUpdateLog because of the eventName
-      // now we can typecast and check specific properties
-      const txLog = logs[0] as BalanceUpdateLog;
-      expect(txLog).to.have.property('safeAddress', safeAddr);
-      expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-      expect(txLog).to.have.property('poolId', poolId);
-      expect(txLog).to.have.property('balanceBefore', amount);
-      expect(txLog).to.have.property('balanceAfter');
-      expect(txLog).to.have.property('feeInTokens');
-      expect(txLog.balanceAfter).to.be.a('bigint');
-      expect(txLog.balanceAfter).to.not.equal(BigInt(0));
-    });
-
-    it('Should use the exit function to withdraw', async () => {
-      const fluidWithdrawContractAddress = await fluidWithdrawContract.getAddress();
-      await fundAccountWithToken(fluidWithdrawContractAddress, 'fUSDC', 100);
-      await fundAccountWithToken(fluidWithdrawContractAddress, 'fUSDT', 100);
-      const withdrawAmount = ethers.parseUnits('100', tokenConfig.fUSDC.decimals);
-
-      const tx = await fluidWithdrawContract.exit(FLUID_USDC_ADDRESS);
-
-      expect(await fUSDC.balanceOf(fluidWithdrawContractAddress)).to.be.equal(BigInt(0));
-
-      await fluidWithdrawContract.exit(FLUID_USDT_ADDRESS);
-      expect(await fUSDT.balanceOf(fluidWithdrawContractAddress)).to.be.equal(BigInt(0));
-    });
-    it('Should withdraw the maximum amount of fUSDC', async () => {
-      const token = 'USDC';
-      const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-      await fundAccountWithToken(safeAddr, 'fUSDC', amount);
-
-      expect(await fUSDC.balanceOf(safeAddr)).to.equal(amount);
-      expect(await USDC.balanceOf(safeAddr)).to.equal(0);
-
-      await executeAction({
-        type: 'FluidWithdraw',
-        token,
-        amount: ethers.MaxUint256,
-      });
-
-      expect(await fUSDC.balanceOf(safeAddr)).to.equal(0);
-      expect(await USDC.balanceOf(safeAddr)).to.be.greaterThan(0);
-    });
-
-    it('Should take fees', async () => {
-      const token = 'USDC';
-      const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-
-      await fundAccountWithToken(safeAddr, token, amount);
-
-      const feeRecipient = await adminVault.feeRecipient();
-      const feeRecipientUSDCBalanceBefore = await USDC.balanceOf(feeRecipient);
-      const feeRecipientfUSDCBalanceBefore = await fUSDC.balanceOf(feeRecipient);
-
-      const supplyTx = await executeAction({
-        type: 'FluidSupply',
-        amount,
-        feeBasis: 10,
-      });
-
-      const fUSDCBalanceAfterSupply = await fUSDC.balanceOf(safeAddr);
-
-      const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, FLUID_USDC_ADDRESS);
-      const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp
-
-      // now time travel like you're Dr Emmett Brown
-      await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
-
-      const withdrawTx = await executeAction({
-        type: 'FluidWithdraw',
-        token,
-        feeBasis: 10,
-        amount: '0',
-      });
-
-      const expectedFee = await calculateExpectedFee(
-        (await supplyTx.wait()) ??
-          (() => {
-            throw new Error('Supply transaction failed');
-          })(),
-        (await withdrawTx.wait()) ??
-          (() => {
-            throw new Error('Withdraw transaction failed');
-          })(),
-        10,
-        fUSDCBalanceAfterSupply
-      );
-      const expectedFeeRecipientBalance = feeRecipientfUSDCBalanceBefore + expectedFee;
-
-      // don't take fees in the underlying asset
-      expect(await USDC.balanceOf(feeRecipient)).to.equal(feeRecipientUSDCBalanceBefore);
-      // take fees in the fToken
-      expect(await fUSDC.balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
-    });
-    it('Should have withdraw action type', async () => {
-      const actionType = await fluidWithdrawContract.actionType();
-      expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
-    });
-    it('Should reject invalid token', async () => {
-      const supplyAmount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
-      await fundAccountWithToken(safeAddr, 'USDC', supplyAmount);
-      await expect(
-        executeAction({
+      // Do empty deposits to initialize the fee timestamps for both pools
+      for (const { poolAddress } of testCases) {
+        await executeAction({
           type: 'FluidSupply',
-          poolAddress: '0x0000000000000000000000000000000000000000',
-        })
-      ).to.be.revertedWith('GS013');
+          poolAddress,
+          amount: '0',
+        });
+      }
+    });
+
+    testCases.forEach(({ token, poolAddress, fToken }) => {
+      describe(`Testing ${token}`, () => {
+        it('Should withdraw', async () => {
+          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          await fundAccountWithToken(safeAddr, `f${token}`, amount);
+
+          const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const initialfTokenBalance = await fToken().balanceOf(safeAddr);
+
+          await executeAction({
+            type: 'FluidWithdraw',
+            poolAddress,
+            amount,
+          });
+
+          const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const finalfTokenBalance = await fToken().balanceOf(safeAddr);
+          expect(finalTokenBalance).to.equal(initialTokenBalance + amount);
+          expect(finalfTokenBalance).to.be.lessThan(initialfTokenBalance);
+        });
+
+        it('Should withdraw the maximum amount', async () => {
+          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          await fundAccountWithToken(safeAddr, `f${token}`, amount);
+
+          expect(await fToken().balanceOf(safeAddr)).to.equal(amount);
+          expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
+
+          await executeAction({
+            type: 'FluidWithdraw',
+            poolAddress,
+            amount: ethers.MaxUint256,
+          });
+
+          expect(await fToken().balanceOf(safeAddr)).to.equal(0);
+          expect(await tokenContract.balanceOf(safeAddr)).to.be.greaterThan(0);
+        });
+
+        it('Should take fees on withdraw', async () => {
+          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          await fundAccountWithToken(safeAddr, token, amount);
+
+          const feeConfig = await adminVault.feeConfig();
+          const feeRecipient = feeConfig.recipient;
+          const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
+          const feeRecipientfTokenBalanceBefore = await fToken().balanceOf(feeRecipient);
+
+          const supplyTx = await executeAction({
+            type: 'FluidSupply',
+            poolAddress,
+            amount,
+            feeBasis: 10,
+          });
+
+          const fTokenBalanceAfterSupply = await fToken().balanceOf(safeAddr);
+
+          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid'])));
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
+          await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
+
+          const withdrawTx = await executeAction({
+            type: 'FluidWithdraw',
+            poolAddress,
+            feeBasis: 10,
+            amount: '1',
+          });
+
+          const expectedFee = await calculateExpectedFee(
+            (await supplyTx.wait()) ??
+              (() => {
+                throw new Error('Supply transaction failed');
+              })(),
+            (await withdrawTx.wait()) ??
+              (() => {
+                throw new Error('Withdraw transaction failed');
+              })(),
+            10,
+            fTokenBalanceAfterSupply
+          );
+          const expectedFeeRecipientBalance = feeRecipientfTokenBalanceBefore + expectedFee;
+
+          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
+            feeRecipientTokenBalanceBefore
+          );
+          expect(await fToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
+        });
+      });
+    });
+
+    describe('General tests', () => {
+      it('Should emit the correct log on withdraw', async () => {
+        const token = 'fUSDC';
+        const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        await fundAccountWithToken(safeAddr, token, amount);
+        const strategyId: number = 42;
+        const poolId: BytesLike = ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10);
+
+        const tx = await executeAction({
+          type: 'FluidWithdraw',
+          amount,
+        });
+
+        const logs = await decodeLoggerLog(tx);
+        log('Logs:', logs);
+
+        // we should expect 1 log, with the correct args
+        expect(logs).to.have.length(1);
+        expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
+
+        // we know it's a BalanceUpdateLog because of the eventName
+        // now we can typecast and check specific properties
+        const txLog = logs[0] as BalanceUpdateLog;
+        expect(txLog).to.have.property('safeAddress', safeAddr);
+        expect(txLog).to.have.property('strategyId', BigInt(strategyId));
+        expect(txLog).to.have.property('poolId', poolId);
+        expect(txLog).to.have.property('balanceBefore');
+        expect(txLog).to.have.property('balanceAfter');
+        expect(txLog).to.have.property('feeInTokens');
+        expect(txLog.balanceBefore).to.equal(amount);
+        expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
+        expect(txLog.feeInTokens).to.equal(BigInt(0));
+      });
+
+      it('Should have withdraw action type', async () => {
+        const actionType = await fluidWithdrawContract.actionType();
+        expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
+      });
+
+      it('Should reject invalid token', async () => {
+        await expect(
+          executeAction({
+            type: 'FluidWithdraw',
+            poolAddress: '0x0000000000000000000000000000000000000000',
+          })
+        ).to.be.revertedWith('GS013');
+      });
     });
   });
 });
 
-export {};
+export { };
+

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {ActionBase} from "../ActionBase.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Errors} from "../../Errors.sol";
+import {IOwnerManager} from "../../interfaces/safe/IOwnerManager.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title Helper action to send a token to the specified address
-// TODO tests
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract SendToken is ActionBase {
     using SafeERC20 for IERC20;
 
@@ -24,8 +26,13 @@ contract SendToken is ActionBase {
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable override {
         Params memory inputData = _parseInputs(_callData);
+        IOwnerManager ownerManager = IOwnerManager(address(this));
+        require(ownerManager.isOwner(inputData.to), Errors.Action_InvalidRecipient(protocolName(), actionType()));
 
         _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
+
+        // Log event
+        LOGGER.logActionEvent(LogType.SEND_TOKEN, abi.encode(inputData.tokenAddr, inputData.to, inputData.amount));
     }
 
     /// @inheritdoc ActionBase
@@ -41,6 +48,9 @@ contract SendToken is ActionBase {
     /// @param _to Where the tokens are sent
     /// @param _amount Amount of tokens, can be type(uint).max
     function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal {
+        if (_amount == type(uint256).max) {
+            _amount = IERC20(_tokenAddr).balanceOf(address(this));
+        }
         IERC20(_tokenAddr).safeTransfer(_to, _amount);
     }
 
@@ -48,7 +58,7 @@ contract SendToken is ActionBase {
         params = abi.decode(_callData, (Params));
     }
 
-    function protocolName() internal pure override returns (string memory) {
-        return "Athena";
+    function protocolName() public pure override returns (string memory) {
+        return "Brava";
     }
 }

@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {Errors} from "../Errors.sol";
-import {ILogger} from "../interfaces/ILogger.sol";
-import {IAdminVault} from "../interfaces/IAdminVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IAdminVault} from "../interfaces/IAdminVault.sol";
+import {ILogger} from "../interfaces/ILogger.sol";
+import {Errors} from "../Errors.sol";
 
 /// @title ActionBase - Base contract for all actions in the protocol
 /// @notice Implements common functionality and interfaces for all actions
 /// @dev This contract should be inherited by all specific action contracts
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 abstract contract ActionBase {
     using SafeERC20 for IERC20;
 
@@ -36,6 +37,19 @@ abstract contract ActionBase {
         CUSTOM_ACTION
     }
 
+    /// @notice Enum representing different types of logs
+    // List of log types, this list should be updated with each new log type added to the system.
+    //   Existing values should not be changed/removed, as they may be already in use by a deployed action.
+    //   UNUSED keeps the enum starting at index 1 for off-chain processing.
+    enum LogType {
+        UNUSED,
+        BALANCE_UPDATE,
+        BUY_COVER,
+        CURVE_3POOL_SWAP,
+        SEND_TOKEN,
+        PULL_TOKEN
+    }
+
     /// @notice Initializes the ActionBase contract
     /// @param _adminVault Address of the admin vault
     /// @param _logger Address of the logger contract
@@ -47,30 +61,45 @@ abstract contract ActionBase {
     /// @notice Executes the implemented action
     /// @dev This function should be overridden by inheriting contracts
     /// @param _callData Encoded input data for the action
-    /// @param _strategyId The ID of the strategy executing this action
+    /// @param _strategyId The ID of the strategy executing this action (for logging use only)
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable virtual;
 
     /// @notice Returns the type of action being implemented
     /// @return uint8 The action type as defined in the ActionType enum
     function actionType() public pure virtual returns (uint8);
 
-    /// @notice Takes the fee due from the vault and performs required updates
-    /// @param _vault Address of the vault
+    /// @notice Processes the fee taking, figures out if it's a supply and we need to initialize the fee timestamp
+    /// @param _pool Address of the pool
     /// @param _feePercentage Fee percentage in basis points
-    /// @return uint256 The amount of fee taken
-    function _takeFee(address _vault, uint256 _feePercentage) internal returns (uint256) {
-        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_vault);
-        uint256 currentTimestamp = block.timestamp;
-        if (lastFeeTimestamp == 0) {
-            revert Errors.AdminVault_NotInitialized();
-        } else if (lastFeeTimestamp == currentTimestamp) {
-            return 0; // Don't take fees twice in the same block
+    /// @param _feeToken Address of the fee token
+    /// @param _shareBalance Balance of the shares in the pool
+    /// @return feeInTokens The amount of fee taken
+    /// @dev it's rare but in some cases the _pool does differ from the _feeToken
+    function _processFee(
+        address _pool,
+        uint256 _feePercentage,
+        address _feeToken,
+        uint256 _shareBalance
+    ) internal returns (uint256 feeInTokens) {
+        if (actionType() == uint8(ActionType.DEPOSIT_ACTION) && _shareBalance == 0) {
+            // If the share balance is zero, we need to initialize the fee timestamp
+            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
+            return 0;
         } else {
-            IERC20 vault = IERC20(_vault);
+            // Otherwise, we take the fee
+            uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(protocolName(), _pool);
+            require(lastFeeTimestamp != 0, Errors.AdminVault_NotInitialized());
+
+            uint256 currentTimestamp = block.timestamp;
+            if (lastFeeTimestamp == currentTimestamp) {
+                return 0; // Don't take fees twice in the same block
+            }
+
+            IERC20 vault = IERC20(_feeToken);
             uint256 balance = vault.balanceOf(address(this));
             uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
-            vault.safeTransfer(ADMIN_VAULT.feeRecipient(), fee);
-            ADMIN_VAULT.updateFeeTimestamp(_vault);
+            vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
+            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
             return fee;
         }
     }
@@ -119,5 +148,5 @@ abstract contract ActionBase {
 
     /// @notice Returns the name of the protocol
     /// @return string The name of the protocol
-    function protocolName() internal pure virtual returns (string memory);
+    function protocolName() public pure virtual returns (string memory);
 }

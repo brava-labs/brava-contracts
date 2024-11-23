@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.24;
+pragma solidity =0.8.28;
 
-import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
-import {IERC721Metadata as IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC721Metadata as IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {Errors} from "../../Errors.sol";
 import {ICoverBroker, BuyCoverParams, PoolAllocationRequest} from "../../interfaces/nexus-mutual/ICoverBroker.sol";
 import {TokenAddressesMainnet} from "../../libraries/TokenAddressesMainnet.sol";
+import {ActionBase} from "../ActionBase.sol";
 
 /// @title BuyCover - Purchases cover for a specific asset and protocol
 /// @notice This contract allows users to buy cover from Nexus Mutual
 /// @dev Inherits from ActionBase and implements the buy cover functionality for Nexus Mutual protocol
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract BuyCover is ActionBase {
     using SafeERC20 for IERC20;
 
@@ -47,15 +48,16 @@ contract BuyCover is ActionBase {
         Params memory inputData = _parseInputs(_callData);
 
         // Check inputs
-        if (inputData.buyCoverParams.length == 0 || inputData.poolAllocationRequests.length == 0) {
-            revert Errors.InvalidInput("BuyCover", "executeAction");
-        }
+        require(
+            inputData.buyCoverParams.length != 0 && inputData.poolAllocationRequests.length != 0,
+            Errors.InvalidInput("BuyCover", "executeAction")
+        );
 
         // Execute action
         (uint32 period, uint256 amount, uint256 coverId) = _buyCover(inputData);
 
         // Log event
-        LOGGER.logActionEvent("BuyCover", _encodeBuyCover(_strategyId, period, amount, coverId));
+        LOGGER.logActionEvent(LogType.BUY_COVER, _encodeBuyCover(_strategyId, period, amount, coverId));
     }
 
     /// @inheritdoc ActionBase
@@ -75,12 +77,11 @@ contract BuyCover is ActionBase {
             poolAllocationRequests[i] = abi.decode(_inputData.poolAllocationRequests[i], (PoolAllocationRequest));
         }
 
-        IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
-        paymentAsset.safeIncreaseAllowance(address(COVER_BROKER), params.maxPremiumInAsset);
-
         if (params.paymentAsset == 0) {
             coverId = COVER_BROKER.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
         } else {
+            IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
+            paymentAsset.safeIncreaseAllowance(address(COVER_BROKER), params.maxPremiumInAsset);
             coverId = COVER_BROKER.buyCover(params, poolAllocationRequests);
         }
 
@@ -125,7 +126,7 @@ contract BuyCover is ActionBase {
     }
 
     /// @inheritdoc ActionBase
-    function protocolName() internal pure override returns (string memory) {
+    function protocolName() public pure override returns (string memory) {
         return "Nexus";
     }
 }
