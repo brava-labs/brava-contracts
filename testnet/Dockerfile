@@ -8,6 +8,7 @@ COPY ../tsconfig.json ./
 
 COPY ../scripts ./scripts
 COPY ../contracts ./contracts
+COPY ../tests ./tests
 
 COPY ../.env ./
 
