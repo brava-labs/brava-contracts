@@ -50,6 +50,9 @@ describe('BuyCover tests', () => {
       value: ethers.parseEther('2.0'),
     });
 
+    const nft = await ethers.getContractAt('IERC721', NEXUS_MUTUAL_NFT_ADDRESS);
+    expect(await nft.balanceOf(safeAddr)).to.equal(0);
+
     const buyCoverArgs: ActionArgs = {
       type: 'BuyCover',
       productId: 156,
@@ -57,19 +60,24 @@ describe('BuyCover tests', () => {
       daysToInsure: 28,
       coverAsset: CoverAsset.ETH,
       coverAddress: safeAddr,
-      debug: false,
     };
 
     const tx = await executeAction({ ...buyCoverArgs });
-    await tx.wait();
+    const receipt = await tx.wait();
+    
+    // Log gas used
+    console.log(`Gas used for ETH cover purchase: ${receipt?.gasUsed}`);
 
-    // check the coverage here
+    expect(await nft.balanceOf(safeAddr)).to.equal(1);
   });
 
   it('should buy cover from Nexus Mutual using a stablecoin', async () => {
     // Currently only DAI works (Nexus Mutual doesn't support USDT and their USDC is broken)
     const fundAmount = 1000; // 1000 DAI
     await fundAccountWithToken(safeAddr, 'DAI', fundAmount);
+
+    const nft = await ethers.getContractAt('IERC721', NEXUS_MUTUAL_NFT_ADDRESS);
+    expect(await nft.balanceOf(safeAddr)).to.equal(0);
 
     const buyCoverArgs: ActionArgs = {
       type: 'BuyCover',
@@ -81,9 +89,12 @@ describe('BuyCover tests', () => {
     };
 
     const tx = await executeAction({ ...buyCoverArgs });
-    await tx.wait();
+    const receipt = await tx.wait();
+    
+    // Log gas used
+    console.log(`Gas used for DAI cover purchase: ${receipt?.gasUsed}`);
 
-    // check the coverage here
+    expect(await nft.balanceOf(safeAddr)).to.equal(1);
   });
 
   it('should have the NFT in the safe', async () => {
