@@ -46,6 +46,7 @@ abstract contract ActionBase {
         BALANCE_UPDATE,
         BUY_COVER,
         CURVE_3POOL_SWAP,
+        PARASWAP_SWAP,
         SEND_TOKEN,
         PULL_TOKEN
     }
