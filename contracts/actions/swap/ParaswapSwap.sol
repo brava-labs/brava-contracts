@@ -17,14 +17,14 @@ contract ParaswapSwap is ActionBase {
     address public immutable AUGUSTUS_ROUTER;
 
     /// @notice Parameters for the ParaswapSwap action
-    /// @param fromToken Address of token to swap from
-    /// @param toToken Address of token to swap to
+    /// @param tokenIn Address of token to swap from
+    /// @param tokenOut Address of token to swap to
     /// @param fromAmount Amount of tokens to swap
     /// @param minToAmount Minimum amount of tokens to receive
     /// @param swapCallData Encoded swap data from Paraswap API
     struct Params {
-        address fromToken;
-        address toToken;
+        address tokenIn;
+        address tokenOut;
         uint256 fromAmount;
         uint256 minToAmount;
         bytes swapCallData;
@@ -58,18 +58,21 @@ contract ParaswapSwap is ActionBase {
             Errors.InvalidInput("ParaswapSwap", "executeAction")
         );
 
-        IERC20 tokenIn = IERC20(_params.fromToken);
-        IERC20 tokenOut = IERC20(_params.toToken);
+        IERC20 tokenIn = IERC20(_params.tokenIn);
+        IERC20 tokenOut = IERC20(_params.tokenOut);
 
         // Approve spending of input token
         tokenIn.safeIncreaseAllowance(address(AUGUSTUS_ROUTER), _params.fromAmount);
-
+        
         // Record balance before swap
         uint256 balanceBefore = tokenOut.balanceOf(address(this));
 
         // Execute swap through Paraswap
         (bool success, ) = address(AUGUSTUS_ROUTER).call(_params.swapCallData);
-        require(success, Errors.Paraswap__SwapFailed());
+        
+        if (!success) {
+            revert Errors.Paraswap__SwapFailed();
+        }
 
         // Calculate received amount
         uint256 balanceAfter = tokenOut.balanceOf(address(this));

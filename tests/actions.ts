@@ -68,6 +68,15 @@ interface SwapArgs extends BaseActionArgs {
   minAmount?: string;
 }
 
+interface ParaswapSwapArgs extends BaseActionArgs {
+  type: 'ParaswapSwap';
+  tokenIn: keyof typeof tokenConfig;
+  tokenOut: keyof typeof tokenConfig;
+  fromAmount: string | BigInt;
+  minToAmount: string;
+  swapCallData?: string;
+}
+
 interface TokenTransferArgs extends BaseActionArgs {
   type: 'PullToken' | 'SendToken';
   token: keyof typeof tokenConfig;
@@ -118,6 +127,7 @@ export type ActionArgs =
   | SupplyArgs
   | WithdrawArgs
   | SwapArgs
+  | ParaswapSwapArgs
   | TokenTransferArgs
   | BuyCoverArgs
   | AaveV3Args
@@ -196,6 +206,21 @@ export const actionDefaults: Record<string, ActionArgs> = {
     encoding: {
       inputParams: ['int128', 'int128', 'uint256', 'uint256'],
       encodingVariables: ['fromToken', 'toToken', 'amount', 'minAmount'],
+    },
+  },
+  ParaswapSwap: {
+    type: 'ParaswapSwap',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    tokenIn: 'USDC',
+    tokenOut: 'USDT',
+    fromAmount: '0',
+    minToAmount: '1',
+    swapCallData: '0x',
+    encoding: {
+      inputParams: ['address', 'address', 'uint256', 'uint256', 'bytes'],
+      encodingVariables: ['tokenIn', 'tokenOut', 'fromAmount', 'minToAmount', 'swapCallData'],
     },
   },
   PullToken: {

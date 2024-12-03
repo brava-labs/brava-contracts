@@ -532,6 +532,13 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
       }
     }
 
+    // Handle ParaswapSwap special case
+    if (variable === 'tokenIn' || variable === 'tokenOut') {
+      if ('tokenIn' in mergedArgs && 'tokenOut' in mergedArgs) {
+        return tokenConfig[mergedArgs[variable]].address;
+      }
+    }
+
     // Handle PullToken and SendToken special case
     if (variable === 'tokenAddress') {
       if ('tokenAddress' in mergedArgs) {
