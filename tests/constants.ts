@@ -194,6 +194,11 @@ export const tokenConfig = {
     whale: '0x8a95a711A56bD837D678ab299dE7B1Ec9863051C',
     decimals: 18,
   },
+  yDAI_V3: {
+    address: '0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e',
+    whale: '0x38E3d865e34f7367a69f096C80A4fc329DB38BF4',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {
