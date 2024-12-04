@@ -244,6 +244,36 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_GAUNTLET_USDC_ADDRESS);
   console.log(`Morpho Gauntlet USDC pool added. PoolId: ${getBytes4(MORPHO_GAUNTLET_USDC_ADDRESS)}`);
 
+  const MORPHO_RE7_USDT_ADDRESS = "0x95EeF579155cd2C5510F312c8fA39208c3Be01a8";
+  await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_RE7_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_RE7_USDT_ADDRESS);
+  console.log(`Morpho Re7 USDT pool added. PoolId: ${getBytes4(MORPHO_RE7_USDT_ADDRESS)}`);
+
+  const MORPHO_RE_USDC_ADDRESS = "0x0F359FD18BDa75e9c49bC027E7da59a4b01BF32a";
+  await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_RE_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_RE_USDC_ADDRESS);
+  console.log(`Morpho Re USDC pool added. PoolId: ${getBytes4(MORPHO_RE_USDC_ADDRESS)}`);
+
+  const MORPHO_STEAK_USDT_ADDRESS = "0xbEef047a543E45807105E51A8BBEFCc5950fcfBa";
+  await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_STEAK_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_STEAK_USDT_ADDRESS);
+  console.log(`Morpho Steak USDT pool added. PoolId: ${getBytes4(MORPHO_STEAK_USDT_ADDRESS)}`);
+
+  const MORPHO_BLUE_USDC_ADDRESS = "0xdd0f28e19C1780eb6396170735D45153D261490d";
+  await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_BLUE_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_BLUE_USDC_ADDRESS);
+  console.log(`Morpho Blue USDC pool added. PoolId: ${getBytes4(MORPHO_BLUE_USDC_ADDRESS)}`);
+
+  const MORPHO_BLUE_USDT_ADDRESS = "0x8CB3649114051cA5119141a34C200D65dc0Faa73";
+  await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_BLUE_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_BLUE_USDT_ADDRESS);
+  console.log(`Morpho Blue USDT pool added. PoolId: ${getBytes4(MORPHO_BLUE_USDT_ADDRESS)}`);
+
+  const MORPHO_STEAK_USDC_ADDRESS = "0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB";
+  await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_STEAK_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_STEAK_USDC_ADDRESS);
+  console.log(`Morpho Steak USDC pool added. PoolId: ${getBytes4(MORPHO_STEAK_USDC_ADDRESS)}`);
+
   const SPARK_DAI_ADDRESS = constants.tokenConfig.sDAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Spark', SPARK_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Spark', SPARK_DAI_ADDRESS);
@@ -269,10 +299,15 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('UwULend', UWU_LEND_DAI_ADDRESS);
   console.log(`UwULend DAI pool added. PoolId: ${getBytes4(UWU_LEND_DAI_ADDRESS)}`);
 
-  const YEARN_USDC_ADDRESS = constants.tokenConfig.yUSDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_USDC_ADDRESS);
-  console.log(`Yearn USDC pool added. PoolId: ${getBytes4(YEARN_USDC_ADDRESS)}`);
+  const YEARN_DAI_ADDRESS = "0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e";
+  await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_DAI_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_DAI_ADDRESS);
+  console.log(`Yearn DAI pool added. PoolId: ${getBytes4(YEARN_DAI_ADDRESS)}`);
+  
+  const YEARN_yvDAI_ADDRESS = "0xe24BA27551aBE96Ca401D39761cA2319Ea14e3CB";
+  await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_yvDAI_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_yvDAI_ADDRESS);
+  console.log(`Yearn yvDAI pool added. PoolId: ${getBytes4(YEARN_yvDAI_ADDRESS)}`);
   
   // Fund test accounts with USDC
   const fundAmount = ethers.parseUnits('100000', constants.tokenConfig.USDC.decimals);
