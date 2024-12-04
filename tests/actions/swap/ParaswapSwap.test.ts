@@ -4,8 +4,9 @@ import { ethers, expect, Signer } from '../..';
 import { IERC20Metadata, ParaswapSwap } from '../../../typechain-types';
 import { actionTypes } from '../../actions';
 import { tokenConfig } from '../../constants';
+import { ACTION_LOG_IDS } from '../../logs';
 import { ParaswapSwapParams } from '../../params';
-import { deploy, getBaseSetup, getBytes4, log } from '../../utils';
+import { decodeLoggerLog, deploy, getBaseSetup, getBytes4, log } from '../../utils';
 import { fundAccountWithToken, getStables } from '../../utils-stable';
 
 describe('ParaswapSwap tests', () => {
@@ -16,7 +17,7 @@ describe('ParaswapSwap tests', () => {
   let snapshotId: string;
   let loggerAddress: string;
   let adminVault: any;
-  const AUGUSTUS_ROUTER = '0x6a000f20005980200259b80c5102003040001068'; // Paraswap AugustusSwapper
+  const AUGUSTUS_ROUTER = '0x6A000F20005980200259B80c5102003040001068'; // Paraswap AugustusSwapper
 
   async function testSwap(
     tokenIn: 'USDC' | 'USDT' | 'DAI',
@@ -41,7 +42,7 @@ describe('ParaswapSwap tests', () => {
       [{ tokenIn: tokenConfig[tokenIn].address, tokenOut: tokenConfig[tokenOut].address, fromAmount, minToAmount, swapCallData }]
     );
     const encodedExecuteAction = paraswapSwap.interface.encodeFunctionData('executeAction', [encodedSwapCallData, 0]);
-    await executeSafeTransaction(safeAddr, await paraswapSwap.getAddress(), 0, encodedExecuteAction, SafeOperation.DelegateCall, signer);
+    const tx = await executeSafeTransaction(safeAddr, await paraswapSwap.getAddress(), 0, encodedExecuteAction, SafeOperation.DelegateCall, signer);
 
     // Check balances after swap
     const finalFromBalance = BigInt(await FromToken.balanceOf(safeAddr));
@@ -56,6 +57,20 @@ describe('ParaswapSwap tests', () => {
     expect(finalFromBalance).to.be.lt(initialFromBalance);
     expect(finalToBalance).to.be.gt(initialToBalance);
     expect(finalToBalance - initialToBalance).to.be.gte(minToAmount);
+
+    // Check log
+    const logs = await decodeLoggerLog(tx);
+    expect(logs).to.deep.equal([
+      {
+        eventId: ACTION_LOG_IDS.PARASWAP_SWAP,
+        safeAddress: safeAddr,
+        tokenIn: tokenConfig[tokenIn].address,
+        tokenOut: tokenConfig[tokenOut].address,
+        fromAmount: fromAmount,
+        minToAmount: minToAmount,
+        amountReceived: finalToBalance - initialToBalance,
+      },
+    ]);
   }
 
   before(async () => {
@@ -123,10 +138,7 @@ describe('ParaswapSwap tests', () => {
     });
   });
 
-  describe('Swap execution', () => {
-    // Note: These tests will need actual Paraswap API data to work
-    // They are structured but commented out until we have proper swap data
-    
+  describe('Swap execution', () => {    
     it('should swap USDC to USDT', async () => {
       const amount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
       const minAmount = ethers.parseUnits('999', tokenConfig.USDT.decimals);
@@ -135,13 +147,12 @@ describe('ParaswapSwap tests', () => {
       await testSwap('USDC', 'USDT', amount.toString(), minAmount.toString(), swapData);
     });
 
-    // it('should swap USDT to DAI', async () => {
-    //   const amount = ethers.parseUnits('100', tokenConfig.USDT.decimals);
-    //   const minAmount = ethers.parseUnits('99', tokenConfig.DAI.decimals);
-    //   // TODO: Get actual swap data from Paraswap API
-    //   const swapData = '0x...';
-    //   await testSwap('USDT', 'DAI', amount, minAmount, swapData);
-    // });
+    it('should swap USDT to DAI', async () => {
+      const amount = ethers.parseUnits('1090', tokenConfig.USDT.decimals);
+      const minAmount = ethers.parseUnits('999', tokenConfig.DAI.decimals);
+      const swapData = '0x876a02f60000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000001e0000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec70000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000035b265725ad9624b860000000000000000000000000000000000000000000000363d3faefc170df45d86957693430e49f68891fc342d10ef070000000000000000000000000145735a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000600000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec700000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000000000000000000000';
+      await testSwap('USDT', 'DAI', amount.toString(), minAmount.toString(), swapData);
+    });
   });
 
   describe('Error handling', () => {

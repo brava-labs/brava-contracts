@@ -84,7 +84,7 @@ contract ParaswapSwap is ActionBase {
             Errors.Paraswap__InsufficientOutput(amountReceived, _params.minToAmount)
         );
 
-        LOGGER.logActionEvent(LogType.PARASWAP_SWAP, abi.encode(_params, amountReceived));
+        LOGGER.logActionEvent(LogType.PARASWAP_SWAP, abi.encode(_params.tokenIn, _params.tokenOut, _params.fromAmount, _params.minToAmount, amountReceived));
     }
 
     /// @notice Parses the input data from bytes to Params struct
