@@ -113,6 +113,13 @@ export interface UwULendArgs extends BaseActionArgs {
   feeBasis?: number;
 }
 
+export interface BendDaoArgs extends BaseActionArgs {
+  type: 'BendDaoSupply' | 'BendDaoWithdraw';
+  assetId: string;
+  amount: string | BigInt;
+  feeBasis?: number;
+}
+
 // Union type for all action args
 export type ActionArgs =
   | SupplyArgs
@@ -123,7 +130,8 @@ export type ActionArgs =
   | AaveV3Args
   | AaveV2Args
   | StrikeArgs
-  | UwULendArgs;
+  | UwULendArgs
+  | BendDaoArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
@@ -349,6 +357,30 @@ export const actionDefaults: Record<string, ActionArgs> = {
   UwULendSupply: {
     type: 'UwULendSupply',
     assetId: getBytes4(tokenConfig.uUSDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  BendDaoSupply: {
+    type: 'BendDaoSupply',
+    assetId: getBytes4(tokenConfig.bendUSDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  BendDaoWithdraw: {
+    type: 'BendDaoWithdraw',
+    assetId: getBytes4(tokenConfig.bendUSDT.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
