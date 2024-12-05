@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.28;
 
-import {AaveSupplyBase} from "../common/AaveSupply.sol";
 import {ILendingPool} from "../../interfaces/aave-v2/ILendingPool.sol";
+import {AaveSupplyBase} from "../common/AaveSupply.sol";
 
+/// @title BendDaoSupply - Supplies tokens to BendDAO v1
+/// @notice This contract allows users to supply tokens to a BendDAO v1 lending pool
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
-contract AaveV2Supply is AaveSupplyBase {
+contract BendDaoSupply is AaveSupplyBase {
     constructor(
         address _adminVault,
         address _logger,
@@ -13,6 +15,6 @@ contract AaveV2Supply is AaveSupplyBase {
     ) AaveSupplyBase(_adminVault, _logger, _poolAddress) {}
 
     function protocolName() public pure override returns (string memory) {
-        return "AaveV2";
+        return "BendDaoV1";
     }
-}
+} 
