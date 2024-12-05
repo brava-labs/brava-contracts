@@ -25,8 +25,10 @@ describe('YearnV3 tests', () => {
   let yUSDC: IYearnVaultV3;
   let yUSDT: IYearnVaultV3;
   let yDAI: IYearnVaultV3;
+  let yajnaDAI: IYearnVaultV3;
   let adminVault: AdminVault;
-  const YEARN_DAI_ADDRESS = tokenConfig.yDAI_V3.address;
+  const YEARN_DAI_ADDRESS = tokenConfig.yearnV3_DAI.address;
+  const AJNA_DAI_ADDRESS = tokenConfig.yearnV3_ajnaDAI.address;
 
   const testCases: Array<{
     token: keyof typeof tokenConfig;
@@ -37,6 +39,11 @@ describe('YearnV3 tests', () => {
       token: 'DAI',
       poolAddress: YEARN_DAI_ADDRESS,
       yToken: () => yDAI,
+    },
+    {
+      token: 'DAI',
+      poolAddress: AJNA_DAI_ADDRESS,
+      yToken: () => yajnaDAI,
     },
     // Add more test cases as needed
   ];
@@ -73,10 +80,13 @@ describe('YearnV3 tests', () => {
     yearnSupplyAddress = await yearnSupplyContract.getAddress();
     yearnWithdrawAddress = await yearnWithdrawContract.getAddress();
     yDAI = await ethers.getContractAt('IYearnVaultV3', YEARN_DAI_ADDRESS);
+    yajnaDAI = await ethers.getContractAt('IYearnVaultV3', AJNA_DAI_ADDRESS);
 
     // grant the yToken contracts the POOL_ROLE
-    await adminVault.proposePool('YearnV3', YEARN_DAI_ADDRESS);
-    await adminVault.addPool('YearnV3', YEARN_DAI_ADDRESS);
+    for (const { poolAddress } of testCases) {  
+      await adminVault.proposePool('YearnV3', poolAddress);
+      await adminVault.addPool('YearnV3', poolAddress);
+    }
 
     await adminVault.proposeAction(getBytes4(yearnSupplyAddress), yearnSupplyAddress);
     await adminVault.addAction(getBytes4(yearnSupplyAddress), yearnSupplyAddress);
@@ -304,9 +314,15 @@ describe('YearnV3 tests', () => {
         it('Should withdraw the maximum amount', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, `y${token}_V3`, amount);
+          await fundAccountWithToken(safeAddr, token, amount);
 
-          expect(await yToken().balanceOf(safeAddr)).to.equal(amount);
+          await executeAction({
+            type: 'YearnSupplyV3',
+            poolAddress,
+            amount,
+          });
+
+          expect(await yToken().balanceOf(safeAddr)).to.be.greaterThan(0);
           expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
 
           await executeAction({
