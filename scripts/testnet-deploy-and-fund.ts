@@ -239,47 +239,47 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('Clearpool', CLEARPOOL_AUROS_USDC_ADDRESS);
   console.log(`Clearpool Auros USDC pool added. PoolId: ${getBytes4(CLEARPOOL_AUROS_USDC_ADDRESS)}`);
 
-  const MORPHO_FX_USDC_ADDRESS = constants.tokenConfig.fxUSDC.address;
+  const MORPHO_FX_USDC_ADDRESS = constants.tokenConfig.morpho_fxUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_FX_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_FX_USDC_ADDRESS);
   console.log(`Morpho FX USDC pool added. PoolId: ${getBytes4(MORPHO_FX_USDC_ADDRESS)}`);
 
-  const MORPHO_USUAL_USDC_ADDRESS = constants.tokenConfig.usualUSDC.address;
+  const MORPHO_USUAL_USDC_ADDRESS = constants.tokenConfig.morpho_usualUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_USUAL_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_USUAL_USDC_ADDRESS);
   console.log(`Morpho Usual USDC pool added. PoolId: ${getBytes4(MORPHO_USUAL_USDC_ADDRESS)}`);
 
-  const MORPHO_GAUNTLET_USDC_ADDRESS = constants.tokenConfig.gauntletUSDC.address;
+  const MORPHO_GAUNTLET_USDC_ADDRESS = constants.tokenConfig.morpho_gauntletUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_GAUNTLET_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_GAUNTLET_USDC_ADDRESS);
   console.log(`Morpho Gauntlet USDC pool added. PoolId: ${getBytes4(MORPHO_GAUNTLET_USDC_ADDRESS)}`);
 
-  const MORPHO_RE7_USDT_ADDRESS = "0x95EeF579155cd2C5510F312c8fA39208c3Be01a8";
+  const MORPHO_RE7_USDT_ADDRESS = constants.tokenConfig.morpho_blue_re7USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_RE7_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_RE7_USDT_ADDRESS);
   console.log(`Morpho Re7 USDT pool added. PoolId: ${getBytes4(MORPHO_RE7_USDT_ADDRESS)}`);
 
-  const MORPHO_RE_USDC_ADDRESS = "0x0F359FD18BDa75e9c49bC027E7da59a4b01BF32a";
+  const MORPHO_RE_USDC_ADDRESS = constants.tokenConfig.morpho_blue_reUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_RE_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_RE_USDC_ADDRESS);
   console.log(`Morpho Re USDC pool added. PoolId: ${getBytes4(MORPHO_RE_USDC_ADDRESS)}`);
 
-  const MORPHO_STEAK_USDT_ADDRESS = "0xbEef047a543E45807105E51A8BBEFCc5950fcfBa";
+  const MORPHO_STEAK_USDT_ADDRESS = constants.tokenConfig.morpho_blue_steakUSDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_STEAK_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_STEAK_USDT_ADDRESS);
   console.log(`Morpho Steak USDT pool added. PoolId: ${getBytes4(MORPHO_STEAK_USDT_ADDRESS)}`);
 
-  const MORPHO_BLUE_USDC_ADDRESS = "0xdd0f28e19C1780eb6396170735D45153D261490d";
+  const MORPHO_BLUE_USDC_ADDRESS = constants.tokenConfig.morpho_blue_gtUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_BLUE_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_BLUE_USDC_ADDRESS);
   console.log(`Morpho Blue USDC pool added. PoolId: ${getBytes4(MORPHO_BLUE_USDC_ADDRESS)}`);
 
-  const MORPHO_BLUE_USDT_ADDRESS = "0x8CB3649114051cA5119141a34C200D65dc0Faa73";
+  const MORPHO_BLUE_USDT_ADDRESS = constants.tokenConfig.morpho_blue_gtUSDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_BLUE_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_BLUE_USDT_ADDRESS);
   console.log(`Morpho Blue USDT pool added. PoolId: ${getBytes4(MORPHO_BLUE_USDT_ADDRESS)}`);
 
-  const MORPHO_STEAK_USDC_ADDRESS = "0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB";
+  const MORPHO_STEAK_USDC_ADDRESS = constants.tokenConfig.morpho_blue_steakUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_STEAK_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_STEAK_USDC_ADDRESS);
   console.log(`Morpho Steak USDC pool added. PoolId: ${getBytes4(MORPHO_STEAK_USDC_ADDRESS)}`);
@@ -309,12 +309,12 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('UwULend', UWU_LEND_DAI_ADDRESS);
   console.log(`UwULend DAI pool added. PoolId: ${getBytes4(UWU_LEND_DAI_ADDRESS)}`);
 
-  const YEARN_DAI_ADDRESS = "0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e";
+  const YEARN_DAI_ADDRESS = constants.tokenConfig.yDAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_DAI_ADDRESS);
   console.log(`Yearn DAI pool added. PoolId: ${getBytes4(YEARN_DAI_ADDRESS)}`);
   
-  const YEARN_yvDAI_ADDRESS = "0xe24BA27551aBE96Ca401D39761cA2319Ea14e3CB";
+  const YEARN_yvDAI_ADDRESS = constants.tokenConfig.yvDAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_yvDAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_yvDAI_ADDRESS);
   console.log(`Yearn yvDAI pool added. PoolId: ${getBytes4(YEARN_yvDAI_ADDRESS)}`);
