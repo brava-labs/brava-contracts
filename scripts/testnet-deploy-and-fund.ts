@@ -57,6 +57,9 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
 
     yearnSupply: await utils.deploy('YearnSupply', deployer, adminVaultAddress, loggerAddress),
     yearnWithdraw: await utils.deploy('YearnWithdraw', deployer, adminVaultAddress, loggerAddress),
+
+    bendDaoSupply: await utils.deploy('BendDaoSupply', deployer, adminVaultAddress, loggerAddress, constants.BEND_DAO_V1_POOL),
+    bendDaoWithdraw: await utils.deploy('BendDaoWithdraw', deployer, adminVaultAddress, loggerAddress, constants.BEND_DAO_V1_POOL),
   };
 
   for (const [name, contract] of Object.entries(contracts)) {
@@ -162,6 +165,13 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(yearnWithdrawAddress), yearnWithdrawAddress);
   await baseSetup.adminVault.connect(deployer).addAction(getBytes4(yearnWithdrawAddress), yearnWithdrawAddress);
 
+  const bendDaoSupplyAddress = await contracts.bendDaoSupply.getAddress();
+  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(bendDaoSupplyAddress), bendDaoSupplyAddress);
+  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(bendDaoSupplyAddress), bendDaoSupplyAddress);
+
+  const bendDaoWithdrawAddress = await contracts.bendDaoWithdraw.getAddress();
+  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(bendDaoWithdrawAddress), bendDaoWithdrawAddress);
+  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(bendDaoWithdrawAddress), bendDaoWithdrawAddress);
 
   console.log('Adding pools to admin vault');
   const FLUID_USDC_ADDRESS = constants.tokenConfig.fUSDC.address;
@@ -308,6 +318,11 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_yvDAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_yvDAI_ADDRESS);
   console.log(`Yearn yvDAI pool added. PoolId: ${getBytes4(YEARN_yvDAI_ADDRESS)}`);
+
+  const BEND_DAO_V1_USDT_ADDRESS = constants.tokenConfig.bendUSDT.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('BendDaoV1', BEND_DAO_V1_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('BendDaoV1', BEND_DAO_V1_USDT_ADDRESS);
+  console.log(`BendDaoV1 USDT pool added. PoolId: ${getBytes4(BEND_DAO_V1_USDT_ADDRESS)}`);
   
   // Fund test accounts with USDC
   const fundAmount = ethers.parseUnits('100000', constants.tokenConfig.USDC.decimals);
