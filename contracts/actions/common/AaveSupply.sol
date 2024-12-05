@@ -5,6 +5,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Errors} from "../../Errors.sol";
 import {IAaveToken} from "../../interfaces/common/IAaveToken.sol";
+import {ILendingPool} from "../../interfaces/aave-v2/ILendingPool.sol";
 import {ActionBase} from "../ActionBase.sol";
 
 /// @title AaveSupplyBase - Base contract for Aave supply actions
@@ -99,7 +100,9 @@ abstract contract AaveSupplyBase is ActionBase {
     /// @notice Performs the actual supply to the Aave pool
     /// @param _underlyingAsset Address of the underlying asset
     /// @param _amount Amount to supply
-    function _supply(address _underlyingAsset, uint256 _amount) internal virtual;
+    function _supply(address _underlyingAsset, uint256 _amount) internal virtual {
+        ILendingPool(POOL).deposit(_underlyingAsset, _amount, address(this), 0);
+    }
 
     /// @inheritdoc ActionBase
     function protocolName() public pure virtual override returns (string memory);
