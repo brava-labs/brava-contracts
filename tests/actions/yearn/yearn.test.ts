@@ -10,6 +10,7 @@ import {
   Logger,
   YearnSupply,
   YearnWithdraw,
+  ISafe,
 } from '../../../typechain-types';
 import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
@@ -25,6 +26,7 @@ import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stab
 describe('Yearn tests', () => {
   let signer: Signer;
   let safeAddr: string;
+  let safe: ISafe;
   let loggerAddress: string;
   let logger: Logger;
   let snapshotId: string;
@@ -72,7 +74,8 @@ describe('Yearn tests', () => {
     if (!baseSetup) {
       throw new Error('Base setup not deployed');
     }
-    safeAddr = (await baseSetup.safe.getAddress()) as string;
+    safe = await baseSetup.safe;
+    safeAddr = (await safe.getAddress()) as string;
     loggerAddress = (await baseSetup.logger.getAddress()) as string;
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
@@ -182,8 +185,14 @@ describe('Yearn tests', () => {
           const yTokenBalanceAfterFirstTx = await yToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -258,7 +267,9 @@ describe('Yearn tests', () => {
       });
 
       it('Should initialize last fee timestamp', async () => {
-        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn'])));
+        const protocolId = BigInt(
+          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn']))
+        );
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           protocolId,
@@ -322,7 +333,13 @@ describe('Yearn tests', () => {
         it('Should withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, `y${token}`, amount);
+          await fundAccountWithToken(safeAddr, token, amount);
+
+          await executeAction({
+            type: 'YearnSupply',
+            poolAddress,
+            amount,
+          });
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialyTokenBalance = await yToken().balanceOf(safeAddr);
@@ -376,8 +393,14 @@ describe('Yearn tests', () => {
 
           const yTokenBalanceAfterSupply = await yToken().balanceOf(safeAddr);
 
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -457,9 +480,53 @@ describe('Yearn tests', () => {
           })
         ).to.be.revertedWith('GS013');
       });
+      it('Should not confuse underlying and share tokens', async () => {
+        expect(await yUSDC.balanceOf(safeAddr)).to.equal(0);
+        expect(await USDC.balanceOf(safeAddr)).to.equal(0);
+
+        // give ourselves 1000 USDC
+        const amount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+        await fundAccountWithToken(safeAddr, 'USDC', amount);
+
+        expect(await USDC.balanceOf(safeAddr)).to.equal(amount);
+
+        // deposit 100 USDC
+        await executeAction({
+          type: 'YearnSupply',
+          poolAddress: YEARN_USDC_ADDRESS,
+          amount: ethers.parseUnits('100', tokenConfig.USDC.decimals),
+        });
+
+        // check we still have 900 USDC
+        expect(await USDC.balanceOf(safeAddr)).to.equal(
+          ethers.parseUnits('900', tokenConfig.USDC.decimals)
+        );
+
+        // check that we have yUSDC
+        const yTokenBalance = await yUSDC.balanceOf(safeAddr);
+        expect(yTokenBalance).to.be.greaterThan(0);
+
+        // withdraw 10 USDC
+        const tenDollars = ethers.parseUnits('10', tokenConfig.USDC.decimals);
+
+        await executeAction({
+          type: 'YearnWithdraw',
+          poolAddress: YEARN_USDC_ADDRESS,
+          amount: tenDollars,
+        });
+
+        // Maximum dust would be exactly 1 share worth since we only add 1 share in the contract
+        const pricePerShare = await yUSDC.pricePerShare();
+        const maxDust = pricePerShare; // One share's worth
+
+        // we should now have 900 + 10 USDC plus some dust
+        const expectedBalance = ethers.parseUnits('910', tokenConfig.USDC.decimals);
+
+        expect(await USDC.balanceOf(safeAddr)).to.be.closeTo(expectedBalance, maxDust);
+        expect(await yUSDC.balanceOf(safeAddr)).to.be.lessThan(yTokenBalance);
+      });
     });
   });
 });
 
-export { };
-
+export {};
