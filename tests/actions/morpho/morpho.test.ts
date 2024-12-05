@@ -5,11 +5,8 @@ import { actionTypes } from '../../actions';
 import { tokenConfig } from '../../constants';
 import {
   AdminVault,
-  FluidSupply,
-  FluidWithdraw,
   IERC20,
   IERC4626,
-  IFluidLending,
   Logger,
   MorphoSupply,
   MorphoWithdraw,
@@ -49,6 +46,12 @@ describe('Morpho tests', () => {
   let fxUSDC: IERC4626;
   let usualUSDC: IERC4626;
   let gauntletUSDC: IERC4626;
+  let blueRe7USDT: IERC4626;
+  let blueReUSDC: IERC4626;
+  let blueSteakUSDT: IERC4626;
+  let blueSteakUSDC: IERC4626;
+  let blueGtUSDC: IERC4626;
+  let blueGtUSDT: IERC4626;
   // let fUSDT: IFluidLending;
   let adminVault: AdminVault;
   const protocolId = BigInt(
@@ -63,18 +66,48 @@ describe('Morpho tests', () => {
   }> = [
     {
       token: 'USDC',
-      poolAddress: tokenConfig.fxUSDC.address,
+      poolAddress: tokenConfig.morpho_fxUSDC.address,
       mToken: () => fxUSDC,
     },
     {
       token: 'USDC',
-      poolAddress: tokenConfig.usualUSDC.address,
+      poolAddress: tokenConfig.morpho_usualUSDC.address,
       mToken: () => usualUSDC,
     },
     {
       token: 'USDC',
-      poolAddress: tokenConfig.gauntletUSDC.address,
+      poolAddress: tokenConfig.morpho_gauntletUSDC.address,
       mToken: () => gauntletUSDC,
+    },
+    {
+      token: 'USDT',
+      poolAddress: tokenConfig.morpho_blue_re7USDT.address,
+      mToken: () => blueRe7USDT,
+    },
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.morpho_blue_reUSDC.address,
+      mToken: () => blueReUSDC,
+    },
+    {
+      token: 'USDT',
+      poolAddress: tokenConfig.morpho_blue_steakUSDT.address,
+      mToken: () => blueSteakUSDT,
+    },
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.morpho_blue_steakUSDC.address,
+      mToken: () => blueSteakUSDC,
+    },
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.morpho_blue_gtUSDC.address,
+      mToken: () => blueGtUSDC,
+    },
+    {
+      token: 'USDT',
+      poolAddress: tokenConfig.morpho_blue_gtUSDT.address,
+      mToken: () => blueGtUSDT,
     },
   ];
 
@@ -107,9 +140,21 @@ describe('Morpho tests', () => {
     );
     morphoSupplyAddress = await morphoSupplyContract.getAddress();
     morphoWithdrawAddress = await morphoWithdrawContract.getAddress();
-    fxUSDC = await ethers.getContractAt('IERC4626', tokenConfig.fxUSDC.address);
-    usualUSDC = await ethers.getContractAt('IERC4626', tokenConfig.usualUSDC.address);
-    gauntletUSDC = await ethers.getContractAt('IERC4626', tokenConfig.gauntletUSDC.address);
+    fxUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_fxUSDC.address);
+    usualUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_usualUSDC.address);
+    gauntletUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_gauntletUSDC.address);
+    blueRe7USDT = await ethers.getContractAt('IERC4626', tokenConfig.morpho_blue_re7USDT.address);
+    blueReUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_blue_reUSDC.address);
+    blueSteakUSDT = await ethers.getContractAt(
+      'IERC4626',
+      tokenConfig.morpho_blue_steakUSDT.address
+    );
+    blueSteakUSDC = await ethers.getContractAt(
+      'IERC4626',
+      tokenConfig.morpho_blue_steakUSDC.address
+    );
+    blueGtUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_blue_gtUSDC.address);
+    blueGtUSDT = await ethers.getContractAt('IERC4626', tokenConfig.morpho_blue_gtUSDT.address);
 
     // propose and add all tokens in the testCases array
     for (const { poolAddress } of testCases) {
@@ -239,7 +284,7 @@ describe('Morpho tests', () => {
         const amount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
         await fundAccountWithToken(safeAddr, 'USDC', amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(tokenConfig.fxUSDC.address).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.morpho_fxUSDC.address).slice(0, 10);
 
         const tx = await executeAction({
           type: 'MorphoSupply',
@@ -267,7 +312,7 @@ describe('Morpho tests', () => {
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           protocolId,
-          tokenConfig.fxUSDC.address
+          tokenConfig.morpho_fxUSDC.address
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
 
@@ -289,7 +334,7 @@ describe('Morpho tests', () => {
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           protocolId,
-          tokenConfig.fxUSDC.address
+          tokenConfig.morpho_fxUSDC.address
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
       });
@@ -390,6 +435,7 @@ describe('Morpho tests', () => {
 
           const supplyTx = await executeAction({
             type: 'MorphoSupply',
+            poolAddress,
             amount,
             feeBasis: 10,
           });
@@ -399,13 +445,14 @@ describe('Morpho tests', () => {
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
             protocolId,
-            tokenConfig.fxUSDC.address
+            poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
           const withdrawTx = await executeAction({
             type: 'MorphoWithdraw',
+            poolAddress,
             amount: '1',
             feeBasis: 10,
           });
@@ -441,7 +488,7 @@ describe('Morpho tests', () => {
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(tokenConfig.fxUSDC.address).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.morpho_fxUSDC.address).slice(0, 10);
 
         // First supply to have something to withdraw
         await fundAccountWithToken(safeAddr, token, amount);
