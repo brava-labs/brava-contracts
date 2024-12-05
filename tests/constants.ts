@@ -194,6 +194,10 @@ export const tokenConfig = {
     whale: '0x8a95a711A56bD837D678ab299dE7B1Ec9863051C',
     decimals: 18,
   },
+  pUSDC: {
+    address: '0xaEeAfB1259f01f363d09D7027ad80a9d442de762',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {

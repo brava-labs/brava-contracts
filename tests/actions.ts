@@ -39,7 +39,8 @@ interface SupplyArgs extends BaseActionArgs {
     | 'ClearpoolSupply'
     | 'SparkSupply'
     | 'AcrossSupply'
-    | 'MorphoSupply';
+    | 'MorphoSupply'
+    | 'NotionalV3Supply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -53,7 +54,8 @@ interface WithdrawArgs extends BaseActionArgs {
     | 'ClearpoolWithdraw'
     | 'SparkWithdraw'
     | 'AcrossWithdraw'
-    | 'MorphoWithdraw';
+    | 'MorphoWithdraw'
+    | 'NotionalV3Withdraw';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -443,5 +445,33 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
     sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
+  },
+  NotionalV3Supply: {
+    type: 'NotionalV3Supply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.pUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  NotionalV3Withdraw: {
+    type: 'NotionalV3Withdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.pUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
   },
 };
