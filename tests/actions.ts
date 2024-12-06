@@ -70,6 +70,15 @@ interface SwapArgs extends BaseActionArgs {
   minAmount?: string;
 }
 
+interface ParaswapSwapArgs extends BaseActionArgs {
+  type: 'ParaswapSwap';
+  tokenIn: keyof typeof tokenConfig;
+  tokenOut: keyof typeof tokenConfig;
+  fromAmount: string | BigInt;
+  minToAmount: string;
+  swapCallData?: string;
+}
+
 interface TokenTransferArgs extends BaseActionArgs {
   type: 'PullToken' | 'SendToken';
   token: keyof typeof tokenConfig;
@@ -115,17 +124,26 @@ export interface UwULendArgs extends BaseActionArgs {
   feeBasis?: number;
 }
 
+export interface BendDaoArgs extends BaseActionArgs {
+  type: 'BendDaoSupply' | 'BendDaoWithdraw';
+  assetId: string;
+  amount: string | BigInt;
+  feeBasis?: number;
+}
+
 // Union type for all action args
 export type ActionArgs =
   | SupplyArgs
   | WithdrawArgs
   | SwapArgs
+  | ParaswapSwapArgs
   | TokenTransferArgs
   | BuyCoverArgs
   | AaveV3Args
   | AaveV2Args
   | StrikeArgs
-  | UwULendArgs;
+  | UwULendArgs
+  | BendDaoArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
@@ -198,6 +216,21 @@ export const actionDefaults: Record<string, ActionArgs> = {
     encoding: {
       inputParams: ['int128', 'int128', 'uint256', 'uint256'],
       encodingVariables: ['fromToken', 'toToken', 'amount', 'minAmount'],
+    },
+  },
+  ParaswapSwap: {
+    type: 'ParaswapSwap',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    tokenIn: 'USDC',
+    tokenOut: 'USDT',
+    fromAmount: '0',
+    minToAmount: '1',
+    swapCallData: '0x',
+    encoding: {
+      inputParams: ['address', 'address', 'uint256', 'uint256', 'bytes'],
+      encodingVariables: ['tokenIn', 'tokenOut', 'fromAmount', 'minToAmount', 'swapCallData'],
     },
   },
   PullToken: {
@@ -360,6 +393,30 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
+  BendDaoSupply: {
+    type: 'BendDaoSupply',
+    assetId: getBytes4(tokenConfig.bendUSDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  BendDaoWithdraw: {
+    type: 'BendDaoWithdraw',
+    assetId: getBytes4(tokenConfig.bendUSDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
   SparkSupply: {
     type: 'SparkSupply',
     useSDK: false,
@@ -421,7 +478,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.fxUSDC.address,
+    poolAddress: tokenConfig.morpho_fxUSDC.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
@@ -436,7 +493,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.fxUSDC.address,
+    poolAddress: tokenConfig.morpho_fxUSDC.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),

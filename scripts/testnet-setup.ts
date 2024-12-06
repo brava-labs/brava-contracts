@@ -1,4 +1,3 @@
-import { Pool } from 'brava-ts-client';
 import { ethers } from 'hardhat';
 import { constants } from '../tests';
 import { deposit } from './deposit';
@@ -23,7 +22,7 @@ async function testnetSetup() {
   // Define deposit parameters
   const depositAmount = 1000000000n; // 1000 USDC (assuming 6 decimal places)
   const strategyId = 1;
-  const pool = Pool.FluidUSDC;
+  const pool = 'fluid-usdc-116';
 
   await deposit(
     testAccounts[0],
@@ -46,7 +45,7 @@ async function testnetSetup() {
     testAccounts[0],
     safeAddress,
     await contracts.sequenceExecutor.getAddress(),
-    Pool.FluidUSDT,
+    'fluid-usdt-5',
     depositAmount,
     strategyId
   );

@@ -9,6 +9,7 @@ on:
 
 env:
   TENDERLY_AUTOMATIC_VERIFICATION: false
+  SUBGRAPH_URL: http://localhost:8000
 
 jobs:
   action-test:

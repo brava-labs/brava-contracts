@@ -54,6 +54,10 @@ contract Errors {
     // Curve3PoolSwap errors
     error Curve3Pool__InvalidTokenIndices(int128 _fromToken, int128 _toToken);
 
+    // ParaswapSwap errors
+    error Paraswap__SwapFailed();
+    error Paraswap__InsufficientOutput(uint256 _amountReceived, uint256 _minToAmount);
+
     // SendToken errors
     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
 }
