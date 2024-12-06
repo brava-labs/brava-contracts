@@ -205,6 +205,16 @@ export const tokenConfig = {
     whale: '0x8a95a711A56bD837D678ab299dE7B1Ec9863051C',
     decimals: 18,
   },
+  yearnV3_DAI: {
+    address: '0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e',
+    whale: '0x38E3d865e34f7367a69f096C80A4fc329DB38BF4',
+    decimals: 18,
+  },
+  yearnV3_ajnaDAI: {
+    address: '0xe24BA27551aBE96Ca401D39761cA2319Ea14e3CB',
+    whale: '0x54C6b2b293297e65b1d163C3E8dbc45338bfE443',
+    decimals: 18,
+  },
   morpho_blue_re7USDT: {
     address: '0x95EeF579155cd2C5510F312c8fA39208c3Be01a8',
     whale: '0xFc2a0F6fD177c8BF40d0FaB7e6027d6f290ef11D',
