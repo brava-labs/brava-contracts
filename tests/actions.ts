@@ -40,7 +40,8 @@ interface SupplyArgs extends BaseActionArgs {
     | 'SparkSupply'
     | 'AcrossSupply'
     | 'MorphoSupply'
-    | 'VesperSupply';
+    | 'VesperSupply'
+    | 'YearnSupplyV3';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -55,7 +56,8 @@ interface WithdrawArgs extends BaseActionArgs {
     | 'SparkWithdraw'
     | 'AcrossWithdraw'
     | 'MorphoWithdraw'
-    | 'VesperWithdraw';
+    | 'VesperWithdraw'
+    | 'YearnWithdrawV3';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -530,5 +532,33 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
     sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
+  },
+  YearnSupplyV3: {
+    type: 'YearnSupplyV3',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.yearnV3_DAI.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  YearnWithdrawV3: {
+    type: 'YearnWithdrawV3',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.yearnV3_DAI.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
   },
 };
