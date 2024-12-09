@@ -104,6 +104,22 @@ describe('AdminVault', function () {
         this.test!.ctx!.granted = true;
       });
 
+      it('should be able to revoke a role', async function () {
+        if (!this.test!.ctx!.granted) this.skip();
+        // make alice an owner
+        await adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), alice.address);
+        await adminVault.connect(admin).grantRole(getRoleBytes('OWNER_ROLE'), alice.address);
+
+        // bobby should not be able to revoke a role
+        await expect(
+          adminVault.connect(bobby).revokeRole(getRoleBytes('OWNER_ROLE'), alice.address)
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
+
+        // admin should be able to revoke a role
+        await adminVault.connect(admin).revokeRole(getRoleBytes('OWNER_ROLE'), alice.address);
+        expect(await adminVault.hasRole(getRoleBytes('OWNER_ROLE'), alice.address)).to.be.false;
+      });
+
       it('should not be able to grant a role if the delay is not passed', async function () {
         if (!this.test!.ctx!.granted) this.skip();
         const delay = 60 * 60 * 24;

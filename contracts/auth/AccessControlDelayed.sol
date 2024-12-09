@@ -76,7 +76,7 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
     /// @dev We must check that the account has the role, and also remove any proposals
     function revokeRole(bytes32 role, address account) public override(AccessControl) {
         require(hasRole(role, account), Errors.AdminVault_NotGranted());
-        super._revokeRole(role, account);
+        super.revokeRole(role, account);
         // no need to check if the proposal exists, we're just setting it to 0
         delete proposedRoles[keccak256(abi.encodePacked(role, account))];
         LOGGER.logAdminVaultEvent(404, abi.encode(role, account));
