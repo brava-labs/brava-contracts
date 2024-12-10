@@ -40,6 +40,7 @@ interface SupplyArgs extends BaseActionArgs {
     | 'SparkSupply'
     | 'AcrossSupply'
     | 'MorphoSupply'
+    | 'VesperSupply'
     | 'NotionalV3Supply'
     | 'YearnSupplyV3';
   poolAddress?: string;
@@ -56,6 +57,7 @@ interface WithdrawArgs extends BaseActionArgs {
     | 'SparkWithdraw'
     | 'AcrossWithdraw'
     | 'MorphoWithdraw'
+    | 'VesperWithdraw'
     | 'NotionalV3Withdraw'
     | 'YearnWithdrawV3';
   poolAddress?: string;
@@ -198,6 +200,34 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
     poolAddress: tokenConfig.USDC.pools.yearn,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+  },
+  VesperSupply: {
+    type: 'VesperSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.vaUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  VesperWithdraw: {
+    type: 'VesperWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.vaUSDC.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),

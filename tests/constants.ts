@@ -249,6 +249,11 @@ export const tokenConfig = {
     whale: '0xdb02Da0A36c7b19461fD00DA62D4fF3be884668e',
     decimals: 18,
   },
+  vaUSDC: {
+    address: '0xa8b607Aa09B6A2E306F93e74c282Fb13f6A80452',
+    whale: '0x3691EF68Ba22a854c36bC92f6b5F30473eF5fb0A',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {
