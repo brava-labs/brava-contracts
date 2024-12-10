@@ -32,21 +32,30 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
     }
 
     /// @notice Proposes a role with a delay
-    /// @dev We must check that the account is not the zero address and that the role is not already granted or proposed
-    function proposeRole(bytes32 role, address account) external onlyRole(OWNER_ROLE) {
+    /// @dev Only accounts with the admin role for the role being proposed can make proposals
+    function proposeRole(bytes32 role, address account) external {
+        require(hasRole(getRoleAdmin(role), msg.sender), "Must have admin role to propose");
         require(account != address(0), Errors.InvalidInput("AccessControlDelayed", "_proposeRole"));
         require(!hasRole(role, account), Errors.AdminVault_AlreadyGranted());
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         require(proposedRoles[proposalId] == 0, Errors.AdminVault_AlreadyProposed());
 
-        // add to list of proposed roles with the wait time
         proposedRoles[proposalId] = _getDelayTimestamp();
         LOGGER.logAdminVaultEvent(104, abi.encode(role, account));
     }
 
     /// @notice Grants a role after the delay has passed
-    /// @dev We must check that the role was proposed and the delay has passed
+    /// @dev OWNER_ROLE can grant any role immediately, others must follow proposal system
     function grantRole(bytes32 role, address account) public override(AccessControl) {
+        if (hasRole(OWNER_ROLE, msg.sender)) {
+            // OWNER_ROLE can grant any role immediately
+            super.grantRole(role, account);
+            LOGGER.logAdminVaultEvent(204, abi.encode(role, account));
+            return;
+        }
+
+        // For all other admins (ROLE_MANAGER_ROLE), must follow proposal system
+        require(role != OWNER_ROLE, "Cannot grant OWNER_ROLE");
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         require(proposedRoles[proposalId] != 0, Errors.AdminVault_NotProposed());
         require(
@@ -54,19 +63,18 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
             Errors.AdminVault_DelayNotPassed(block.timestamp, proposedRoles[proposalId])
         );
 
-        // Role was proposed and delay has passed. Now delete proposal and grant role
         delete proposedRoles[proposalId];
         super.grantRole(role, account);
-        /// @dev AccessControl will silently execute if the role is already granted
-        ///      this doesn't happen here because we checked when the proposal was made
-        ///      and revoking the role will also clear proposals.
-        ///      So to grant any role, it MUST have been proposed and not already granted.
         LOGGER.logAdminVaultEvent(204, abi.encode(role, account));
     }
 
     /// @notice Cancels a role proposal
-    /// @dev We must check that the proposal exists
-    function cancelRoleProposal(bytes32 role, address account) external onlyRole(ROLE_CANCELER_ROLE) {
+    /// @dev Only ROLE_MANAGER_ROLE or OWNER_ROLE can cancel proposals
+    function cancelRoleProposal(bytes32 role, address account) external {
+        require(
+            hasRole(ROLE_MANAGER_ROLE, msg.sender) || hasRole(OWNER_ROLE, msg.sender),
+            "Must have ROLE_MANAGER_ROLE or OWNER_ROLE"
+        );
         require(proposedRoles[keccak256(abi.encodePacked(role, account))] != 0, Errors.AdminVault_NotProposed());
         delete proposedRoles[keccak256(abi.encodePacked(role, account))];
         LOGGER.logAdminVaultEvent(304, abi.encode(role, account));
