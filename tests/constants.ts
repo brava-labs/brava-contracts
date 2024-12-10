@@ -96,8 +96,8 @@ export const tokenConfig = {
     decimals: 6,
   },
   yDAI: {
-    address: '0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e',
-    whale: '0x38E3d865e34f7367a69f096C80A4fc329DB38BF4',
+    address: '0xdA816459F1AB5631232FE5e97a05BBBb94970c95',
+    whale: '0x5C6374a2ac4EBC38DeA0Fc1F8716e5Ea1AdD94dd',
     decimals: 18,
   },
   yvDAI: {
