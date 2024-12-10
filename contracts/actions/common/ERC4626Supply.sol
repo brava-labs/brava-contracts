@@ -79,7 +79,7 @@ abstract contract ERC4626Supply is ActionBase {
             require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), uint8(actionType())));
 
             // Perform the deposit
-            underlyingToken.safeIncreaseAllowance(_vaultAddress, amountToDeposit);
+            _increaseAllowance(address(underlyingToken), _vaultAddress, amountToDeposit);
             uint256 shares = _deposit(_vaultAddress, amountToDeposit);
 
             // Did that work as expected?
@@ -111,6 +111,14 @@ abstract contract ERC4626Supply is ActionBase {
     }
 
     ///  -----  Protocol specific overrides -----  ///
+
+    ///@notice Incerases the allowance to the vault
+    ///@param _underlying The underlying token address
+    ///@param _destination The destination address
+    ///@param _amount The amount of underlying token to deposit
+    function _increaseAllowance(address _underlying, address _destination, uint256 _amount) internal virtual {
+        IERC20(_underlying).safeIncreaseAllowance(_destination, _amount);
+    }
 
     /// @notice Gets the underlying token address from the vault
     /// @dev Override this for non-standard ERC4626 implementations

@@ -40,6 +40,7 @@ interface SupplyArgs extends BaseActionArgs {
     | 'SparkSupply'
     | 'AcrossSupply'
     | 'MorphoSupply'
+    | 'NotionalV3Supply'
     | 'YearnSupplyV3';
   poolAddress?: string;
   feeBasis?: number;
@@ -55,6 +56,7 @@ interface WithdrawArgs extends BaseActionArgs {
     | 'SparkWithdraw'
     | 'AcrossWithdraw'
     | 'MorphoWithdraw'
+    | 'NotionalV3Withdraw'
     | 'YearnWithdrawV3';
   poolAddress?: string;
   feeBasis?: number;
@@ -523,6 +525,34 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
     poolAddress: tokenConfig.yearnV3_DAI.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+  },
+  NotionalV3Supply: {
+    type: 'NotionalV3Supply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.pUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  NotionalV3Withdraw: {
+    type: 'NotionalV3Withdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.pUSDC.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
