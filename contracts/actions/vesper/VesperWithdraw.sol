@@ -4,7 +4,6 @@ pragma solidity =0.8.28;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Errors} from "../../Errors.sol";
-import {HubPoolInterface} from "../../interfaces/across/HubPoolInterface.sol";
 import {ActionBase} from "../ActionBase.sol";
 import {IVesperPool} from "../../interfaces/vesper/IVesperPool.sol";
 
@@ -36,8 +35,9 @@ contract VesperWithdraw is ActionBase {
         // Check inputs
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
 
+        address poolAddress = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
         // Execute action
-        (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) = _withdrawLiquidity(inputData);
+        (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) = _withdrawLiquidity(inputData, poolAddress);
 
         // Log event
         LOGGER.logActionEvent(
@@ -47,30 +47,31 @@ contract VesperWithdraw is ActionBase {
     }
 
     function _withdrawLiquidity(
-        Params memory _inputData
+        Params memory _inputData,
+        address _poolAddress
     ) internal returns (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) {
-        address poolAddress = ADMIN_VAULT.getPoolAddress(protocolName(), _inputData.poolId);
         // Get the LP token address
-        IVesperPool pool = IVesperPool(poolAddress);
+        IVesperPool pool = IVesperPool(_poolAddress);
 
         // Get initial balance
-        sharesBefore = IERC20(poolAddress).balanceOf(address(this));
+        sharesBefore = IERC20(_poolAddress).balanceOf(address(this));
 
-        feeInTokens = _processFee(poolAddress, _inputData.feeBasis, poolAddress, sharesBefore);
+        feeInTokens = _processFee(_poolAddress, _inputData.feeBasis, _poolAddress, sharesBefore);
 
-        uint256 underlyingBalance = _sharesToUnderlying(pool, sharesBefore);
-        /// @dev If the withdraw amount is greater or equal than the underlying balance, we withdraw the entire balance
-        /// @dev Otherwise, some dust might be left behind
+        // Get price per share once
+        uint256 pricePerShare = pool.pricePerShare();
+        
+        uint256 underlyingBalance = (sharesBefore * pricePerShare) / 1e18;
         uint256 amountToWithdraw = _inputData.withdrawAmount >= underlyingBalance
             ? sharesBefore
-            : _underlyingToShares(pool, _inputData.withdrawAmount);
+            : (_inputData.withdrawAmount * 1e18) / pricePerShare;
 
         require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
         // Execute withdrawal
         pool.withdraw(amountToWithdraw);
 
-        sharesAfter = IERC20(poolAddress).balanceOf(address(this));
+        sharesAfter = IERC20(_poolAddress).balanceOf(address(this));
         // Calculate shares burned
         uint256 sharesBurned = sharesBefore - sharesAfter;
         require(
@@ -82,14 +83,6 @@ contract VesperWithdraw is ActionBase {
                 _inputData.maxSharesBurned
             )
         );
-    }
-
-    function _sharesToUnderlying(IVesperPool _pool, uint256 _shares) view internal returns (uint256) {
-        return (_shares * _pool.pricePerShare()) / 1e18;
-    }
-
-    function _underlyingToShares(IVesperPool _pool, uint256 _underlying) view internal returns (uint256) {
-        return (_underlying * 1e18) / _pool.pricePerShare();
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {

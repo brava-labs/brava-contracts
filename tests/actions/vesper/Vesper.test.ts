@@ -5,13 +5,13 @@ import { AdminVault, IERC20, Logger, VesperSupply, VesperWithdraw } from '../../
 import { actionTypes } from '../../actions';
 import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
-    calculateExpectedFee,
-    decodeLoggerLog,
-    deploy,
-    executeAction,
-    getBaseSetup,
-    getBytes4,
-    log,
+  calculateExpectedFee,
+  decodeLoggerLog,
+  deploy,
+  executeAction,
+  getBaseSetup,
+  getBytes4,
+  log,
 } from '../../utils';
 import { fundAccountWithToken, getUSDC } from '../../utils-stable';
 
@@ -376,6 +376,54 @@ describe('Vesper tests', () => {
             feeRecipientTokenBalanceBefore
           );
           expect(await poolContract.balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
+        });
+
+        it('Should not confuse underlying and share tokens', async () => {
+          const poolContract = await ethers.getContractAt('IVesperPool', testCases[0].poolAddress);
+          
+          expect(await poolContract.balanceOf(safeAddr)).to.equal(0);
+          expect(await USDC.balanceOf(safeAddr)).to.equal(0);
+
+          // give ourselves 1000 USDC
+          const amount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+          await fundAccountWithToken(safeAddr, 'USDC', amount);
+
+          expect(await USDC.balanceOf(safeAddr)).to.equal(amount);
+
+          // deposit 100 USDC
+          await executeAction({
+            type: 'VesperSupply',
+            poolAddress: testCases[0].poolAddress,
+            amount: ethers.parseUnits('100', tokenConfig.USDC.decimals),
+          });
+
+          // check we still have 900 USDC
+          expect(await USDC.balanceOf(safeAddr)).to.equal(
+            ethers.parseUnits('900', tokenConfig.USDC.decimals)
+          );
+
+          // check that we have vUSDC
+          const vTokenBalance = await poolContract.balanceOf(safeAddr);
+          expect(vTokenBalance).to.be.greaterThan(0);
+
+          // withdraw 10 USDC
+          const tenDollars = ethers.parseUnits('10', tokenConfig.USDC.decimals);
+
+          await executeAction({
+            type: 'VesperWithdraw',
+            poolAddress: testCases[0].poolAddress,
+            amount: tenDollars,
+          });
+
+          // Maximum dust would be exactly 1 share worth since we only add 1 share in the contract
+          const pricePerShare = await poolContract.pricePerShare();
+          const maxDust = pricePerShare; // One share's worth
+
+          // we should now have 900 + 10 USDC plus some dust
+          const expectedBalance = ethers.parseUnits('910', tokenConfig.USDC.decimals);
+
+          expect(await USDC.balanceOf(safeAddr)).to.be.closeTo(expectedBalance, maxDust);
+          expect(await poolContract.balanceOf(safeAddr)).to.be.lessThan(vTokenBalance);
         });
       });
     });

@@ -2,11 +2,9 @@
 
 pragma solidity 0.8.28;
 
-import "./IGovernable.sol";
-import "./IPausable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IVesperPool is IGovernable, IPausable, IERC20 {
+interface IVesperPool is IERC20 {
     function calculateUniversalFee(uint256 profit_) external view returns (uint256 _fee);
 
     function deposit(uint256 collateralAmount_) external;

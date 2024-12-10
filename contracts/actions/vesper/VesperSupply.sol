@@ -34,8 +34,9 @@ contract VesperSupply is ActionBase {
         // Check inputs
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
 
+        address poolAddress = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
         // Execute action
-        (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) = _supplyToPool(inputData);
+        (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) = _supplyToPool(inputData, poolAddress);
 
         // Log event
         LOGGER.logActionEvent(
@@ -45,16 +46,16 @@ contract VesperSupply is ActionBase {
     }
 
     function _supplyToPool(
-        Params memory _inputData
+        Params memory _inputData,
+        address _poolAddress
     ) internal returns (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) {
-        address poolAddress = ADMIN_VAULT.getPoolAddress(protocolName(), _inputData.poolId);
-        IVesperPool pool = IVesperPool(poolAddress);
+        IVesperPool pool = IVesperPool(_poolAddress);
         IERC20 underlyingToken = pool.token();
 
         // Get initial balance
-        sharesBefore = IERC20(poolAddress).balanceOf(address(this));
+        sharesBefore = IERC20(_poolAddress).balanceOf(address(this));
 
-        feeInTokens = _processFee(poolAddress, _inputData.feeBasis, poolAddress, sharesBefore);
+        feeInTokens = _processFee(_poolAddress, _inputData.feeBasis, _poolAddress, sharesBefore);
 
         // If we have an amount to deposit, do that
         if (_inputData.amount != 0) {
@@ -65,11 +66,11 @@ contract VesperSupply is ActionBase {
             require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
             // Approve and supply
-            underlyingToken.safeIncreaseAllowance(poolAddress, amountToDeposit);
+            underlyingToken.safeIncreaseAllowance(_poolAddress, amountToDeposit);
             pool.deposit(amountToDeposit);
 
             // Check received shares meet minimum
-            sharesAfter = IERC20(poolAddress).balanceOf(address(this));
+            sharesAfter = IERC20(_poolAddress).balanceOf(address(this));
             uint256 sharesReceived = sharesAfter - sharesBefore;
             require(
                 sharesReceived >= _inputData.minSharesReceived,
