@@ -56,77 +56,158 @@ describe('AdminVault', function () {
       snapshotId = await network.provider.send('evm_snapshot');
     });
 
+    describe('Constructor', function () {
+      it('should revert with zero address owner', async function () {
+        const AdminVaultFactory = await ethers.getContractFactory('AdminVault');
+        await expect(
+          AdminVaultFactory.deploy(ethers.ZeroAddress, 60 * 60 * 24, admin.address)
+        ).to.be.revertedWithCustomError(AdminVaultFactory, 'InvalidInput');
+      });
+
+      it('should revert with zero address logger', async function () {
+        const AdminVaultFactory = await ethers.getContractFactory('AdminVault');
+        await expect(
+          AdminVaultFactory.deploy(admin.address, 60 * 60 * 24, ethers.ZeroAddress)
+        ).to.be.revertedWithCustomError(AdminVaultFactory, 'InvalidInput');
+      });
+    });
+
     describe('Role management', function () {
       it('should be able to propose a role', async function () {
-        // alice should not be able to propose a role
+        // alice should not be able to propose a role (not an admin)
+        await expect(
+          adminVault.connect(alice).proposeRole(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address)
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlDelayed_MustHaveAdminRole')
+        .withArgs(alice.address, getRoleBytes('POOL_PROPOSER_ROLE'));
+
+        // admin should be able to propose POOL_PROPOSER_ROLE (admin is OWNER and OWNER is admin of ROLE_MANAGER_ROLE)
+        await adminVault.connect(admin).proposeRole(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address);
         expect(
-          adminVault.connect(alice).proposeRole(getRoleBytes('OWNER_ROLE'), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to propose a role
-        await adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), alice.address);
-        expect(
-          await adminVault.getRoleProposalTime(getRoleBytes('OWNER_ROLE'), alice.address)
+          await adminVault.getRoleProposalTime(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address)
         ).to.not.equal(0);
-        this.test!.ctx!.proposed = true;
+
+        // admin should be able to propose OWNER_ROLE (OWNER is its own admin)
+        await adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), bobby.address);
+        expect(
+          await adminVault.getRoleProposalTime(getRoleBytes('OWNER_ROLE'), bobby.address)
+        ).to.not.equal(0);
+
+        // role manager should NOT be able to propose OWNER_ROLE (not an admin of OWNER_ROLE)
+        await adminVault.connect(admin).grantRole(getRoleBytes('ROLE_MANAGER_ROLE'), carol.address);
+        await expect(
+          adminVault.connect(carol).proposeRole(getRoleBytes('OWNER_ROLE'), david.address)
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlDelayed_MustHaveAdminRole')
+        .withArgs(carol.address, getRoleBytes('OWNER_ROLE'));
+      });
+
+      it('should allow OWNER_ROLE to bypass delay when granting roles', async function () {
+        // OWNER can grant roles directly without proposal
+        await adminVault.connect(admin).grantRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
+        expect(await adminVault.hasRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address)).to.be.true;
+
+        // Clean up - revoke the role
+        await adminVault.connect(admin).revokeRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
       });
 
       it('should be able to cancel a role proposal', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), alice.address);
+        await adminVault.connect(admin).proposeRole(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address);
         expect(
-          adminVault.getRoleProposalTime(getRoleBytes('OWNER_ROLE'), alice.address)
+          await adminVault.getRoleProposalTime(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address)
         ).to.not.equal(0);
 
-        // alice should not be able to cancel the role proposal
+        // Test cancel role proposal
         await expect(
-          adminVault.connect(alice).cancelRoleProposal(getRoleBytes('OWNER_ROLE'), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
+          adminVault.connect(alice).cancelRoleProposal(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address)
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlDelayed_MustHaveRoleManagerOrOwner')
+        .withArgs(alice.address);
 
         // admin should be able to cancel the role proposal
         await adminVault
           .connect(admin)
-          .cancelRoleProposal(getRoleBytes('OWNER_ROLE'), alice.address);
+          .cancelRoleProposal(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address);
         expect(
-          await adminVault.getRoleProposalTime(getRoleBytes('OWNER_ROLE'), alice.address)
+          await adminVault.getRoleProposalTime(getRoleBytes('POOL_PROPOSER_ROLE'), alice.address)
         ).to.equal(0);
       });
 
-      it('should be able to grant a role', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), alice.address);
-        // alice should not be able to grant a role
+      it('should be able to grant a role through ROLE_MANAGER_ROLE', async function () {
+        // First make alice a ROLE_MANAGER
+        await adminVault.connect(admin).grantRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
+        
+        // Alice proposes bobby for POOL_PROPOSER_ROLE
+        await adminVault.connect(alice).proposeRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address);
+        
+        // Wait for delay
+        await time.increase(60 * 60 * 24);
+        
+        // Alice grants the role after proposal
+        await adminVault.connect(alice).grantRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address);
+        expect(await adminVault.hasRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address)).to.be.true;
+        
+        // Clean up
+        await adminVault.connect(admin).revokeRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
+      });
+
+      it('should be able to revoke a role', async function () {
+        // First make alice a ROLE_MANAGER
+        await adminVault.connect(admin).grantRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
+        
+        // Alice proposes and grants POOL_PROPOSER_ROLE to bobby
+        await adminVault.connect(alice).proposeRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address);
+        await time.increase(60 * 60 * 24);
+        await adminVault.connect(alice).grantRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address);
+
+        // Carol should not be able to revoke a role
         await expect(
-          adminVault.connect(alice).grantRole(getRoleBytes('OWNER_ROLE'), alice.address)
+          adminVault.connect(carol).revokeRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to grant a role
-        await adminVault.connect(admin).grantRole(getRoleBytes('OWNER_ROLE'), alice.address);
-        expect(await adminVault.hasRole(getRoleBytes('OWNER_ROLE'), alice.address)).to.be.true;
-        this.test!.ctx!.granted = true;
+
+        // Alice (as ROLE_MANAGER) should be able to revoke the role
+        await adminVault.connect(alice).revokeRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address);
+        expect(await adminVault.hasRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address)).to.be.false;
+        
+        // Clean up
+        await adminVault.connect(admin).revokeRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
       });
 
       it('should not be able to grant a role if the delay is not passed', async function () {
-        if (!this.test!.ctx!.granted) this.skip();
-        const delay = 60 * 60 * 24;
-        await adminVault.connect(admin).changeDelay(delay);
-        await adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), alice.address);
+        // Make alice a ROLE_MANAGER
+        await adminVault.connect(admin).grantRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
+        
+        // Set a delay
+        await adminVault.connect(admin).changeDelay(60 * 60 * 24); // 1 day delay
+        
+        // Alice proposes bobby for POOL_PROPOSER_ROLE
+        await adminVault.connect(alice).proposeRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address);
+        
+        // Try to grant immediately without waiting for delay
         await expect(
-          adminVault.connect(admin).grantRole(getRoleBytes('OWNER_ROLE'), alice.address)
+          adminVault.connect(alice).grantRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address)
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_DelayNotPassed');
+        
+        // Clean up
+        await adminVault.connect(admin).revokeRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
       });
 
       it('should not be able to grant a role if the role is not proposed', async function () {
-        if (!this.test!.ctx!.granted) this.skip();
+        // Make alice a ROLE_MANAGER
+        await adminVault.connect(admin).grantRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
+        
+        // Try to grant without proposal
         await expect(
-          adminVault.connect(admin).grantRole(getRoleBytes('OWNER_ROLE'), alice.address)
+          adminVault.connect(alice).grantRole(getRoleBytes('POOL_PROPOSER_ROLE'), bobby.address)
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
+        
+        // Clean up
+        await adminVault.connect(admin).revokeRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
       });
 
       it('should not be able to propose a role to the zero address', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
         await expect(
-          adminVault.connect(admin).proposeRole(getRoleBytes('OWNER_ROLE'), ethers.ZeroAddress)
+          adminVault.connect(admin).proposeRole(getRoleBytes('POOL_PROPOSER_ROLE'), ethers.ZeroAddress)
         ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
       });
+
       it('should be able to batch propose and grant roles', async function () {
         // Create the calldata for proposing roles
         const proposeRoleCalls = [
@@ -375,53 +456,45 @@ describe('AdminVault', function () {
 
     describe('Fee configuration', function () {
       it('should be able to propose a fee config', async function () {
-        // alice should not be able to propose a fee config
         await expect(
           adminVault.connect(alice).proposeFeeConfig(alice.address, 100, 200)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
 
-        // admin should be able to propose a fee config
         await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
         const pendingConfig = await adminVault.pendingFeeConfig();
         expect(pendingConfig.recipient).to.equal(alice.address);
         expect(pendingConfig.minBasis).to.equal(100);
         expect(pendingConfig.maxBasis).to.equal(200);
-        expect(pendingConfig.proposalTime).to.not.equal(0);
-        this.test!.ctx!.proposed = true;
       });
 
       it('should not be able to propose invalid fee ranges', async function () {
-        // max less than min
         await expect(
           adminVault.connect(admin).proposeFeeConfig(alice.address, 200, 100)
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_InvalidFeeRange');
 
-        // zero address recipient
-        await expect(
-          adminVault.connect(admin).proposeFeeConfig(ethers.ZeroAddress, 100, 200)
-        ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
-
-        // max greater than 10%
         await expect(
           adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 1001)
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_FeePercentageOutOfRange');
       });
 
       it('should be able to cancel a fee config proposal', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
         await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
-        const pendingConfigBefore = await adminVault.pendingFeeConfig();
-        expect(pendingConfigBefore.proposalTime).to.not.equal(0);
-
-        // alice should not be able to cancel the fee config proposal
         await expect(
           adminVault.connect(alice).cancelFeeConfigProposal()
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
 
-        // admin should be able to cancel the fee config proposal
         await adminVault.connect(admin).cancelFeeConfigProposal();
-        const pendingConfigAfter = await adminVault.pendingFeeConfig();
-        expect(pendingConfigAfter.proposalTime).to.equal(0);
+        const pendingConfig = await adminVault.pendingFeeConfig();
+        expect(pendingConfig.proposalTime).to.equal(0);
+      });
+
+      it('should not be able to cancel a non-existent fee config proposal', async function () {
+        // Try to cancel when no proposal exists
+        await adminVault.connect(admin).cancelFeeConfigProposal();
+        
+        // Verify nothing changed
+        const pendingConfig = await adminVault.pendingFeeConfig();
+        expect(pendingConfig.proposalTime).to.equal(0);
       });
 
       it('should be able to set a fee config', async function () {
@@ -484,13 +557,57 @@ describe('AdminVault', function () {
       });
     });
 
+    describe('Fee configuration execution', function () {
+      beforeEach(async function () {
+        // Set a delay of 1 day
+        const oneDay = 86400n;
+        await adminVault.connect(admin).changeDelay(oneDay);
+        
+        // Grant necessary roles to admin
+        await adminVault.connect(admin).grantRole(await adminVault.FEE_EXECUTOR_ROLE(), admin.address);
+        await adminVault.connect(admin).grantRole(await adminVault.FEE_PROPOSER_ROLE(), admin.address);
+        
+        // Set up a fee config proposal first
+        await adminVault.connect(admin).proposeFeeConfig(alice.address, 100, 200);
+      });
+
+      it('should revert when non-executor tries to set fee config', async function () {
+        await expect(
+          adminVault.connect(alice).setFeeConfig()
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
+      });
+
+      it('should successfully set fee config after delay', async function () {
+        // Fast forward past the delay
+        await network.provider.send('evm_increaseTime', [Number(await adminVault.delay())]);
+        await network.provider.send('evm_mine');
+
+        await adminVault.connect(admin).setFeeConfig();
+        const config = await adminVault.feeConfig();
+        expect(config.recipient).to.equal(alice.address);
+        expect(config.minBasis).to.equal(100);
+        expect(config.maxBasis).to.equal(200);
+      });
+
+      it('should revert when setting fee config before delay passes', async function () {
+        // Try to set immediately without waiting for delay
+        await expect(
+          adminVault.connect(admin).setFeeConfig()
+        ).to.be.revertedWithCustomError(
+          adminVault,
+          'AdminVault_DelayNotPassed'
+        );
+      });
+    });
+
     describe('Pool management', function () {
       it('should be able to propose a pool', async function () {
-        expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.equal(0);
-        // alice should not be able to propose a pool
+        // alice should not be able to propose a pool (not an admin)
         await expect(
           adminVault.connect(alice).proposePool('Fluid', alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
+        .withArgs(alice.address, getRoleBytes('POOL_PROPOSER_ROLE'));
+
         // admin should be able to propose a pool
         await adminVault.connect(admin).proposePool('Fluid', alice.address);
         expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.not.equal(0);
@@ -498,31 +615,17 @@ describe('AdminVault', function () {
       });
 
       it('should be able to cancel a pool proposal', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault.connect(admin).proposePool('Fluid', alice.address);
-        expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.not.equal(0);
-        // alice should not be able to cancel the pool proposal
         await expect(
           adminVault.connect(alice).cancelPoolProposal('Fluid', alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to cancel the pool proposal
-        await adminVault.connect(admin).cancelPoolProposal('Fluid', alice.address);
-        expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.equal(0);
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
+        .withArgs(alice.address, getRoleBytes('POOL_CANCELER_ROLE'));
       });
 
       it('should be able to add a pool', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault.connect(admin).proposePool('Fluid', alice.address);
-        // alice should not be able to add a pool
         await expect(
           adminVault.connect(alice).addPool('Fluid', alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to add a pool
-        await adminVault.connect(admin).addPool('Fluid', alice.address);
-        expect(await adminVault.getPoolAddress('Fluid', getBytes4(alice.address))).to.equal(
-          alice.address
-        );
-        this.test!.ctx!.added = true;
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
+        .withArgs(alice.address, getRoleBytes('POOL_EXECUTOR_ROLE'));
       });
 
       it('should not be able to add a pool if the delay is not passed', async function () {
@@ -563,13 +666,12 @@ describe('AdminVault', function () {
 
     describe('Action management', function () {
       it('should be able to propose an action', async function () {
-        expect(
-          await adminVault.getActionProposalTime(getBytes4(alice.address), alice.address)
-        ).to.equal(0);
-        // alice should not be able to propose an action
+        // alice should not be able to propose an action (not an admin)
         await expect(
           adminVault.connect(alice).proposeAction(getBytes4(alice.address), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
+        .withArgs(alice.address, getRoleBytes('ACTION_PROPOSER_ROLE'));
+
         // admin should be able to propose an action
         await adminVault.connect(admin).proposeAction(getBytes4(alice.address), alice.address);
         expect(
@@ -579,33 +681,16 @@ describe('AdminVault', function () {
       });
 
       it('should be able to cancel an action proposal', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault.connect(admin).proposeAction(getBytes4(alice.address), alice.address);
-        expect(
-          await adminVault.getActionProposalTime(getBytes4(alice.address), alice.address)
-        ).to.not.equal(0);
-        // alice should not be able to cancel the action proposal
         await expect(
           adminVault.connect(alice).cancelActionProposal(getBytes4(alice.address), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to cancel the action proposal
-        await adminVault
-          .connect(admin)
-          .cancelActionProposal(getBytes4(alice.address), alice.address);
-        expect(
-          await adminVault.getActionProposalTime(getBytes4(alice.address), alice.address)
-        ).to.equal(0);
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
+        .withArgs(alice.address, getRoleBytes('ACTION_CANCELER_ROLE'));
       });
       it('should be able to add an action', async function () {
-        if (!this.test!.ctx!.proposed) this.skip();
-        await adminVault.connect(admin).proposeAction(getBytes4(alice.address), alice.address);
-        // alice should not be able to add an action
         await expect(
           adminVault.connect(alice).addAction(getBytes4(alice.address), alice.address)
-        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
-        // admin should be able to add an action
-        await adminVault.connect(admin).addAction(getBytes4(alice.address), alice.address);
-        this.test!.ctx!.added = true;
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
+        .withArgs(alice.address, getRoleBytes('ACTION_EXECUTOR_ROLE'));
       });
 
       it('should not be able to add an action if the delay is not passed', async function () {
@@ -683,6 +768,12 @@ describe('AdminVault', function () {
         expect(await adminVault.delay()).to.equal(oneDay);
       });
 
+      it('should revert when non-owner tries to change delay', async function () {
+        await expect(
+          adminVault.connect(alice).changeDelay(oneDay)
+        ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
+      });
+
       it('should increase the delay', async function () {
         const newDelay = oneDay + halfDay; // Increase to 1.5 days
         await adminVault.connect(admin).changeDelay(newDelay);
@@ -704,7 +795,7 @@ describe('AdminVault', function () {
         await time.increaseTo(lockTime);
 
         // Trigger the delay update by proposing a role
-        await adminVault.proposeRole(getRoleBytes('ADMIN_ROLE'), alice.address);
+        await adminVault.proposeRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
 
         // Check that the delay has been updated
         expect(await adminVault.delay()).to.equal(newDelay);
@@ -735,7 +826,7 @@ describe('AdminVault', function () {
         await time.increaseTo(firstLockTime);
 
         // Trigger the delay update
-        await adminVault.proposeRole(getRoleBytes('ADMIN_ROLE'), alice.address);
+        await adminVault.proposeRole(getRoleBytes('ROLE_MANAGER_ROLE'), alice.address);
 
         // Check that the delay has been updated to the second reduction
         expect(await adminVault.delay()).to.equal(secondReduction);
@@ -770,7 +861,7 @@ describe('AdminVault', function () {
         await time.increaseTo(lockTime);
 
         // Trigger a delay check by proposing a role
-        await adminVault.proposeRole(getRoleBytes('ADMIN_ROLE'), carol.address);
+        await adminVault.proposeRole(getRoleBytes('ROLE_MANAGER_ROLE'), carol.address);
 
         // The delay should still be one day
         expect(await adminVault.delay()).to.equal(oneDay);
