@@ -6,7 +6,13 @@ interface INotionalPToken {
     event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
     event ProxyRenamed();
     event Transfer(address indexed from, address indexed to, uint256 value);
-    event Withdraw(address indexed caller, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
+    event Withdraw(
+        address indexed caller,
+        address indexed receiver,
+        address indexed owner,
+        uint256 assets,
+        uint256 shares
+    );
 
     function EXCHANGE_RATE_PRECISION() external view returns (uint256);
     function NOTIONAL() external view returns (address);
@@ -39,4 +45,4 @@ interface INotionalPToken {
     function transferFrom(address from, address to, uint256 amount) external returns (bool ret);
     function underlying() external view returns (address);
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
-} 
+}

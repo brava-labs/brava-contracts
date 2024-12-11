@@ -208,6 +208,7 @@ export const tokenConfig = {
   },
   pUSDC: {
     address: '0xaEeAfB1259f01f363d09D7027ad80a9d442de762',
+    whale: '0x2920F9Fc667E780C0CB5a78a104d21413377f97E',
     decimals: 18,
   },
   yearnV3_DAI: {
