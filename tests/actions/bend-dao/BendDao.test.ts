@@ -3,21 +3,21 @@ import { ethers, expect, Signer } from '../..';
 import { actionTypes } from '../../../tests/actions';
 import { BEND_DAO_V1_POOL, tokenConfig } from '../../../tests/constants';
 import {
-    AdminVault,
-    BendDaoSupply,
-    BendDaoWithdraw,
-    IERC20,
-    Logger
+  AdminVault,
+  BendDaoSupply,
+  BendDaoWithdraw,
+  IERC20,
+  Logger,
 } from '../../../typechain-types';
 import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
-    calculateExpectedFee,
-    decodeLoggerLog,
-    deploy,
-    executeAction,
-    getBaseSetup,
-    getBytes4,
-    log,
+  calculateExpectedFee,
+  decodeLoggerLog,
+  deploy,
+  executeAction,
+  getBaseSetup,
+  getBytes4,
+  log,
 } from '../../utils';
 import { fundAccountWithToken, getUSDT } from '../../utils-stable';
 
@@ -140,74 +140,74 @@ describe('BendDAO V1 tests', () => {
         });
 
         it('Should take fees on deposit', async () => {
-            const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-            const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-            const bTokenContract = await ethers.getContractAt('IERC20', bToken);
-            await fundAccountWithToken(safeAddr, token, amount);
-  
-            const feeConfig = await adminVault.feeConfig();
-            const feeRecipient = feeConfig.recipient;
-            const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
-            const feeRecipientBTokenBalanceBefore = await bTokenContract.balanceOf(feeRecipient);
-  
-            // Do an initial deposit
-            const firstTx = await executeAction({
-              type: 'BendDaoSupply',
-              assetId: getBytes4(bToken),
-              amount,
-              feeBasis: 10,
-            });
-  
-            const bTokenBalanceAfterFirstTx = await bTokenContract.balanceOf(safeAddr);
-  
-            // Time travel 1 year
-            const protocolId = BigInt(
-              ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['BendDaoV1']))
-            );
-            const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
-              safeAddr,
-              protocolId,
-              bToken
-            );
-            const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
-            await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
-  
-            // Do another deposit to trigger fees
-            const secondTx = await executeAction({
-              type: 'BendDaoSupply',
-              assetId: getBytes4(bToken),
-              amount: '0',
-              feeBasis: 10,
-            });
-  
-            const firstTxReceipt =
-              (await firstTx.wait()) ??
-              (() => {
-                throw new Error('First deposit transaction failed');
-              })();
-            const secondTxReceipt =
-              (await secondTx.wait()) ??
-              (() => {
-                throw new Error('Second deposit transaction failed');
-              })();
-  
-            // Calculate expected fee
-            const expectedFee = await calculateExpectedFee(
-              firstTxReceipt,
-              secondTxReceipt,
-              10,
-              bTokenBalanceAfterFirstTx
-            );
-            const expectedFeeRecipientBalance = feeRecipientBTokenBalanceBefore + expectedFee;
-  
-            expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
-              feeRecipientTokenBalanceBefore
-            );
-            expect(await bTokenContract.balanceOf(feeRecipient)).to.be.greaterThanOrEqual(
-              expectedFeeRecipientBalance
-            );
+          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          const bTokenContract = await ethers.getContractAt('IERC20', bToken);
+          await fundAccountWithToken(safeAddr, token, amount);
+
+          const feeConfig = await adminVault.feeConfig();
+          const feeRecipient = feeConfig.recipient;
+          const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
+          const feeRecipientBTokenBalanceBefore = await bTokenContract.balanceOf(feeRecipient);
+
+          // Do an initial deposit
+          const firstTx = await executeAction({
+            type: 'BendDaoSupply',
+            assetId: getBytes4(bToken),
+            amount,
+            feeBasis: 10,
           });
+
+          const bTokenBalanceAfterFirstTx = await bTokenContract.balanceOf(safeAddr);
+
+          // Time travel 1 year
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['BendDaoV1']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            bToken
+          );
+          const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
+          await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
+
+          // Do another deposit to trigger fees
+          const secondTx = await executeAction({
+            type: 'BendDaoSupply',
+            assetId: getBytes4(bToken),
+            amount: '0',
+            feeBasis: 10,
+          });
+
+          const firstTxReceipt =
+            (await firstTx.wait()) ??
+            (() => {
+              throw new Error('First deposit transaction failed');
+            })();
+          const secondTxReceipt =
+            (await secondTx.wait()) ??
+            (() => {
+              throw new Error('Second deposit transaction failed');
+            })();
+
+          // Calculate expected fee
+          const expectedFee = await calculateExpectedFee(
+            firstTxReceipt,
+            secondTxReceipt,
+            10,
+            bTokenBalanceAfterFirstTx
+          );
+          const expectedFeeRecipientBalance = feeRecipientBTokenBalanceBefore + expectedFee;
+
+          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
+            feeRecipientTokenBalanceBefore
+          );
+          expect(await bTokenContract.balanceOf(feeRecipient)).to.be.greaterThanOrEqual(
+            expectedFeeRecipientBalance
+          );
         });
+      });
     });
 
     describe('General tests', () => {
@@ -469,4 +469,4 @@ describe('BendDAO V1 tests', () => {
   });
 });
 
-export { };
+export {};

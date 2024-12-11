@@ -61,14 +61,11 @@ contract AdminVault is AccessControlDelayed, Multicall {
         // Set initial fee configuration
         feeConfig = FeeConfig({recipient: _initialOwner, minBasis: 0, maxBasis: MAX_FEE_BASIS, proposalTime: 0});
 
+        // Setup initial roles
         _grantRole(OWNER_ROLE, _initialOwner);
-        _grantRole(ADMIN_ROLE, _initialOwner);
+        _grantRole(ROLE_MANAGER_ROLE, _initialOwner);
 
-        // Grant all granular roles to initial owner
-        _grantRole(ROLE_PROPOSER_ROLE, _initialOwner);
-        _grantRole(ROLE_CANCELER_ROLE, _initialOwner);
-        _grantRole(ROLE_EXECUTOR_ROLE, _initialOwner);
-        _grantRole(ROLE_DISPOSER_ROLE, _initialOwner);
+        // Grant all operational roles to initial owner
         _grantRole(FEE_PROPOSER_ROLE, _initialOwner);
         _grantRole(FEE_CANCELER_ROLE, _initialOwner);
         _grantRole(FEE_EXECUTOR_ROLE, _initialOwner);
@@ -84,27 +81,21 @@ contract AdminVault is AccessControlDelayed, Multicall {
 
         // Set role hierarchy
         _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
-        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
-        _setRoleAdmin(FEE_TAKER_ROLE, OWNER_ROLE);
+        _setRoleAdmin(ROLE_MANAGER_ROLE, OWNER_ROLE);
+        _setRoleAdmin(FEE_TAKER_ROLE, ROLE_MANAGER_ROLE);
 
-        // Proposer roles managed by OWNER
-        _setRoleAdmin(FEE_PROPOSER_ROLE, OWNER_ROLE);
-        _setRoleAdmin(POOL_PROPOSER_ROLE, OWNER_ROLE);
-        _setRoleAdmin(ACTION_PROPOSER_ROLE, OWNER_ROLE);
-
-        // Canceler roles managed by ADMIN
-        _setRoleAdmin(FEE_CANCELER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(POOL_CANCELER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(ACTION_CANCELER_ROLE, ADMIN_ROLE);
-
-        // Executor roles managed by ADMIN
-        _setRoleAdmin(FEE_EXECUTOR_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(POOL_EXECUTOR_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(ACTION_EXECUTOR_ROLE, ADMIN_ROLE);
-
-        // Disposer roles managed by ADMIN
-        _setRoleAdmin(POOL_DISPOSER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(ACTION_DISPOSER_ROLE, ADMIN_ROLE);
+        // All operational roles managed by ROLE_MANAGER_ROLE
+        _setRoleAdmin(FEE_PROPOSER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(FEE_CANCELER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(FEE_EXECUTOR_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(POOL_PROPOSER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(POOL_CANCELER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(POOL_EXECUTOR_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(POOL_DISPOSER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(ACTION_PROPOSER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(ACTION_CANCELER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(ACTION_EXECUTOR_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(ACTION_DISPOSER_ROLE, ROLE_MANAGER_ROLE);
     }
 
     /// Fee management

@@ -17,4 +17,4 @@ contract YearnSupplyV3 is ERC4626Supply {
     function protocolName() public pure override returns (string memory) {
         return "YearnV3";
     }
-} 
+}

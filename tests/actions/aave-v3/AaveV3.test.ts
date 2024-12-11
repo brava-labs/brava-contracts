@@ -183,8 +183,14 @@ describe('Aave V3 tests', () => {
           const aTokenBalanceAfterFirstTx = await aTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, aToken);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            aToken
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -258,7 +264,9 @@ describe('Aave V3 tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3'])));
+        const protocolId = BigInt(
+          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3']))
+        );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           protocolId,
@@ -396,8 +404,14 @@ describe('Aave V3 tests', () => {
           const aTokenBalanceAfterSupply = await aTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, aToken);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV3']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            aToken
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -481,5 +495,4 @@ describe('Aave V3 tests', () => {
   });
 });
 
-export { };
-
+export {};

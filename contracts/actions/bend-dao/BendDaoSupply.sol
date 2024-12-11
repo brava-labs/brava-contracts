@@ -17,4 +17,4 @@ contract BendDaoSupply is AaveSupplyBase {
     function protocolName() public pure override returns (string memory) {
         return "BendDaoV1";
     }
-} 
+}

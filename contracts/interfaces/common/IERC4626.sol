@@ -14,7 +14,13 @@ interface IERC4626 is IERC20 {
     //////////////////////////////////////////////////////////////*/
 
     event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
-    event Withdraw(address indexed caller, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
+    event Withdraw(
+        address indexed caller,
+        address indexed receiver,
+        address indexed owner,
+        uint256 assets,
+        uint256 shares
+    );
 
     /*//////////////////////////////////////////////////////////////
                                METADATA
@@ -53,11 +59,7 @@ interface IERC4626 is IERC20 {
      * @param owner Owner of the shares
      * @return shares Amount of shares burned
      */
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) external returns (uint256 shares);
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
 
     /**
      * @notice Redeem shares for assets
@@ -66,11 +68,7 @@ interface IERC4626 is IERC20 {
      * @param owner Owner of the shares
      * @return assets Amount of assets withdrawn
      */
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) external returns (uint256 assets);
+    function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
 
     /*//////////////////////////////////////////////////////////////
                             ACCOUNTING

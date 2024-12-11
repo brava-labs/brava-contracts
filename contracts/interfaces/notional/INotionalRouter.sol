@@ -57,21 +57,17 @@ interface INotionalRouter {
     /// @param currencyId The currency id of the nToken
     /// @param tokensToRedeem_ The amount of nTokens to redeem
     /// @return The amount of underlying tokens received
-    function nTokenRedeem(
-        address redeemer,
-        uint16 currencyId,
-        uint96 tokensToRedeem_
-    ) external returns (int256);
+    function nTokenRedeem(address redeemer, uint16 currencyId, uint96 tokensToRedeem_) external returns (int256);
 
     /// @notice Returns various library addresses used by Notional
     function getLibInfo() external pure returns (address, address, address);
-    
+
     /// @notice Returns the owner of the Notional protocol
     function owner() external view returns (address);
-    
+
     /// @notice Returns the pause guardian address
     function pauseGuardian() external view returns (address);
-    
+
     /// @notice Returns the pause router address
     function pauseRouter() external view returns (address);
-} 
+}

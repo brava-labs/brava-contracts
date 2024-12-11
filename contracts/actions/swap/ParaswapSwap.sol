@@ -34,11 +34,7 @@ contract ParaswapSwap is ActionBase {
     /// @param _adminVault Address of the admin vault
     /// @param _logger Address of the logger contract
     /// @param _augustusRouter Address of the Paraswap Augustus Router
-    constructor(
-        address _adminVault,
-        address _logger,
-        address _augustusRouter
-    ) ActionBase(_adminVault, _logger) {
+    constructor(address _adminVault, address _logger, address _augustusRouter) ActionBase(_adminVault, _logger) {
         AUGUSTUS_ROUTER = _augustusRouter;
     }
 
@@ -63,13 +59,14 @@ contract ParaswapSwap is ActionBase {
 
         // Approve spending of input token
         tokenIn.safeIncreaseAllowance(address(AUGUSTUS_ROUTER), _params.fromAmount);
-        
+
         // Record balance before swap
         uint256 balanceBefore = tokenOut.balanceOf(address(this));
 
         // Execute swap through Paraswap
+        // solhint-disable-next-line avoid-low-level-calls
         (bool success, ) = address(AUGUSTUS_ROUTER).call(_params.swapCallData);
-        
+
         if (!success) {
             revert Errors.Paraswap__SwapFailed();
         }
@@ -84,7 +81,10 @@ contract ParaswapSwap is ActionBase {
             Errors.Paraswap__InsufficientOutput(amountReceived, _params.minToAmount)
         );
 
-        LOGGER.logActionEvent(LogType.PARASWAP_SWAP, abi.encode(_params.tokenIn, _params.tokenOut, _params.fromAmount, _params.minToAmount, amountReceived));
+        LOGGER.logActionEvent(
+            LogType.PARASWAP_SWAP,
+            abi.encode(_params.tokenIn, _params.tokenOut, _params.fromAmount, _params.minToAmount, amountReceived)
+        );
     }
 
     /// @notice Parses the input data from bytes to Params struct
