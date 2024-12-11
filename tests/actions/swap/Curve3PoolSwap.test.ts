@@ -265,5 +265,4 @@ describe('Curve3PoolSwap tests', () => {
   });
 });
 
-export { };
-
+export {};

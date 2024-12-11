@@ -8,7 +8,7 @@ import {
   ClearpoolSupply,
   ClearpoolWithdraw,
   IERC20,
-  Logger
+  Logger,
 } from '../../../typechain-types';
 import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
@@ -169,8 +169,14 @@ describe('Clearpool tests', () => {
           const poolBalanceAfterFirstTx = await poolContract.balanceOf(safeAddr);
 
           // Time travel 2 weeks (maximum allowed for Clearpool)
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 14); // 2 weeks
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -243,7 +249,9 @@ describe('Clearpool tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool'])));
+        const protocolId = BigInt(
+          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
+        );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           protocolId,
@@ -385,8 +393,14 @@ describe('Clearpool tests', () => {
           const poolBalanceAfterSupply = await poolContract.balanceOf(safeAddr);
 
           // Time travel 2 weeks (maximum allowed for Clearpool)
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 14); // 2 weeks
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -470,5 +484,4 @@ describe('Clearpool tests', () => {
   });
 });
 
-export { };
-
+export {};

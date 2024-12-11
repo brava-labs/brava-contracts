@@ -2,23 +2,23 @@ import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
 import { ACROSS_HUB, tokenConfig } from '../../../tests/constants';
 import {
-    AcrossSupply,
-    AcrossWithdraw,
-    AdminVault,
-    HubPoolInterface,
-    IERC20,
-    Logger,
+  AcrossSupply,
+  AcrossWithdraw,
+  AdminVault,
+  HubPoolInterface,
+  IERC20,
+  Logger,
 } from '../../../typechain-types';
 import { actionTypes } from '../../actions';
 import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
-    calculateExpectedFee,
-    decodeLoggerLog,
-    deploy,
-    executeAction,
-    getBaseSetup,
-    getBytes4,
-    log
+  calculateExpectedFee,
+  decodeLoggerLog,
+  deploy,
+  executeAction,
+  getBaseSetup,
+  getBytes4,
+  log,
 } from '../../utils';
 import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
 
@@ -87,7 +87,7 @@ describe('Across tests', () => {
       signer,
       await adminVault.getAddress(),
       loggerAddress,
-      ACROSS_HUB 
+      ACROSS_HUB
     );
     acrossSupplyAddress = await acrossSupplyContract.getAddress();
     acrossWithdrawAddress = await acrossWithdrawContract.getAddress();
@@ -119,7 +119,10 @@ describe('Across tests', () => {
         it('Should deposit', async () => {
           const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const lpTokenContract = await ethers.getContractAt('IERC20', tokenConfig[lpToken].address);
+          const lpTokenContract = await ethers.getContractAt(
+            'IERC20',
+            tokenConfig[lpToken].address
+          );
           await fundAccountWithToken(safeAddr, token, amount);
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
@@ -141,7 +144,10 @@ describe('Across tests', () => {
         it('Should deposit max', async () => {
           const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const lpTokenContract = await ethers.getContractAt('IERC20', tokenConfig[lpToken].address);
+          const lpTokenContract = await ethers.getContractAt(
+            'IERC20',
+            tokenConfig[lpToken].address
+          );
           await fundAccountWithToken(safeAddr, token, amount);
 
           await executeAction({
@@ -159,7 +165,10 @@ describe('Across tests', () => {
         it('Should take fees on deposit', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const lpTokenContract = await ethers.getContractAt('IERC20', tokenConfig[lpToken].address);
+          const lpTokenContract = await ethers.getContractAt(
+            'IERC20',
+            tokenConfig[lpToken].address
+          );
           await fundAccountWithToken(safeAddr, token, amount);
 
           const feeConfig = await adminVault.feeConfig();
@@ -178,8 +187,14 @@ describe('Across tests', () => {
           const lpTokenBalanceAfterFirstTx = await lpTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Across'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, tokenConfig[token].address);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Across']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            tokenConfig[token].address
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -254,7 +269,9 @@ describe('Across tests', () => {
 
       it('Should initialize the last fee timestamp', async () => {
         const token = 'USDC';
-        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Across'])));
+        const protocolId = BigInt(
+          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Across']))
+        );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           protocolId,
@@ -309,7 +326,10 @@ describe('Across tests', () => {
         it('Should withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const lpTokenContract = await ethers.getContractAt('IERC20', tokenConfig[lpToken].address);
+          const lpTokenContract = await ethers.getContractAt(
+            'IERC20',
+            tokenConfig[lpToken].address
+          );
 
           // Supply first
           await fundAccountWithToken(safeAddr, token, amount);
@@ -338,7 +358,10 @@ describe('Across tests', () => {
         it('Should withdraw the maximum amount', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const lpTokenContract = await ethers.getContractAt('IERC20', tokenConfig[lpToken].address);
+          const lpTokenContract = await ethers.getContractAt(
+            'IERC20',
+            tokenConfig[lpToken].address
+          );
 
           // Supply first
           await fundAccountWithToken(safeAddr, token, amount);
@@ -368,7 +391,10 @@ describe('Across tests', () => {
         it('Should take fees on withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const lpTokenContract = await ethers.getContractAt('IERC20', tokenConfig[lpToken].address);
+          const lpTokenContract = await ethers.getContractAt(
+            'IERC20',
+            tokenConfig[lpToken].address
+          );
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
@@ -387,8 +413,14 @@ describe('Across tests', () => {
           const lpTokenBalanceAfterSupply = await lpTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Across'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, tokenConfig[token].address);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Across']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            tokenConfig[token].address
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 

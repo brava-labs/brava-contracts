@@ -16,10 +16,13 @@ contract NotionalV3Withdraw is ERC4626Withdraw {
     /// @param _adminVault Address of the admin vault
     /// @param _logger Address of the logger contract
     /// @param _notionalRouterAddress Address of the Notional Router contract
-    constructor(address _adminVault, address _logger, address _notionalRouterAddress) ERC4626Withdraw(_adminVault, _logger) {
+    constructor(
+        address _adminVault,
+        address _logger,
+        address _notionalRouterAddress
+    ) ERC4626Withdraw(_adminVault, _logger) {
         NOTIONAL_ROUTER = _notionalRouterAddress;
     }
-
 
     function _executeWithdraw(address _asset, uint256 _amount) internal override returns (uint256) {
         // Notional needs the currencyId, not the pToken address

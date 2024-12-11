@@ -4,7 +4,7 @@ import {
   Pool,
   Portfolio,
   portfolioUpdateToBalanceUpdates,
-  SafeOperation
+  SafeOperation,
 } from 'brava-ts-client';
 import { Signer } from 'ethers';
 import { ethers } from 'hardhat';
