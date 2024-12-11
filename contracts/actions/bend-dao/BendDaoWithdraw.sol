@@ -16,4 +16,4 @@ contract BendDaoWithdraw is AaveWithdrawBase {
     function protocolName() public pure override returns (string memory) {
         return "BendDaoV1";
     }
-} 
+}

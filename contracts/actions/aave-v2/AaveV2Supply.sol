@@ -2,7 +2,6 @@
 pragma solidity =0.8.28;
 
 import {AaveSupplyBase} from "../common/AaveSupply.sol";
-import {ILendingPool} from "../../interfaces/aave-v2/ILendingPool.sol";
 
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract AaveV2Supply is AaveSupplyBase {

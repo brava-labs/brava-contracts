@@ -174,7 +174,11 @@ describe('Notional tests', () => {
           const protocolId = BigInt(
             ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['NotionalV3']))
           );
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -188,15 +192,23 @@ describe('Notional tests', () => {
           });
 
           const expectedFee = await calculateExpectedFee(
-            (await firstTx.wait()) ?? (() => { throw new Error('First deposit transaction failed'); })(),
-            (await secondTx.wait()) ?? (() => { throw new Error('Second deposit transaction failed'); })(),
+            (await firstTx.wait()) ??
+              (() => {
+                throw new Error('First deposit transaction failed');
+              })(),
+            (await secondTx.wait()) ??
+              (() => {
+                throw new Error('Second deposit transaction failed');
+              })(),
             10,
             notionalBalanceAfterFirstTx
           );
           const expectedFeeRecipientBalance = feeRecipientNotionalBalanceBefore + expectedFee;
 
           // Check fees were taken in pTokens, not underlying
-          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(feeRecipientTokenBalanceBefore);
+          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
+            feeRecipientTokenBalanceBefore
+          );
           expect(await pToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
         });
       });
@@ -249,7 +261,7 @@ describe('Notional tests', () => {
         const tx = await executeAction({
           type: 'NotionalV3Supply',
           minSharesReceived: '0',
-          amount: '0'
+          amount: '0',
         });
 
         const txReceipt = await tx.wait();
@@ -380,7 +392,11 @@ describe('Notional tests', () => {
           const protocolId = BigInt(
             ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['NotionalV3']))
           );
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -392,15 +408,25 @@ describe('Notional tests', () => {
           });
 
           const expectedFee = await calculateExpectedFee(
-            (await supplyTx.wait()) ?? (() => { throw new Error('Supply transaction failed'); })(),
-            (await withdrawTx.wait()) ?? (() => { throw new Error('Withdraw transaction failed'); })(),
+            (await supplyTx.wait()) ??
+              (() => {
+                throw new Error('Supply transaction failed');
+              })(),
+            (await withdrawTx.wait()) ??
+              (() => {
+                throw new Error('Withdraw transaction failed');
+              })(),
             10,
             notionalBalanceAfterSupply
           );
           const expectedFeeRecipientBalance = feeRecipientNotionalBalanceBefore + expectedFee;
 
-          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(feeRecipientTokenBalanceBefore);
-          expect(await pToken().balanceOf(feeRecipient)).to.be.greaterThanOrEqual(expectedFeeRecipientBalance);
+          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
+            feeRecipientTokenBalanceBefore
+          );
+          expect(await pToken().balanceOf(feeRecipient)).to.be.greaterThanOrEqual(
+            expectedFeeRecipientBalance
+          );
         });
       });
     });
@@ -457,4 +483,4 @@ describe('Notional tests', () => {
       });
     });
   });
-}); 
+});

@@ -34,7 +34,10 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
     /// @notice Proposes a role with a delay
     /// @dev Only accounts with the admin role for the role being proposed can make proposals
     function proposeRole(bytes32 role, address account) external {
-        require(hasRole(getRoleAdmin(role), msg.sender), Errors.AccessControlDelayed_MustHaveAdminRole(msg.sender, role));
+        require(
+            hasRole(getRoleAdmin(role), msg.sender),
+            Errors.AccessControlDelayed_MustHaveAdminRole(msg.sender, role)
+        );
         require(account != address(0), Errors.InvalidInput("AccessControlDelayed", "proposeRole"));
         require(!hasRole(role, account), Errors.AdminVault_AlreadyGranted());
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
