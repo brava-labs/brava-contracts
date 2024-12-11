@@ -10,6 +10,9 @@ contract Errors {
 
     // AccessControlDelayed errors
     error AccessControlDelayed_InvalidDelay();
+    error AccessControlDelayed_MustHaveAdminRole(address account, bytes32 role);
+    error AccessControlDelayed_CannotGrantOwnerRole();
+    error AccessControlDelayed_MustHaveRoleManagerOrOwner(address account);
 
     // AdminVault errors
     error AdminVault_FeePercentageOutOfRange(uint256 _providedPercentage, uint256 _minAllowed, uint256 _maxAllowed);

@@ -34,8 +34,8 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
     /// @notice Proposes a role with a delay
     /// @dev Only accounts with the admin role for the role being proposed can make proposals
     function proposeRole(bytes32 role, address account) external {
-        require(hasRole(getRoleAdmin(role), msg.sender), "Must have admin role to propose");
-        require(account != address(0), Errors.InvalidInput("AccessControlDelayed", "_proposeRole"));
+        require(hasRole(getRoleAdmin(role), msg.sender), Errors.AccessControlDelayed_MustHaveAdminRole(msg.sender, role));
+        require(account != address(0), Errors.InvalidInput("AccessControlDelayed", "proposeRole"));
         require(!hasRole(role, account), Errors.AdminVault_AlreadyGranted());
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         require(proposedRoles[proposalId] == 0, Errors.AdminVault_AlreadyProposed());
@@ -55,7 +55,7 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
         }
 
         // For all other admins (ROLE_MANAGER_ROLE), must follow proposal system
-        require(role != OWNER_ROLE, "Cannot grant OWNER_ROLE");
+        require(role != OWNER_ROLE, Errors.AccessControlDelayed_CannotGrantOwnerRole());
         bytes32 proposalId = keccak256(abi.encodePacked(role, account));
         require(proposedRoles[proposalId] != 0, Errors.AdminVault_NotProposed());
         require(
@@ -73,7 +73,7 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
     function cancelRoleProposal(bytes32 role, address account) external {
         require(
             hasRole(ROLE_MANAGER_ROLE, msg.sender) || hasRole(OWNER_ROLE, msg.sender),
-            "Must have ROLE_MANAGER_ROLE or OWNER_ROLE"
+            Errors.AccessControlDelayed_MustHaveRoleManagerOrOwner(msg.sender)
         );
         require(proposedRoles[keccak256(abi.encodePacked(role, account))] != 0, Errors.AdminVault_NotProposed());
         delete proposedRoles[keccak256(abi.encodePacked(role, account))];
