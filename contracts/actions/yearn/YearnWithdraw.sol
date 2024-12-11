@@ -3,6 +3,7 @@ pragma solidity =0.8.28;
 
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
 import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
+import {Errors} from "../../Errors.sol";
 
 /// @title YearnWithdraw - Burns yTokens and receives underlying tokens in return
 /// @notice This contract allows users to withdraw tokens from a Yearn vault
@@ -30,7 +31,16 @@ contract YearnWithdraw is ERC4626Withdraw {
         }
 
         // Execute withdrawal with max loss of 1 BPS (0.01%)
-        yVault.withdraw(sharesToWithdraw, address(this), 1);
+        uint256 _underlyingRecieved = yVault.withdraw(sharesToWithdraw, address(this), 1);
+
+        // Check if we received less than the expected amount
+        /// @dev ERC4626Withdraw checks the max shares burned, but in this case we specify the shares we want to burn
+        ///      so instead we need to check we recieved at least the expected amount of underlying.
+        require(
+            _underlyingRecieved >= amount,
+            Errors.YearnV1_UnderlyingReceivedLessThanExpected(_underlyingRecieved, amount)
+        );
+
         uint256 sharesAfter = yVault.balanceOf(address(this));
         _sharesBurned = shareBalance - sharesAfter;
     }

@@ -61,4 +61,7 @@ contract Errors {
 
     // SendToken errors
     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
+
+    // YearnV1 errors
+    error YearnV1_UnderlyingReceivedLessThanExpected(uint256 _underlyingReceived, uint256 _expected);
 }
