@@ -31,6 +31,37 @@ interface BaseActionArgs {
   debug?: boolean;
 }
 
+// Share-based withdraw specific args
+interface ShareBasedWithdrawArgs extends BaseActionArgs {
+  poolAddress?: string;
+  feeBasis?: number;
+  sharesToBurn?: string | BigInt;
+  minUnderlyingReceived?: string | BigInt;
+}
+
+// Standard ERC4626 withdraw args
+interface ERC4626WithdrawArgs extends BaseActionArgs {
+  poolAddress?: string;
+  feeBasis?: number;
+  amount?: string | BigInt;
+  maxSharesBurned?: string | BigInt;
+}
+
+// Union type for different withdraw implementations
+type WithdrawArgs =
+  | (ERC4626WithdrawArgs & {
+      type:
+        | 'FluidWithdraw'
+        | 'YearnWithdraw'
+        | 'ClearpoolWithdraw'
+        | 'SparkWithdraw'
+        | 'AcrossWithdraw'
+        | 'MorphoWithdraw'
+        | 'VesperWithdraw'
+        | 'YearnWithdrawV3';
+    })
+  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' });
+
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
   type:
@@ -47,23 +78,6 @@ interface SupplyArgs extends BaseActionArgs {
   feeBasis?: number;
   amount?: string | BigInt;
   minSharesReceived?: string | BigInt;
-}
-
-interface WithdrawArgs extends BaseActionArgs {
-  type:
-    | 'FluidWithdraw'
-    | 'YearnWithdraw'
-    | 'ClearpoolWithdraw'
-    | 'SparkWithdraw'
-    | 'AcrossWithdraw'
-    | 'MorphoWithdraw'
-    | 'VesperWithdraw'
-    | 'NotionalV3Withdraw'
-    | 'YearnWithdrawV3';
-  poolAddress?: string;
-  feeBasis?: number;
-  amount?: string | BigInt;
-  maxSharesBurned?: string | BigInt;
 }
 
 interface SwapArgs extends BaseActionArgs {
@@ -584,11 +598,11 @@ export const actionDefaults: Record<string, ActionArgs> = {
     safeOperation: 1,
     poolAddress: tokenConfig.pUSDC.address,
     feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
+    sharesToBurn: '0',
+    minUnderlyingReceived: '0',
     encoding: {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+      encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
     },
   },
 };
