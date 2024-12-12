@@ -531,6 +531,57 @@ describe('Morpho tests', () => {
           })
         ).to.be.revertedWith('GS013');
       });
+
+      it('Should not confuse underlying and share tokens', async () => {
+        const pool = await ethers.getContractAt('IERC4626', tokenConfig.morpho_fxUSDC.address);
+        
+        // Fund with excess underlying tokens (1000 USDC)
+        const largeAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+        const smallDepositAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
+        await fundAccountWithToken(safeAddr, 'USDC', largeAmount);
+        
+        const initialUnderlyingBalance = await USDC.balanceOf(safeAddr);
+        expect(initialUnderlyingBalance).to.equal(largeAmount);
+
+        // Deposit smaller amount (100 USDC)
+        await executeAction({
+          type: 'MorphoSupply',
+          poolAddress: tokenConfig.morpho_fxUSDC.address,
+          amount: smallDepositAmount,
+        });
+
+        // Verify we still have 900 USDC
+        const remainingUnderlying = await USDC.balanceOf(safeAddr);
+        expect(remainingUnderlying).to.equal(largeAmount - smallDepositAmount);
+
+        // Get share balance - should represent 100 USDC worth
+        const sharesReceived = await pool.balanceOf(safeAddr);
+
+        // Try to withdraw only 10 USDC worth
+        const smallWithdrawAmount = ethers.parseUnits('10', tokenConfig.USDC.decimals);
+        await executeAction({
+          type: 'MorphoWithdraw',
+          poolAddress: tokenConfig.morpho_fxUSDC.address,
+          amount: smallWithdrawAmount,
+        });
+
+        // Verify balances
+        const finalShares = await pool.balanceOf(safeAddr);
+        const finalUnderlying = await USDC.balanceOf(safeAddr);
+        
+        // Should have ~90 worth of shares left (minus any fees/slippage)
+        const expectedSharesBurned = await pool.convertToShares(smallWithdrawAmount);
+        expect(finalShares).to.be.closeTo(
+          sharesReceived - expectedSharesBurned,
+          ethers.parseUnits('1', tokenConfig.USDC.decimals)  // Much smaller tolerance since we're using exact conversion
+        );
+        
+        // Should have ~910 USDC (900 + 10 withdrawn)
+        expect(finalUnderlying).to.be.closeTo(
+          remainingUnderlying + smallWithdrawAmount,
+          ethers.parseUnits('0.1', tokenConfig.USDC.decimals)
+        );
+      });
     });
   });
 });
