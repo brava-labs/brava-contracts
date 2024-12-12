@@ -20,11 +20,7 @@ contract NotionalV3Supply is ERC4626Supply {
     /// @param _adminVault Address of the admin vault
     /// @param _logger Address of the logger contract
     /// @param _notionalRouter Address of the Notional Router contract
-    constructor(
-        address _adminVault,
-        address _logger,
-        address _notionalRouter
-    ) ERC4626Supply(_adminVault, _logger) {
+    constructor(address _adminVault, address _logger, address _notionalRouter) ERC4626Supply(_adminVault, _logger) {
         NOTIONAL_ROUTER = _notionalRouter;
     }
 
@@ -33,14 +29,10 @@ contract NotionalV3Supply is ERC4626Supply {
         // Notional needs the currencyId, not the pToken address
         // We can get the currencyId from the pToken
         uint16 _currencyId = INotionalPToken(_asset).currencyId();
-        return INotionalRouter(NOTIONAL_ROUTER).depositUnderlyingToken(
-            address(this),
-            _currencyId,
-            _amount
-        );
+        return INotionalRouter(NOTIONAL_ROUTER).depositUnderlyingToken(address(this), _currencyId, _amount);
     }
 
-    function _increaseAllowance(address _underlying, address, uint256 _amount) internal override{
+    function _increaseAllowance(address _underlying, address, uint256 _amount) internal override {
         // Notional needs the allowance to the router, not the pToken
         IERC20(_underlying).safeIncreaseAllowance(NOTIONAL_ROUTER, _amount);
     }
@@ -49,4 +41,4 @@ contract NotionalV3Supply is ERC4626Supply {
     function protocolName() public pure override returns (string memory) {
         return "NotionalV3";
     }
-} 
+}

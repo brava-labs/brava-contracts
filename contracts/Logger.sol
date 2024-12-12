@@ -8,8 +8,6 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract Logger is ILogger, Initializable {
-
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();

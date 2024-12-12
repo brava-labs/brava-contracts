@@ -3,7 +3,7 @@ import {
   getPortfolioUpdateTx,
   Pool,
   Portfolio,
-  SafeOperation
+  SafeOperation,
 } from 'brava-ts-client';
 import { Signer } from 'ethers';
 import { ethers } from 'hardhat';
