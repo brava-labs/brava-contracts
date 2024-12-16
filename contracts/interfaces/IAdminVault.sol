@@ -64,4 +64,11 @@ interface IAdminVault {
     function cancelActionProposal(bytes4 actionId, address actionAddress) external;
     function addAction(bytes4 actionId, address actionAddress) external;
     function removeAction(bytes4 actionId) external;
+
+    // Transaction Management Functions
+    function proposeTransaction(bytes32 txHash) external;
+    function cancelTransactionProposal(bytes32 txHash) external;
+    function approveTransaction(bytes32 txHash) external;
+    function revokeTransaction(bytes32 txHash) external;
+    function isApprovedTransaction(bytes32 txHash) external view returns (bool);
 }
