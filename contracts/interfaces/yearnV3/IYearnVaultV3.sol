@@ -31,11 +31,7 @@ interface IYearnVaultV3 {
     event UpdateWithdrawLimitModule(address indexed withdraw_limit_module);
     event UpdateDefaultQueue(address[] new_default_queue);
     event UpdateUseDefaultQueue(bool use_default_queue);
-    event UpdatedMaxDebtForStrategy(
-        address indexed sender,
-        address indexed strategy,
-        uint256 new_debt
-    );
+    event UpdatedMaxDebtForStrategy(address indexed sender, address indexed strategy, uint256 new_debt);
     event UpdateDepositLimit(uint256 deposit_limit);
     event UpdateMinimumTotalIdle(uint256 minimum_total_idle);
     event UpdateProfitMaxUnlockTime(uint256 profit_max_unlock_time);
@@ -76,4 +72,4 @@ interface IYearnVaultV3 {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
     function decimals() external view returns (uint8);
-} 
+}

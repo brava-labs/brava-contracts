@@ -1,9 +1,24 @@
 import { ethers, expect, Signer } from '../..';
 import { network } from 'hardhat';
-import { executeAction, calculateExpectedFee, getBaseSetup, deploy, log, getBytes4, decodeLoggerLog } from '../../utils';
+import {
+  executeAction,
+  calculateExpectedFee,
+  getBaseSetup,
+  deploy,
+  log,
+  getBytes4,
+  decodeLoggerLog,
+} from '../../utils';
 import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
-import { tokenConfig,  } from '../../constants';
-import { AdminVault, IYearnVaultV3, IERC20, YearnSupplyV3, YearnWithdrawV3, Logger } from '../../../typechain-types';
+import { tokenConfig } from '../../constants';
+import {
+  AdminVault,
+  IYearnVaultV3,
+  IERC20,
+  YearnSupplyV3,
+  YearnWithdrawV3,
+  Logger,
+} from '../../../typechain-types';
 import { ACTION_LOG_IDS } from '../../logs';
 import { actionTypes } from '../../actions';
 import { BytesLike } from 'ethers';
@@ -83,7 +98,7 @@ describe('YearnV3 tests', () => {
     yajnaDAI = await ethers.getContractAt('IYearnVaultV3', AJNA_DAI_ADDRESS);
 
     // grant the yToken contracts the POOL_ROLE
-    for (const { poolAddress } of testCases) {  
+    for (const { poolAddress } of testCases) {
       await adminVault.proposePool('YearnV3', poolAddress);
       await adminVault.addPool('YearnV3', poolAddress);
     }
@@ -165,8 +180,14 @@ describe('YearnV3 tests', () => {
           const yTokenBalanceAfterFirstTx = await yToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['YearnV3'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['YearnV3']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -179,7 +200,12 @@ describe('YearnV3 tests', () => {
           const secondTxReceipt = await secondTx.wait();
           if (!secondTxReceipt) throw new Error('Transaction failed');
 
-          const expectedFee = await calculateExpectedFee(firstTxReceipt, secondTxReceipt, 10, yTokenBalanceAfterFirstTx);
+          const expectedFee = await calculateExpectedFee(
+            firstTxReceipt,
+            secondTxReceipt,
+            10,
+            yTokenBalanceAfterFirstTx
+          );
           const expectedFeeRecipientBalance = feeRecipientyTokenBalanceBefore + expectedFee;
 
           expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
@@ -221,7 +247,9 @@ describe('YearnV3 tests', () => {
       });
 
       it('Should initialize last fee timestamp', async () => {
-        const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['YearnV3'])));
+        const protocolId = BigInt(
+          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['YearnV3']))
+        );
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           protocolId,
@@ -330,7 +358,6 @@ describe('YearnV3 tests', () => {
             poolAddress,
             amount: ethers.MaxUint256,
           });
-          
 
           expect(await yToken().balanceOf(safeAddr)).to.equal(0);
           expect(await tokenContract.balanceOf(safeAddr)).to.be.greaterThan(0);
@@ -355,8 +382,14 @@ describe('YearnV3 tests', () => {
 
           const yTokenBalanceAfterSupply = await yToken().balanceOf(safeAddr);
 
-          const protocolId = BigInt(ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['YearnV3'])));
-          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(safeAddr, protocolId, poolAddress);
+          const protocolId = BigInt(
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['YearnV3']))
+          );
+          const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
+            safeAddr,
+            protocolId,
+            poolAddress
+          );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
@@ -368,8 +401,14 @@ describe('YearnV3 tests', () => {
           });
 
           const expectedFee = await calculateExpectedFee(
-            (await supplyTx.wait()) ?? (() => { throw new Error('Supply transaction failed'); })(),
-            (await withdrawTx.wait()) ?? (() => { throw new Error('Withdraw transaction failed'); })(),
+            (await supplyTx.wait()) ??
+              (() => {
+                throw new Error('Supply transaction failed');
+              })(),
+            (await withdrawTx.wait()) ??
+              (() => {
+                throw new Error('Withdraw transaction failed');
+              })(),
             10,
             yTokenBalanceAfterSupply
           );
@@ -436,4 +475,4 @@ describe('YearnV3 tests', () => {
       });
     });
   });
-}); 
+});

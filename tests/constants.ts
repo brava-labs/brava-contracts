@@ -28,7 +28,7 @@ export const CURVE_3POOL_INDICES = {
 // Roles
 export const ROLES = {
   OWNER_ROLE: 'OWNER_ROLE',
-  ADMIN_ROLE: 'ADMIN_ROLE',
+  ROLE_MANAGER_ROLE: 'ROLE_MANAGER_ROLE',
   FEE_PROPOSER_ROLE: 'FEE_PROPOSER_ROLE',
   FEE_EXECUTOR_ROLE: 'FEE_EXECUTOR_ROLE',
   FEE_CANCELER_ROLE: 'FEE_CANCELER_ROLE',
@@ -40,6 +40,7 @@ export const ROLES = {
   ACTION_EXECUTOR_ROLE: 'ACTION_EXECUTOR_ROLE',
   ACTION_CANCELER_ROLE: 'ACTION_CANCELER_ROLE',
   ACTION_DISPOSER_ROLE: 'ACTION_DISPOSER_ROLE',
+  FEE_TAKER_ROLE: 'FEE_TAKER_ROLE',
   // Add more roles as needed
 } as const;
 
@@ -96,8 +97,8 @@ export const tokenConfig = {
     decimals: 6,
   },
   yDAI: {
-    address: '0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e',
-    whale: '0x38E3d865e34f7367a69f096C80A4fc329DB38BF4',
+    address: '0xdA816459F1AB5631232FE5e97a05BBBb94970c95',
+    whale: '0x5C6374a2ac4EBC38DeA0Fc1F8716e5Ea1AdD94dd',
     decimals: 18,
   },
   yvDAI: {
@@ -205,6 +206,11 @@ export const tokenConfig = {
     whale: '0x8a95a711A56bD837D678ab299dE7B1Ec9863051C',
     decimals: 18,
   },
+  pUSDC: {
+    address: '0xaEeAfB1259f01f363d09D7027ad80a9d442de762',
+    whale: '0x2920F9Fc667E780C0CB5a78a104d21413377f97E',
+    decimals: 18,
+  },
   yearnV3_DAI: {
     address: '0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e',
     whale: '0x38E3d865e34f7367a69f096C80A4fc329DB38BF4',
@@ -243,6 +249,11 @@ export const tokenConfig = {
   morpho_blue_gtUSDT: {
     address: '0x8CB3649114051cA5119141a34C200D65dc0Faa73',
     whale: '0xdb02Da0A36c7b19461fD00DA62D4fF3be884668e',
+    decimals: 18,
+  },
+  vaUSDC: {
+    address: '0xa8b607Aa09B6A2E306F93e74c282Fb13f6A80452',
+    whale: '0x3691EF68Ba22a854c36bC92f6b5F30473eF5fb0A',
     decimals: 18,
   },
 };

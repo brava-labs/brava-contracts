@@ -10,13 +10,14 @@ contract Errors {
 
     // AccessControlDelayed errors
     error AccessControlDelayed_InvalidDelay();
+    error AccessControlDelayed_MustHaveAdminRole(address account, bytes32 role);
+    error AccessControlDelayed_CannotGrantOwnerRole();
+    error AccessControlDelayed_MustHaveRoleManagerOrOwner(address account);
 
     // AdminVault errors
     error AdminVault_FeePercentageOutOfRange(uint256 _providedPercentage, uint256 _minAllowed, uint256 _maxAllowed);
     error AdminVault_InvalidFeeRange(uint256 _minFee, uint256 _maxFee);
-    error AdminVault_AlreadyInitialized();
     error AdminVault_NotInitialized();
-    error AdminVault_Unauthorized(address _caller, bytes32 _requiredRole);
     error AdminVault_DelayNotPassed(uint256 _currentTime, uint256 _requiredTime);
     error AdminVault_NotFound(string _entityType, bytes4 _entityId);
     error AdminVault_NotProposed();
