@@ -51,12 +51,6 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// The sequence executor is only given the actionId, so this mapping limits it to action addresses we've approved.
     mapping(bytes4 => address) public actionAddresses;
 
-    /// @notice Mapping of transaction hashes to their approval status
-    mapping(bytes32 => bool) public approvedTransactions;
-
-    /// @notice Mapping of transaction hashes to their proposal timestamps
-    mapping(bytes32 => uint256) public transactionProposals;
-
     /// @notice Initializes the AdminVault with an initial owner, delay period and logger.
     /// @param _initialOwner The address to be granted all initial
     /// @param _delay The required delay period for proposals (in seconds).
@@ -382,54 +376,9 @@ contract AdminVault is AccessControlDelayed, Multicall {
         return uint256(keccak256(abi.encode(_protocolName)));
     }
 
-    /// @notice Proposes a transaction for approval
-    /// @param _txHash The hash of the transaction to propose
-    function proposeTransaction(bytes32 _txHash) external onlyRole(TRANSACTION_PROPOSER_ROLE) {
-        require(_txHash != bytes32(0), Errors.InvalidInput("AdminVault", "proposeTransaction"));
-        require(!approvedTransactions[_txHash], Errors.AdminVault_TransactionAlreadyApproved());
-
-        transactionProposals[_txHash] = _getDelayTimestamp();
-        LOGGER.logAdminVaultEvent(105, abi.encode(_txHash));
-    }
-
-    /// @notice Cancels a transaction proposal
-    /// @param _txHash The hash of the transaction proposal to cancel
-    function cancelTransactionProposal(bytes32 _txHash) external onlyRole(TRANSACTION_CANCELER_ROLE) {
-        require(transactionProposals[_txHash] != 0, Errors.AdminVault_TransactionNotProposed());
-
-        delete transactionProposals[_txHash];
-        LOGGER.logAdminVaultEvent(305, abi.encode(_txHash));
-    }
-
-    /// @notice Approves a proposed transaction after the delay period
-    /// @param _txHash The hash of the transaction to approve
-    function approveTransaction(bytes32 _txHash) external onlyRole(TRANSACTION_EXECUTOR_ROLE) {
-        require(_txHash != bytes32(0), Errors.InvalidInput("AdminVault", "approveTransaction"));
-        require(!approvedTransactions[_txHash], Errors.AdminVault_TransactionAlreadyApproved());
-        require(transactionProposals[_txHash] != 0, Errors.AdminVault_TransactionNotProposed());
-        require(
-            block.timestamp >= transactionProposals[_txHash],
-            Errors.AdminVault_DelayNotPassed(block.timestamp, transactionProposals[_txHash])
-        );
-
-        delete transactionProposals[_txHash];
-        approvedTransactions[_txHash] = true;
-        LOGGER.logAdminVaultEvent(205, abi.encode(_txHash));
-    }
-
-    /// @notice Revokes an approved transaction
-    /// @param _txHash The hash of the transaction to revoke
-    function revokeTransaction(bytes32 _txHash) external onlyRole(TRANSACTION_DISPOSER_ROLE) {
-        require(approvedTransactions[_txHash], Errors.AdminVault_TransactionNotApproved(_txHash));
-
-        delete approvedTransactions[_txHash];
-        LOGGER.logAdminVaultEvent(405, abi.encode(_txHash));
-    }
-
-    /// @notice Checks if a transaction hash has been approved
-    /// @param _txHash The hash of the transaction to check
-    /// @return bool True if the transaction is approved
-    function isApprovedTransaction(bytes32 _txHash) external view returns (bool) {
-        return approvedTransactions[_txHash];
+    /// @notice Returns the delay period for proposals
+    /// @return The delay period in seconds
+    function DELAY() external view returns (uint256) {
+        return delay;
     }
 }

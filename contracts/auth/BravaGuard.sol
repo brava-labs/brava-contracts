@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.0;
 
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Enum} from "../libraries/Enum.sol";
-import {IBaseGuard} from "../interfaces/IBaseGuard.sol";
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
+import {ITransactionGuard, IModuleGuard} from "../interfaces/safe/IGuard.sol";
 
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 /**
@@ -17,7 +18,7 @@ import {IAdminVault} from "../interfaces/IAdminVault.sol";
  *         - Transaction hash must be pre-approved in the AdminVault
  *         - Allows users to perform verified administrative actions without central coordination
  */
-contract BravaGuard is IBaseGuard {
+contract BravaGuard is ITransactionGuard, IModuleGuard {
     address public immutable SEQUENCE_EXECUTOR;
     IAdminVault public immutable ADMIN_VAULT;
 
@@ -30,7 +31,11 @@ contract BravaGuard is IBaseGuard {
         ADMIN_VAULT = IAdminVault(_adminVault);
     }
 
-    function getTransactionHash(address to, bytes memory data, Enum.Operation operation) internal pure returns (bytes32) {
+    function getTransactionHash(
+        address to,
+        bytes memory data,
+        Enum.Operation operation
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(to, data, operation));
     }
 
@@ -47,7 +52,6 @@ contract BravaGuard is IBaseGuard {
         require(ADMIN_VAULT.isApprovedTransaction(txHash), BravaGuard_TransactionNotAllowed());
     }
 
-    /// @inheritdoc IBaseGuard
     function checkTransaction(
         address to,
         uint256,
@@ -64,10 +68,8 @@ contract BravaGuard is IBaseGuard {
         validateTransaction(to, data, operation);
     }
 
-    /// @inheritdoc IBaseGuard
-    function checkAfterExecution(bytes32, bool) external override pure {}
+    function checkAfterExecution(bytes32, bool) external pure override {}
 
-    /// @inheritdoc IBaseGuard
     function checkModuleTransaction(
         address to,
         uint256,
@@ -79,6 +81,12 @@ contract BravaGuard is IBaseGuard {
         return getTransactionHash(to, data, operation);
     }
 
-    /// @inheritdoc IBaseGuard
-    function checkAfterModuleExecution(bytes32, bool) external override pure {}
+    function checkAfterModuleExecution(bytes32, bool) external pure override {}
+
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return
+            interfaceId == type(ITransactionGuard).interfaceId || // 0xe6d7a83a
+            interfaceId == type(IModuleGuard).interfaceId || // 0x58401ed8
+            interfaceId == type(IERC165).interfaceId; // 0x01ffc9a7
+    }
 }
