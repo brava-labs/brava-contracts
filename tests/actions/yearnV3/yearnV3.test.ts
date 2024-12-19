@@ -292,6 +292,56 @@ describe('YearnV3 tests', () => {
           })
         ).to.be.revertedWith('GS013');
       });
+
+      it('Should not confuse underlying and share tokens', async () => {
+        const pool = await ethers.getContractAt('IYearnVaultV3', YEARN_DAI_ADDRESS);
+        
+        // Fund with excess underlying tokens (1000 DAI)
+        const largeAmount = ethers.parseUnits('1000', tokenConfig.DAI.decimals);
+        const smallDepositAmount = ethers.parseUnits('100', tokenConfig.DAI.decimals);
+        await fundAccountWithToken(safeAddr, 'DAI', largeAmount);
+        
+        const initialUnderlyingBalance = await DAI.balanceOf(safeAddr);
+        expect(initialUnderlyingBalance).to.equal(largeAmount);
+
+        // Deposit smaller amount (100 DAI)
+        await executeAction({
+          type: 'YearnSupplyV3',
+          poolAddress: YEARN_DAI_ADDRESS,
+          amount: smallDepositAmount,
+        });
+
+        // Verify we still have 900 DAI
+        const remainingUnderlying = await DAI.balanceOf(safeAddr);
+        expect(remainingUnderlying).to.equal(largeAmount - smallDepositAmount);
+
+        // Get share balance - should represent 100 DAI worth
+        const sharesReceived = await pool.balanceOf(safeAddr);
+
+        // Try to withdraw only 10 DAI worth
+        const smallWithdrawAmount = ethers.parseUnits('10', tokenConfig.DAI.decimals);
+        await executeAction({
+          type: 'YearnWithdrawV3',
+          poolAddress: YEARN_DAI_ADDRESS,
+          amount: smallWithdrawAmount,
+        });
+
+        // Verify balances
+        const finalShares = await pool.balanceOf(safeAddr);
+        const finalUnderlying = await DAI.balanceOf(safeAddr);
+        
+        // Should have ~90 worth of shares left (minus any fees/slippage)
+        expect(finalShares).to.be.closeTo(
+          sharesReceived - (sharesReceived * smallWithdrawAmount) / smallDepositAmount,
+          ethers.parseUnits('1', tokenConfig.DAI.decimals)
+        );
+        
+        // Should have ~910 DAI (900 + 10 withdrawn)
+        expect(finalUnderlying).to.be.closeTo(
+          remainingUnderlying + smallWithdrawAmount,
+          ethers.parseUnits('0.1', tokenConfig.DAI.decimals)
+        );
+      });
     });
   });
 

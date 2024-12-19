@@ -329,17 +329,22 @@ describe('Notional tests', () => {
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialNotionalBalance = await pToken().balanceOf(safeAddr);
 
+          // Get expected underlying for half the shares
+          const sharesToBurn = initialNotionalBalance / BigInt(2);
+          const expectedUnderlying = await pToken().previewRedeem(sharesToBurn);
+
           await executeAction({
             type: 'NotionalV3Withdraw',
             poolAddress,
-            amount,
+            sharesToBurn: sharesToBurn.toString(),
+            minUnderlyingReceived: expectedUnderlying.toString(),
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
           const finalNotionalBalance = await pToken().balanceOf(safeAddr);
 
           expect(finalTokenBalance).to.be.greaterThan(initialTokenBalance);
-          expect(finalNotionalBalance).to.be.lessThan(initialNotionalBalance);
+          expect(finalNotionalBalance).to.equal(initialNotionalBalance - sharesToBurn);
         });
 
         it('Should withdraw the maximum amount', async () => {
@@ -358,10 +363,14 @@ describe('Notional tests', () => {
           const initialNotionalBalance = await pToken().balanceOf(safeAddr);
           expect(initialNotionalBalance).to.be.gt(0);
 
+          // Get expected underlying for all shares
+          const expectedUnderlying = await pToken().previewRedeem(initialNotionalBalance);
+
           await executeAction({
             type: 'NotionalV3Withdraw',
             poolAddress,
-            amount: ethers.MaxUint256,
+            sharesToBurn: ethers.MaxUint256.toString(),
+            minUnderlyingReceived: expectedUnderlying.toString(),
           });
 
           // Notional leaves some dust in the vault, so we expect to have less than 1 shares worth left behind
@@ -400,10 +409,15 @@ describe('Notional tests', () => {
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
+          // Withdraw a small amount of shares
+          const sharesToBurn = notionalBalanceAfterSupply / BigInt(10); // 10% of shares
+          const expectedUnderlying = await pToken().previewRedeem(sharesToBurn);
+
           const withdrawTx = await executeAction({
             type: 'NotionalV3Withdraw',
             poolAddress,
-            amount: '1',
+            sharesToBurn: sharesToBurn.toString(),
+            minUnderlyingReceived: expectedUnderlying.toString(),
             feeBasis: 10,
           });
 
@@ -447,9 +461,13 @@ describe('Notional tests', () => {
           minSharesReceived: '0',
         });
 
+        const initialBalance = await pUSDC.balanceOf(safeAddr);
+        const expectedUnderlying = await pUSDC.previewRedeem(initialBalance);
+
         const tx = await executeAction({
           type: 'NotionalV3Withdraw',
-          amount: ethers.MaxUint256,
+          sharesToBurn: ethers.MaxUint256.toString(),
+          minUnderlyingReceived: expectedUnderlying.toString(),
         });
 
         const logs = await decodeLoggerLog(tx);
@@ -477,9 +495,60 @@ describe('Notional tests', () => {
           executeAction({
             type: 'NotionalV3Withdraw',
             poolAddress: '0x0000000000000000000000000000000000000000',
-            amount: '1',
+            sharesToBurn: '1',
+            minUnderlyingReceived: '1',
           })
         ).to.be.revertedWith('GS013');
+      });
+
+      it('Should not confuse underlying and share tokens', async () => {
+        const pool = await ethers.getContractAt('INotionalPToken', PUSDC_ADDRESS);
+        
+        // Fund with excess underlying tokens (1000 USDC)
+        const largeAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+        const smallDepositAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
+        await fundAccountWithToken(safeAddr, 'USDC', largeAmount);
+        
+        const initialUnderlyingBalance = await USDC.balanceOf(safeAddr);
+        expect(initialUnderlyingBalance).to.equal(largeAmount);
+
+        // Deposit smaller amount (100 USDC)
+        await executeAction({
+          type: 'NotionalV3Supply',
+          poolAddress: PUSDC_ADDRESS,
+          amount: smallDepositAmount,
+          minSharesReceived: '0',
+        });
+
+        // Verify we still have 900 USDC
+        const remainingUnderlying = await USDC.balanceOf(safeAddr);
+        expect(remainingUnderlying).to.equal(largeAmount - smallDepositAmount);
+
+        // Get share balance - should represent 100 USDC worth
+        const sharesReceived = await pool.balanceOf(safeAddr);
+
+        // Try to withdraw 10% of shares
+        const sharesToWithdraw = sharesReceived / BigInt(10);
+        const expectedUnderlying = await pool.previewRedeem(sharesToWithdraw);
+
+        await executeAction({
+          type: 'NotionalV3Withdraw',
+          poolAddress: PUSDC_ADDRESS,
+          sharesToBurn: sharesToWithdraw.toString(),
+          minUnderlyingReceived: expectedUnderlying.toString(),
+        });
+
+        // Verify balances
+        const finalShares = await pool.balanceOf(safeAddr);
+        const finalUnderlying = await USDC.balanceOf(safeAddr);
+        
+        expect(finalShares).to.equal(sharesReceived - sharesToWithdraw);
+        
+        // Should have received the expected underlying amount
+        expect(finalUnderlying).to.be.closeTo(
+          remainingUnderlying + expectedUnderlying,
+          ethers.parseUnits('0.1', tokenConfig.USDC.decimals)
+        );
       });
     });
   });

@@ -335,6 +335,7 @@ describe('Yearn tests', () => {
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           await fundAccountWithToken(safeAddr, token, amount);
 
+          // First supply to have something to withdraw
           await executeAction({
             type: 'YearnSupply',
             poolAddress,
@@ -344,16 +345,23 @@ describe('Yearn tests', () => {
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialyTokenBalance = await yToken().balanceOf(safeAddr);
 
+          // Withdraw half of our shares
+          const sharesToBurn = initialyTokenBalance / BigInt(2);
+          // Use a conservative estimate for minimum underlying received (0)
+          const minUnderlyingReceived = BigInt(0);
+
           await executeAction({
             type: 'YearnWithdraw',
             poolAddress,
-            amount,
+            sharesToBurn: sharesToBurn.toString(),
+            minUnderlyingReceived: minUnderlyingReceived.toString(),
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
           const finalyTokenBalance = await yToken().balanceOf(safeAddr);
+
           expect(finalTokenBalance).to.be.greaterThan(initialTokenBalance);
-          expect(finalyTokenBalance).to.be.eq(BigInt(0));
+          expect(finalyTokenBalance).to.equal(initialyTokenBalance - sharesToBurn);
         });
 
         it('Should withdraw the maximum amount', async () => {
@@ -361,13 +369,18 @@ describe('Yearn tests', () => {
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           await fundAccountWithToken(safeAddr, `y${token}`, amount);
 
-          expect(await yToken().balanceOf(safeAddr)).to.equal(amount);
+          const initialyTokenBalance = await yToken().balanceOf(safeAddr);
+          expect(initialyTokenBalance).to.equal(amount);
           expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
+
+          // Get expected underlying for all shares - use 0 as minimum for testing
+          const minUnderlyingReceived = BigInt(0);
 
           await executeAction({
             type: 'YearnWithdraw',
             poolAddress,
-            amount: ethers.MaxUint256,
+            sharesToBurn: ethers.MaxUint256.toString(),
+            minUnderlyingReceived: minUnderlyingReceived.toString(),
           });
 
           expect(await yToken().balanceOf(safeAddr)).to.equal(0);
@@ -404,11 +417,16 @@ describe('Yearn tests', () => {
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
+          // Withdraw a small amount of shares
+          const sharesToBurn = yTokenBalanceAfterSupply / BigInt(10); // 10% of shares
+          const minUnderlyingReceived = BigInt(0);
+
           const withdrawTx = await executeAction({
             type: 'YearnWithdraw',
             poolAddress,
+            sharesToBurn: sharesToBurn.toString(),
+            minUnderlyingReceived: minUnderlyingReceived.toString(),
             feeBasis: 10,
-            amount: '1',
           });
 
           const expectedFee = await calculateExpectedFee(
@@ -435,15 +453,27 @@ describe('Yearn tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'yUSDC';
+        const token = 'USDC';
         const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
         const poolId: BytesLike = ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10);
 
+        // First supply to have something to withdraw
+        await executeAction({
+          type: 'YearnSupply',
+          poolAddress: YEARN_USDC_ADDRESS,
+          amount,
+        });
+
+        const yTokenBalance = await yUSDC.balanceOf(safeAddr);
+        const minUnderlyingReceived = BigInt(0);
+
         const tx = await executeAction({
           type: 'YearnWithdraw',
-          amount,
+          poolAddress: YEARN_USDC_ADDRESS,
+          sharesToBurn: yTokenBalance.toString(),
+          minUnderlyingReceived: minUnderlyingReceived.toString(),
         });
 
         const logs = await decodeLoggerLog(tx);
@@ -462,8 +492,8 @@ describe('Yearn tests', () => {
         expect(txLog).to.have.property('balanceBefore');
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens');
-        expect(txLog.balanceBefore).to.equal(amount);
-        expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
+        expect(txLog.balanceBefore).to.equal(yTokenBalance);
+        expect(txLog.balanceAfter).to.equal(BigInt(0));
         expect(txLog.feeInTokens).to.equal(BigInt(0));
       });
 
@@ -491,39 +521,40 @@ describe('Yearn tests', () => {
         expect(await USDC.balanceOf(safeAddr)).to.equal(amount);
 
         // deposit 100 USDC
+        const depositAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
         await executeAction({
           type: 'YearnSupply',
           poolAddress: YEARN_USDC_ADDRESS,
-          amount: ethers.parseUnits('100', tokenConfig.USDC.decimals),
+          amount: depositAmount,
         });
 
         // check we still have 900 USDC
-        expect(await USDC.balanceOf(safeAddr)).to.equal(
-          ethers.parseUnits('900', tokenConfig.USDC.decimals)
-        );
+        expect(await USDC.balanceOf(safeAddr)).to.equal(amount - depositAmount);
 
         // check that we have yUSDC
         const yTokenBalance = await yUSDC.balanceOf(safeAddr);
         expect(yTokenBalance).to.be.greaterThan(0);
 
-        // withdraw 10 USDC
-        const tenDollars = ethers.parseUnits('10', tokenConfig.USDC.decimals);
+        // withdraw 10% of shares
+        const sharesToWithdraw = yTokenBalance / BigInt(10);
+        const minUnderlyingReceived = BigInt(0);
 
         await executeAction({
           type: 'YearnWithdraw',
           poolAddress: YEARN_USDC_ADDRESS,
-          amount: tenDollars,
+          sharesToBurn: sharesToWithdraw.toString(),
+          minUnderlyingReceived: minUnderlyingReceived.toString(),
         });
 
-        // Maximum dust would be exactly 1 share worth since we only add 1 share in the contract
-        const pricePerShare = await yUSDC.pricePerShare();
-        const maxDust = pricePerShare; // One share's worth
+        // Verify balances
+        const finalShares = await yUSDC.balanceOf(safeAddr);
+        const finalUnderlying = await USDC.balanceOf(safeAddr);
 
-        // we should now have 900 + 10 USDC plus some dust
-        const expectedBalance = ethers.parseUnits('910', tokenConfig.USDC.decimals);
+        // We expect to have 1000 minus 100 plus 10% of 100
+        const expectedUnderlying = BigInt(amount) - BigInt(depositAmount) + BigInt(depositAmount) / BigInt(10);
 
-        expect(await USDC.balanceOf(safeAddr)).to.be.closeTo(expectedBalance, maxDust);
-        expect(await yUSDC.balanceOf(safeAddr)).to.be.lessThan(yTokenBalance);
+        expect(finalShares).to.equal(yTokenBalance - sharesToWithdraw);
+        expect(finalUnderlying).to.be.closeTo(BigInt(expectedUnderlying), BigInt(1000));
       });
     });
   });
