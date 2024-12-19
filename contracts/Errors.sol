@@ -27,6 +27,10 @@ contract Errors {
     error AdminVault_NotPool(address _pool);
     error AdminVault_AlreadyGranted();
     error AdminVault_NotGranted();
+    error AdminVault_TransactionNotProposed();
+    error AdminVault_TransactionAlreadyApproved();
+    error AdminVault_TransactionNotApproved(bytes32 txHash);
+    error AdminVault_MissingRole(bytes32 role, address account);
 
     // FeeTakeSafeModule errors
     error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);

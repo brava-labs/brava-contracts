@@ -54,6 +54,10 @@ abstract contract Roles {
     bytes32 public constant ACTION_CANCELER_ROLE = keccak256("ACTION_CANCELER_ROLE");
     bytes32 public constant ACTION_EXECUTOR_ROLE = keccak256("ACTION_EXECUTOR_ROLE");
     bytes32 public constant ACTION_DISPOSER_ROLE = keccak256("ACTION_DISPOSER_ROLE");
+    bytes32 public constant TRANSACTION_PROPOSER_ROLE = keccak256("TRANSACTION_PROPOSER_ROLE");
+    bytes32 public constant TRANSACTION_CANCELER_ROLE = keccak256("TRANSACTION_CANCELER_ROLE");
+    bytes32 public constant TRANSACTION_EXECUTOR_ROLE = keccak256("TRANSACTION_EXECUTOR_ROLE");
+    bytes32 public constant TRANSACTION_DISPOSER_ROLE = keccak256("TRANSACTION_DISPOSER_ROLE");
 
     // FEE_TAKER_ROLE is the role that can trigger the fee taking mechanism
     bytes32 public constant FEE_TAKER_ROLE = keccak256("FEE_TAKER_ROLE");

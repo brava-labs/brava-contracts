@@ -78,6 +78,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
         _grantRole(ACTION_EXECUTOR_ROLE, _initialOwner);
         _grantRole(ACTION_DISPOSER_ROLE, _initialOwner);
         _grantRole(FEE_TAKER_ROLE, _initialOwner);
+        _grantRole(TRANSACTION_PROPOSER_ROLE, _initialOwner);
+        _grantRole(TRANSACTION_CANCELER_ROLE, _initialOwner);
+        _grantRole(TRANSACTION_EXECUTOR_ROLE, _initialOwner);
+        _grantRole(TRANSACTION_DISPOSER_ROLE, _initialOwner);
 
         // Set role hierarchy
         _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
@@ -96,6 +100,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
         _setRoleAdmin(ACTION_CANCELER_ROLE, ROLE_MANAGER_ROLE);
         _setRoleAdmin(ACTION_EXECUTOR_ROLE, ROLE_MANAGER_ROLE);
         _setRoleAdmin(ACTION_DISPOSER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(TRANSACTION_PROPOSER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(TRANSACTION_CANCELER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(TRANSACTION_EXECUTOR_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(TRANSACTION_DISPOSER_ROLE, ROLE_MANAGER_ROLE);
     }
 
     /// Fee management
@@ -366,5 +374,11 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @return uint256 The protocol ID
     function _protocolIdFromName(string calldata _protocolName) internal pure returns (uint256) {
         return uint256(keccak256(abi.encode(_protocolName)));
+    }
+
+    /// @notice Returns the delay period for proposals
+    /// @return The timestamp to wait until
+    function getDelayTimestamp() external returns (uint256) {
+        return _getDelayTimestamp();
     }
 }
