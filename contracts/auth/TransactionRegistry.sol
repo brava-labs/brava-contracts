@@ -37,7 +37,9 @@ contract TransactionRegistry is Multicall, Roles {
 
     /// @notice Modifier to check if caller has a specific role
     modifier onlyRole(bytes32 role) {
-        require(ADMIN_VAULT.hasRole(role, msg.sender), "TransactionRegistry: missing role");
+        if (!ADMIN_VAULT.hasRole(role, msg.sender)) {
+            revert Errors.AdminVault_MissingRole(role, msg.sender);
+        }
         _;
     }
 
