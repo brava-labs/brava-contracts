@@ -42,8 +42,8 @@ contract TransactionRegistry is Multicall, Roles {
     }
 
     /// @notice Gets the delay timestamp from AdminVault
-    function _getDelayTimestamp() internal view returns (uint256) {
-        return block.timestamp + ADMIN_VAULT.DELAY();
+    function _getDelayTimestamp() internal returns (uint256) {
+        return ADMIN_VAULT.getDelayTimestamp();
     }
 
     /// @notice Proposes a transaction for approval

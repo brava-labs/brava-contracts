@@ -192,14 +192,8 @@ describe('BravaGuard', () => {
 
       const txHash = calculateTransactionHash(tx.to, tx.data, tx.operation);
 
-      // Propose and approve the transaction with delay
+      // Propose and approve the transaction (testing delay is zero)
       await transactionRegistry.proposeTransaction(txHash);
-
-      // Increase time to pass the delay period
-      const delay = await adminVault.DELAY();
-      await ethers.provider.send('evm_increaseTime', [Number(delay)]);
-      await ethers.provider.send('evm_mine', []);
-
       await transactionRegistry.approveTransaction(txHash);
 
       const isApproved = await transactionRegistry.isApprovedTransaction(txHash);

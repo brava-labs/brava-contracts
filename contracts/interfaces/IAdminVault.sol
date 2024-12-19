@@ -73,5 +73,5 @@ interface IAdminVault {
     function isApprovedTransaction(bytes32 txHash) external view returns (bool);
 
     // Delay Management Functions
-    function DELAY() external view returns (uint256);
+    function getDelayTimestamp() external returns (uint256);
 }

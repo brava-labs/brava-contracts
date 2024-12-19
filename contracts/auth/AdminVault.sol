@@ -377,8 +377,8 @@ contract AdminVault is AccessControlDelayed, Multicall {
     }
 
     /// @notice Returns the delay period for proposals
-    /// @return The delay period in seconds
-    function DELAY() external view returns (uint256) {
-        return delay;
+    /// @return The timestamp to wait until
+    function getDelayTimestamp() external returns (uint256) {
+        return _getDelayTimestamp();
     }
 }
