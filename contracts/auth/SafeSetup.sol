@@ -51,11 +51,11 @@ contract SafeSetup {
         if (modules.length > 0) {
             enableModules(modules);
         }
-        if (guard != address(0)) {
-            setGuard(guard);
-        }
         if (fallbackHandler != address(0)) {
             setFallbackHandler(fallbackHandler);
+        }
+        if (guard != address(0)) {
+            setGuard(guard);
         }
     }
 }
