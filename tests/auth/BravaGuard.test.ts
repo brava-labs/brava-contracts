@@ -3,10 +3,10 @@ import { expect } from 'chai';
 import {
   deploy,
   encodeAction,
-  executeAction,
   executeSequence,
   getBaseSetup,
   getBytes4,
+  deploySafe
 } from '../utils';
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import {
@@ -15,9 +15,10 @@ import {
   SequenceExecutor,
   AdminVault,
   Logger,
+  Proxy
 } from '../../typechain-types';
 import { ISafe } from '../../typechain-types/contracts/interfaces/safe/ISafe';
-import { tokenConfig } from '../constants';
+import { SAFE_PROXY_FACTORY_ADDRESS, tokenConfig } from '../constants';
 import { fundAccountWithToken } from '../utils-stable';
 
 // Operation enum from the contract
@@ -43,14 +44,13 @@ function createSafeSignature(signer: SignerWithAddress): string {
 
 // Helper function to calculate transaction hash
 function calculateTransactionHash(
-  to: string,
   data: string,
   operation: Operation
 ): string {
   return ethers.keccak256(
     ethers.solidityPacked(
-      ['address', 'bytes', 'uint8'],
-      [to, data, operation]
+      ['bytes', 'uint8'],
+      [data, operation]
     )
   );
 }
@@ -58,6 +58,7 @@ function calculateTransactionHash(
 describe('BravaGuard', () => {
   let deployer: SignerWithAddress;
   let user: SignerWithAddress;
+  let alice: SignerWithAddress;
   let bravaGuard: BravaGuard;
   let transactionRegistry: TransactionRegistry;
   let sequenceExecutor: SequenceExecutor;
@@ -65,7 +66,7 @@ describe('BravaGuard', () => {
   let safe: ISafe;
   let logger: Logger;
   beforeEach(async () => {
-    [deployer, user] = await ethers.getSigners();
+    [deployer, user, alice] = await ethers.getSigners();
 
     // Get base setup with AdminVault
     const baseSetup = await getBaseSetup(deployer);
@@ -194,7 +195,7 @@ describe('BravaGuard', () => {
         )
       ).to.be.revertedWithCustomError(bravaGuard, 'BravaGuard_TransactionNotAllowed');
 
-      const txHash = calculateTransactionHash(tx.to, tx.data, tx.operation);
+      const txHash = calculateTransactionHash(tx.data, tx.operation);
 
       // Propose and approve the transaction (testing delay is zero)
       await transactionRegistry.proposeTransaction(txHash);
@@ -269,6 +270,94 @@ describe('BravaGuard', () => {
           signature
         )
       ).to.be.revertedWithCustomError(bravaGuard, 'BravaGuard_TransactionNotAllowed');
+    });
+
+    it('should allow reusing pre-approved transaction across different safes', async () => {
+      // Deploy a second Safe 
+      const secondSafe = await ethers.getContractAt(
+        'ISafe',
+        await deploySafe(alice )
+      );
+
+      // Set guard on second Safe
+      const signature = createSafeSignature(deployer);
+      const aliceSignature = createSafeSignature(alice);
+    
+      await secondSafe.connect(alice).execTransaction(
+        await secondSafe.getAddress(),
+        0,
+        safe.interface.encodeFunctionData('setGuard', [ethers.ZeroAddress]),
+        Operation.Call,
+        0,
+        0,
+        0,
+        ethers.ZeroAddress,
+        ethers.ZeroAddress,
+        aliceSignature
+      );
+
+      // Create identical transaction for both safes (setting guard to zero)
+      const tx1 = {
+        to: await safe.getAddress(),
+        value: 0,
+        data: safe.interface.encodeFunctionData('setGuard', [ethers.ZeroAddress]),
+        operation: Operation.Call,
+        safeTxGas: 0,
+        baseGas: 0,
+        gasPrice: 0,
+        gasToken: ethers.ZeroAddress,
+        refundReceiver: ethers.ZeroAddress,
+      };
+
+      const tx2 = {
+        ...tx1,
+        to: await secondSafe.getAddress(),
+        data: secondSafe.interface.encodeFunctionData('setGuard', [ethers.ZeroAddress])
+      };
+
+      // Calculate transaction hashes for both safes
+      const txHash1 = calculateTransactionHash(tx1.data, tx1.operation);
+      const txHash2 = calculateTransactionHash(tx2.data, tx2.operation);
+
+      // These hashes should be the same since it's the same operation
+      // Note: This will fail with current implementation but should pass after fix
+      expect(txHash1).to.equal(txHash2);
+
+      // Approve transaction once
+      await transactionRegistry.proposeTransaction(txHash1);
+      await transactionRegistry.approveTransaction(txHash1);
+
+      // Execute on first safe - should succeed
+      await expect(
+        safe.execTransaction(
+          tx1.to,
+          tx1.value,
+          tx1.data,
+          tx1.operation,
+          tx1.safeTxGas,
+          tx1.baseGas,
+          tx1.gasPrice,
+          tx1.gasToken,
+          tx1.refundReceiver,
+          signature
+        )
+      ).to.not.be.reverted;
+
+      // Execute on second safe - should also succeed with same approval
+      await expect(
+        secondSafe.connect(alice).execTransaction(
+          tx2.to,
+          tx2.value,
+          tx2.data,
+          tx2.operation,
+          tx2.safeTxGas,
+          tx2.baseGas,
+          tx2.gasPrice,
+          tx2.gasToken,
+          tx2.refundReceiver,
+          aliceSignature
+        )
+      ).to.not.be.reverted;
     });
   });
 });

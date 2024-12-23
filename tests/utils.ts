@@ -31,6 +31,7 @@ import {
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
 
+export { deploySafe };
 export function log(...args: unknown[]): void {
   if (isLoggingEnabled) {
     console.log(...args);

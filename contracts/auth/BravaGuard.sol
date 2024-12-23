@@ -32,11 +32,10 @@ contract BravaGuard is ITransactionGuard, IModuleGuard {
     }
 
     function getTransactionHash(
-        address to,
         bytes memory data,
         Enum.Operation operation
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(to, data, operation));
+        return keccak256(abi.encodePacked(data, operation));
     }
 
     /// @dev Validates if a transaction is allowed to proceed
@@ -48,7 +47,7 @@ contract BravaGuard is ITransactionGuard, IModuleGuard {
         }
 
         // Check secondary path: pre-approved administrative operation
-        bytes32 txHash = getTransactionHash(to, data, operation);
+        bytes32 txHash = getTransactionHash(data, operation);
         require(ADMIN_VAULT.isApprovedTransaction(txHash), BravaGuard_TransactionNotAllowed());
     }
 
@@ -78,7 +77,7 @@ contract BravaGuard is ITransactionGuard, IModuleGuard {
         address
     ) external view override returns (bytes32) {
         validateTransaction(to, data, operation);
-        return getTransactionHash(to, data, operation);
+        return getTransactionHash(data, operation);
     }
 
     function checkAfterModuleExecution(bytes32, bool) external pure override {}
