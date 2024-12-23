@@ -172,6 +172,10 @@ describe('BravaGuard', () => {
         refundReceiver: ethers.ZeroAddress,
       };
 
+      // Calculate the guard storage slot
+      const guardSlot = ethers.keccak256(ethers.toUtf8Bytes("guard_manager.guard.address"));
+      
+
       const signature = createSafeSignature(deployer);
 
       // Should fail because this is not a pre-approved transaction
@@ -199,6 +203,15 @@ describe('BravaGuard', () => {
       const isApproved = await transactionRegistry.isApprovedTransaction(txHash);
       expect(isApproved).to.be.true;
 
+      // Validate our method for reading the storage slot
+      // as we're expecting zero later, which is equivalent to 
+      // reading the wrong slot.
+      const initialGuardAddress = await ethers.provider.getStorage(
+        await safe.getAddress(),
+        guardSlot
+      );
+      expect(initialGuardAddress).to.not.equal(ethers.ZeroAddress);
+
 
       // Should now succeed because the transaction is pre-approved
       await expect(
@@ -215,6 +228,16 @@ describe('BravaGuard', () => {
           signature
         )
       ).to.not.be.reverted;
+
+      // Read the storage slot directly
+      const finalGuardAddress = await ethers.provider.getStorage(
+        await safe.getAddress(),
+        guardSlot
+      );
+
+      // The value should be padded to 32 bytes, so we need to extract the address from it
+      const actualGuardAddress = ethers.getAddress('0x' + finalGuardAddress.slice(-40));
+      expect(actualGuardAddress).to.equal(ethers.ZeroAddress);
     });
 
     it('should block unauthorized transactions', async () => {
