@@ -701,6 +701,25 @@ describe('AdminVault', function () {
           adminVault.connect(admin).getPoolAddress('Fluid', getBytes4(alice.address))
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotFound');
       });
+      it('should be able to remove a pool', async function () {
+        await adminVault.connect(admin).proposePool('Fluid', alice.address);
+        await adminVault.connect(admin).addPool('Fluid', alice.address);
+        expect(await adminVault.getPoolAddress('Fluid', getBytes4(alice.address))).to.not.equal(
+          ethers.ZeroAddress
+        );
+        await adminVault.connect(admin).removePool('Fluid', alice.address);
+        await expect(
+          adminVault.connect(admin).getPoolAddress('Fluid', getBytes4(alice.address))
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotFound');
+      });
+      it('should not be able to reuse a proposed pool', async function () {
+        await adminVault.connect(admin).proposePool('Fluid', alice.address);
+        await adminVault.connect(admin).addPool('Fluid', alice.address);
+        await adminVault.connect(admin).removePool('Fluid', alice.address);
+        await expect(
+          adminVault.connect(admin).addPool('Fluid', alice.address)
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
+      });
     });
 
     describe('Action management', function () {
@@ -764,6 +783,27 @@ describe('AdminVault', function () {
         await expect(
           adminVault.connect(admin).getActionAddress(getBytes4(alice.address))
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotFound');
+      });
+
+      it('should be able to remove an action', async function () {
+        await adminVault.connect(admin).proposeAction(getBytes4(alice.address), alice.address);
+        await adminVault.connect(admin).addAction(getBytes4(alice.address), alice.address);
+        expect(await adminVault.getActionAddress(getBytes4(alice.address))).to.not.equal(
+          ethers.ZeroAddress
+        );
+        await adminVault.connect(admin).removeAction(getBytes4(alice.address));
+        await expect(
+          adminVault.connect(admin).getActionAddress(getBytes4(alice.address))
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotFound');
+      });
+
+      it('should not be able to reuse a proposed action', async function () {
+        await adminVault.connect(admin).proposeAction(getBytes4(alice.address), alice.address);
+        await adminVault.connect(admin).addAction(getBytes4(alice.address), alice.address);
+        await adminVault.connect(admin).removeAction(getBytes4(alice.address));
+        await expect(
+          adminVault.connect(admin).addAction(getBytes4(alice.address), alice.address)
+        ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
       });
     });
 

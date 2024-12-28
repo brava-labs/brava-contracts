@@ -218,6 +218,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
             Errors.AdminVault_DelayNotPassed(block.timestamp, poolProposals[proposalId])
         );
 
+        delete poolProposals[proposalId];
         protocolPools[protocolId][poolId] = _poolAddress;
         pool[_poolAddress] = true;
         LOGGER.logAdminVaultEvent(202, abi.encode(protocolId, _poolAddress));
@@ -274,6 +275,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
             Errors.AdminVault_DelayNotPassed(block.timestamp, actionProposals[proposalId])
         );
 
+        delete actionProposals[proposalId];
         actionAddresses[_actionId] = _actionAddress;
         LOGGER.logAdminVaultEvent(201, abi.encode(_actionId, _actionAddress));
     }
