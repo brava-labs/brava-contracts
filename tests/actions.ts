@@ -56,10 +56,9 @@ type WithdrawArgs =
         | 'SparkWithdraw'
         | 'AcrossWithdraw'
         | 'MorphoWithdraw'
-        | 'VesperWithdraw'
         | 'YearnWithdrawV3';
     })
-  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnWithdraw' });
+  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnWithdraw' | 'VesperWithdraw' });
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
@@ -242,11 +241,11 @@ export const actionDefaults: Record<string, ActionArgs> = {
     safeOperation: 1,
     poolAddress: tokenConfig.vaUSDC.address,
     feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
+    sharesToBurn: '0',
+    minUnderlyingReceived: '0',
     encoding: {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+      encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
     },
   },
   Curve3PoolSwap: {
