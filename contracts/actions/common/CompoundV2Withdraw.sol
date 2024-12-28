@@ -46,16 +46,15 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
         address _cTokenAddress
     ) internal returns (uint256 balanceBefore, uint256 balanceAfter, uint256 feeInTokens) {
         uint256 amountToWithdraw = _inputData.withdrawAmount;
-
         balanceBefore = CTokenInterface(_cTokenAddress).balanceOf(address(this));
+
+        feeInTokens = _processFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress, balanceBefore);
 
         uint256 underlyingBalance = _getBalance(_cTokenAddress);
         if (amountToWithdraw > underlyingBalance) {
             amountToWithdraw = underlyingBalance;
         }
         require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
-
-        feeInTokens = _processFee(_cTokenAddress, _inputData.feeBasis, _cTokenAddress, balanceBefore);
 
         _withdraw(_cTokenAddress, amountToWithdraw);
         balanceAfter = CTokenInterface(_cTokenAddress).balanceOf(address(this));

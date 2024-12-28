@@ -62,11 +62,11 @@ contract AcrossWithdraw is ActionBase {
 
         feeInTokens = _processFee(l1Token, _inputData.feeBasis, lpToken, sharesBefore);
 
-        uint256 underlyingBalance = _sharesToUnderlying(sharesBefore, l1Token);
+        uint256 underlyingBalance = _sharesToUnderlying(sharesBefore - feeInTokens, l1Token);
         /// @dev If the withdraw amount is greater or equal than the underlying balance, we withdraw the entire balance
         /// @dev Otherwise, some dust might be left behind
         uint256 amountToWithdraw = _inputData.withdrawAmount >= underlyingBalance
-            ? sharesBefore
+            ? sharesBefore - feeInTokens
             : _underlyingToShares(_inputData.withdrawAmount, l1Token);
 
         require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
