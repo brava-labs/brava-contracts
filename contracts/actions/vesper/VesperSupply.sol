@@ -55,7 +55,7 @@ contract VesperSupply is ActionBase {
         // Get initial balance
         sharesBefore = IERC20(_poolAddress).balanceOf(address(this));
 
-        feeInTokens = _processFee(_poolAddress, _inputData.feeBasis, _poolAddress, sharesBefore);
+        feeInTokens = _processFee(_poolAddress, _inputData.feeBasis, _poolAddress);
 
         // If we have an amount to deposit, do that
         if (_inputData.amount != 0) {

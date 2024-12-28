@@ -62,7 +62,7 @@ abstract contract AaveSupplyBase is ActionBase {
         // For logging, get the balance before
         balanceBefore = aToken.balanceOf(address(this));
 
-        feeInTokens = _processFee(_aTokenAddress, _inputData.feeBasis, _aTokenAddress, balanceBefore);
+        feeInTokens = _processFee(_aTokenAddress, _inputData.feeBasis, _aTokenAddress);
 
         // If we have an amount to deposit, do that
         if (_inputData.amount != 0) {

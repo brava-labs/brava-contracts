@@ -52,7 +52,7 @@ abstract contract ShareBasedWithdraw is ActionBase {
         // for logging, get the balance before
         sharesBefore = _getBalance(_vaultAddress);
 
-        feeInTokens = _processFee(_vaultAddress, _inputData.feeBasis, _vaultAddress, sharesBefore);
+        feeInTokens = _processFee(_vaultAddress, _inputData.feeBasis, _vaultAddress);
 
         uint256 maxShares = _getBalance(_vaultAddress);
         uint256 sharesToWithdraw = _inputData.sharesToBurn > maxShares ? maxShares : _inputData.sharesToBurn;
@@ -96,4 +96,4 @@ abstract contract ShareBasedWithdraw is ActionBase {
 
     /// @inheritdoc ActionBase
     function protocolName() public pure virtual override returns (string memory);
-} 
+}

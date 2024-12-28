@@ -328,8 +328,6 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @return The last fee timestamp.
     function getLastFeeTimestamp(string calldata _protocolName, address _pool) external view returns (uint256) {
         uint256 protocolId = _protocolIdFromName(_protocolName);
-        require(lastFeeTimestamp[msg.sender][protocolId][_pool] != 0, Errors.AdminVault_NotInitialized());
-
         return lastFeeTimestamp[msg.sender][protocolId][_pool];
     }
 
