@@ -52,6 +52,7 @@ contract Errors {
         uint256 _maxAllowed
     );
     error Action_InvalidPool(string _protocolName, uint8 _actionType);
+    error Action_UnderlyingReceivedLessThanExpected(uint256 _underlyingReceived, uint256 _expected);
 
     // CompoundV2Supply errors
     error Action_CompoundError(string _protocolName, uint8 _actionType, uint256 _errorCode);

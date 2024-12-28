@@ -264,7 +264,7 @@ describe('Vesper tests', () => {
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           const poolContract = await ethers.getContractAt('IVesperPool', poolAddress);
 
-          // Supply first
+          // First supply to have something to withdraw
           await fundAccountWithToken(safeAddr, token, amount);
           await executeAction({
             type: 'VesperSupply',
@@ -275,17 +275,24 @@ describe('Vesper tests', () => {
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialVesperBalance = await poolContract.balanceOf(safeAddr);
 
+          // Withdraw half of our shares
+          const sharesToBurn = initialVesperBalance / BigInt(2);
+          // Calculate expected underlying based on price per share
+          const pricePerShare = await poolContract.pricePerShare();
+          const expectedUnderlying = (sharesToBurn * pricePerShare) / BigInt(1e18);
+
           await executeAction({
             type: 'VesperWithdraw',
             poolAddress,
-            amount,
+            sharesToBurn: sharesToBurn.toString(),
+            minUnderlyingReceived: expectedUnderlying.toString(),
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
           const finalVesperBalance = await poolContract.balanceOf(safeAddr);
 
-          expect(finalTokenBalance).to.be.gt(initialTokenBalance);
-          expect(finalVesperBalance).to.be.lt(initialVesperBalance);
+          expect(finalTokenBalance).to.be.greaterThan(initialTokenBalance);
+          expect(finalVesperBalance).to.equal(initialVesperBalance - sharesToBurn);
         });
 
         it('Should withdraw the maximum amount', async () => {
@@ -293,7 +300,7 @@ describe('Vesper tests', () => {
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           const poolContract = await ethers.getContractAt('IVesperPool', poolAddress);
 
-          // Supply first
+          // First supply to have something to withdraw
           await fundAccountWithToken(safeAddr, token, amount);
           await executeAction({
             type: 'VesperSupply',
@@ -301,35 +308,35 @@ describe('Vesper tests', () => {
             amount,
           });
 
-          const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialVesperBalance = await poolContract.balanceOf(safeAddr);
           expect(initialVesperBalance).to.be.gt(0);
+
+          // Calculate expected underlying based on price per share
+          const pricePerShare = await poolContract.pricePerShare();
+          const expectedUnderlying = (initialVesperBalance * pricePerShare) / BigInt(1e18);
 
           await executeAction({
             type: 'VesperWithdraw',
             poolAddress,
-            amount: ethers.MaxUint256,
+            sharesToBurn: ethers.MaxUint256.toString(),
+            minUnderlyingReceived: expectedUnderlying.toString(),
           });
 
-          const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const finalVesperBalance = await poolContract.balanceOf(safeAddr);
-
-          expect(finalTokenBalance).to.be.gt(initialTokenBalance);
-          expect(finalVesperBalance).to.equal(0);
+          expect(await poolContract.balanceOf(safeAddr)).to.equal(0);
+          expect(await tokenContract.balanceOf(safeAddr)).to.be.greaterThan(0);
         });
 
         it('Should take fees on withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           const poolContract = await ethers.getContractAt('IVesperPool', poolAddress);
+          await fundAccountWithToken(safeAddr, token, amount);
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
           const feeRecipientVTokenBalanceBefore = await poolContract.balanceOf(feeRecipient);
 
-          // Supply first
-          await fundAccountWithToken(safeAddr, token, amount);
           const supplyTx = await executeAction({
             type: 'VesperSupply',
             poolAddress,
@@ -351,10 +358,16 @@ describe('Vesper tests', () => {
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
+          // Withdraw a small amount of shares
+          const sharesToBurn = vTokenBalanceAfterSupply / BigInt(10); // 10% of shares
+          const pricePerShare = await poolContract.pricePerShare();
+          const expectedUnderlying = (sharesToBurn * pricePerShare) / BigInt(1e18);
+
           const withdrawTx = await executeAction({
             type: 'VesperWithdraw',
             poolAddress,
-            amount: '100000',
+            sharesToBurn: sharesToBurn.toString(),
+            minUnderlyingReceived: expectedUnderlying.toString(),
             feeBasis: 10,
           });
 
@@ -379,8 +392,8 @@ describe('Vesper tests', () => {
         });
 
         it('Should not confuse underlying and share tokens', async () => {
-          const poolContract = await ethers.getContractAt('IVesperPool', testCases[0].poolAddress);
-          
+          const poolContract = await ethers.getContractAt('IVesperPool', poolAddress);
+
           expect(await poolContract.balanceOf(safeAddr)).to.equal(0);
           expect(await USDC.balanceOf(safeAddr)).to.equal(0);
 
@@ -391,53 +404,71 @@ describe('Vesper tests', () => {
           expect(await USDC.balanceOf(safeAddr)).to.equal(amount);
 
           // deposit 100 USDC
+          const depositAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
           await executeAction({
             type: 'VesperSupply',
-            poolAddress: testCases[0].poolAddress,
-            amount: ethers.parseUnits('100', tokenConfig.USDC.decimals),
+            poolAddress,
+            amount: depositAmount,
           });
 
           // check we still have 900 USDC
-          expect(await USDC.balanceOf(safeAddr)).to.equal(
-            ethers.parseUnits('900', tokenConfig.USDC.decimals)
-          );
+          expect(await USDC.balanceOf(safeAddr)).to.equal(amount - depositAmount);
 
           // check that we have vUSDC
           const vTokenBalance = await poolContract.balanceOf(safeAddr);
           expect(vTokenBalance).to.be.greaterThan(0);
 
-          // withdraw 10 USDC
-          const tenDollars = ethers.parseUnits('10', tokenConfig.USDC.decimals);
+          // withdraw 10% of shares
+          const sharesToBurn = vTokenBalance / BigInt(10);
+          const pricePerShare = await poolContract.pricePerShare();
+          const expectedUnderlying = (sharesToBurn * pricePerShare) / BigInt(1e18);
 
           await executeAction({
             type: 'VesperWithdraw',
-            poolAddress: testCases[0].poolAddress,
-            amount: tenDollars,
+            poolAddress,
+            sharesToBurn: sharesToBurn.toString(),
+            minUnderlyingReceived: expectedUnderlying.toString(),
           });
 
-          // Maximum dust would be exactly 1 share worth since we only add 1 share in the contract
-          const pricePerShare = await poolContract.pricePerShare();
-          const maxDust = pricePerShare; // One share's worth
+          // Verify balances
+          const finalShares = await poolContract.balanceOf(safeAddr);
+          const finalUnderlying = await USDC.balanceOf(safeAddr);
 
-          // we should now have 900 + 10 USDC plus some dust
-          const expectedBalance = ethers.parseUnits('910', tokenConfig.USDC.decimals);
+          // Should have 90% of shares left
+          expect(finalShares).to.equal(vTokenBalance - sharesToBurn);
 
-          expect(await USDC.balanceOf(safeAddr)).to.be.closeTo(expectedBalance, maxDust);
-          expect(await poolContract.balanceOf(safeAddr)).to.be.lessThan(vTokenBalance);
+          // Should have ~910 USDC (900 + ~10 withdrawn)
+          expect(finalUnderlying).to.be.closeTo(
+            amount - depositAmount + expectedUnderlying,
+            ethers.parseUnits('0.1', tokenConfig.USDC.decimals)
+          );
         });
       });
     });
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const amount = ethers.parseUnits('100', tokenConfig.vaUSDC.decimals);
-        await fundAccountWithToken(safeAddr, 'vaUSDC', amount);
+        const amount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
+        const poolContract = await ethers.getContractAt('IVesperPool', testCases[0].poolAddress);
+        await fundAccountWithToken(safeAddr, 'USDC', amount);
         const strategyId: number = 42;
+
+        // First supply to have something to withdraw
+        await executeAction({
+          type: 'VesperSupply',
+          poolAddress: testCases[0].poolAddress,
+          amount,
+        });
+
+        const initialBalance = await poolContract.balanceOf(safeAddr);
+        const pricePerShare = await poolContract.pricePerShare();
+        const expectedUnderlying = (initialBalance * pricePerShare) / BigInt(1e18);
 
         const tx = await executeAction({
           type: 'VesperWithdraw',
           poolAddress: testCases[0].poolAddress,
-          amount: ethers.MaxUint256.toString(),
+          sharesToBurn: initialBalance.toString(),
+          minUnderlyingReceived: expectedUnderlying.toString(),
         });
 
         const logs = await decodeLoggerLog(tx);
@@ -450,12 +481,9 @@ describe('Vesper tests', () => {
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
         expect(txLog).to.have.property('poolId', getBytes4(testCases[0].poolAddress));
-        expect(txLog).to.have.property('balanceBefore');
+        expect(txLog).to.have.property('balanceBefore', initialBalance);
         expect(txLog).to.have.property('balanceAfter', 0n);
         expect(txLog).to.have.property('feeInTokens', 0n);
-        expect(txLog.balanceAfter).to.be.a('bigint');
-        expect(txLog.balanceBefore).to.be.a('bigint');
-        expect(txLog.balanceBefore).to.be.greaterThanOrEqual(amount);
       });
 
       it('Should have withdraw action type', async () => {
@@ -468,7 +496,8 @@ describe('Vesper tests', () => {
           executeAction({
             type: 'VesperWithdraw',
             poolAddress: '0x00000000',
-            amount: '1',
+            sharesToBurn: '1',
+            minUnderlyingReceived: '0',
           })
         ).to.be.revertedWith('GS013');
       });
