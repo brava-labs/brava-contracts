@@ -31,6 +31,7 @@ import {
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
 
+export { deploySafe };
 export function log(...args: unknown[]): void {
   if (isLoggingEnabled) {
     console.log(...args);
@@ -170,6 +171,7 @@ type BaseSetup = {
   safeProxyFactory: ISafeProxyFactory;
   safe: ISafe;
   signer: Signer;
+  sequenceExecutor: SequenceExecutor;
 };
 
 export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
@@ -191,8 +193,9 @@ export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
   );
   const safeAddress = await deploySafe(deploySigner, await safeProxyFactory.getAddress());
   const safe = await ethers.getContractAt('ISafe', safeAddress);
+  const sequenceExecutor = await deploy<SequenceExecutor>('SequenceExecutor', deploySigner, await adminVault.getAddress());
   log('Safe deployed at:', safeAddress);
-  return { logger, adminVault, safeProxyFactory, safe, signer: deploySigner };
+  return { logger, adminVault, safeProxyFactory, safe, signer: deploySigner, sequenceExecutor };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;

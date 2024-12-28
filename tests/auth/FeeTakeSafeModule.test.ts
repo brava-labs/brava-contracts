@@ -47,8 +47,8 @@ describe('FeeTakeSafeModule', function () {
     logger = baseSetup.logger;
     safe = baseSetup.safe;
     safeAddr = await safe.getAddress();
+    sequenceExecutor = baseSetup.sequenceExecutor;
 
-    sequenceExecutor = await deploy('SequenceExecutor', admin, await adminVault.getAddress());
     // Deploy FeeTakeSafeModule
     feeTakeSafeModule = await deploy(
       'FeeTakeSafeModule',

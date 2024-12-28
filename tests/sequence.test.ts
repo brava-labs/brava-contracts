@@ -33,8 +33,7 @@ describe('Sequence tests', () => {
     safeAddr = await baseSetup.safe.getAddress();
     adminVault = await baseSetup.adminVault;
     loggerAddress = await baseSetup.logger.getAddress();
-
-    sequenceExecutor = await deploy('SequenceExecutor', signer, await adminVault.getAddress());
+    sequenceExecutor = baseSetup.sequenceExecutor;
 
     // we need a couple of actions to test with
     fluidSupplyAction = await deploy(
