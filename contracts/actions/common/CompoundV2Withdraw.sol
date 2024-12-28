@@ -41,12 +41,6 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
         );
     }
 
-    /// @notice Withdraws all of the underlying tokens from the aToken provided
-    function exit(address _cTokenAddress) external {
-        uint256 underlyingBalance = _getBalance(_cTokenAddress);
-        _withdraw(_cTokenAddress, underlyingBalance);
-    }
-
     function _compoundWithdraw(
         Params memory _inputData,
         address _cTokenAddress

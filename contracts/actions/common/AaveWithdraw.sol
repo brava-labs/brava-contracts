@@ -42,12 +42,6 @@ abstract contract AaveWithdrawBase is ActionBase {
         );
     }
 
-    /// @notice Withdraws all of the underlying tokens from the aToken provided
-    function exit(address _aTokenAddress) external {
-        address underlyingAsset = _getUnderlyingAsset(_aTokenAddress);
-        _withdraw(underlyingAsset, type(uint256).max);
-    }
-
     function _aaveWithdraw(
         Params memory _inputData,
         address _aTokenAddress

@@ -45,14 +45,6 @@ abstract contract ERC4626Withdraw is ActionBase {
         );
     }
 
-    /// @notice Withdraws all available tokens from the specified vault
-    /// @notice This is for emergency use, it doesn't limit the shares burnt.
-    /// @param _vault Address of the vault contract
-    function exit(address _vault) external virtual {
-        uint256 maxWithdrawAmount = _getMaxWithdraw(_vault);
-        _executeWithdraw(_vault, maxWithdrawAmount);
-    }
-
     /// @dev Withdraw logic, external calls are separated out to allow for overrides
     function _withdrawFromVault(
         Params memory _inputData,

@@ -22,10 +22,6 @@ contract ClearpoolWithdraw is ERC4626Withdraw {
         return sharesBefore - IClearpoolPool(_vaultAddress).balanceOf(address(this));
     }
 
-    function exit(address _vaultAddress) external override {
-        IClearpoolPool(_vaultAddress).redeem(IClearpoolPool(_vaultAddress).balanceOf(address(this)));
-    }
-
     /// @inheritdoc ERC4626Withdraw
     function _getBalance(address _vaultAddress) internal view override returns (uint256) {
         return IClearpoolPool(_vaultAddress).balanceOf(address(this));
