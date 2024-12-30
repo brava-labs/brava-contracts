@@ -29,8 +29,8 @@ contract SendToken is ActionBase {
         IOwnerManager ownerManager = IOwnerManager(address(this));
         require(ownerManager.isOwner(inputData.to), Errors.Action_InvalidRecipient(protocolName(), actionType()));
 
-        uint256 amountToTransfer = inputData.amount == type(uint256).max 
-            ? IERC20(inputData.tokenAddr).balanceOf(address(this))
+        uint256 amountToTransfer = (inputData.amount == type(uint256).max)
+            ? _getBalance(inputData.tokenAddr)
             : inputData.amount;
 
         _sendToken(inputData.tokenAddr, inputData.to, amountToTransfer);
@@ -45,12 +45,30 @@ contract SendToken is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
+    /// @notice Gets the balance of a token or ETH
+    /// @param _tokenAddr Address of token, use 0xEeee... for eth
+    /// @return balance The balance of the token or ETH
+    function _getBalance(address _tokenAddr) internal view returns (uint256) {
+        if (_tokenAddr == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+            return address(this).balance;
+        } else {
+            return IERC20(_tokenAddr).balanceOf(address(this));
+        }
+    }
+
     /// @notice Sends a token to the specified addr, works with Eth also
     /// @param _tokenAddr Address of token, use 0xEeee... for eth
     /// @param _to Where the tokens are sent
     /// @param _amount Amount of tokens to transfer
     function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal {
-        IERC20(_tokenAddr).safeTransfer(_to, _amount);
+        if (_tokenAddr == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+            // Handle ETH transfer
+            (bool success, ) = _to.call{value: _amount}("");
+            require(success, "ETH transfer failed");
+        } else {
+            // Handle ERC20 transfer
+            IERC20(_tokenAddr).safeTransfer(_to, _amount);
+        }
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory params) {

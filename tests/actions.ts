@@ -97,7 +97,8 @@ interface ParaswapSwapArgs extends BaseActionArgs {
 
 interface TokenTransferArgs extends BaseActionArgs {
   type: 'PullToken' | 'SendToken';
-  token: keyof typeof tokenConfig;
+  token?: keyof typeof tokenConfig;
+  tokenAddress?: string;
   amount: string | BigInt;
   from?: string;
   to?: string;
