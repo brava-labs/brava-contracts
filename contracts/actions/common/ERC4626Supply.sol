@@ -78,6 +78,12 @@ abstract contract ERC4626Supply is ActionBase {
 
             require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), uint8(actionType())));
 
+            // Check max deposit limit
+            uint256 maxDeposit = _getMaxDeposit(_vaultAddress);
+            amountToDeposit = amountToDeposit > maxDeposit 
+                ? maxDeposit 
+                : amountToDeposit;
+
             // Perform the deposit
             _increaseAllowance(address(underlyingToken), _vaultAddress, amountToDeposit);
             uint256 shares = _deposit(_vaultAddress, amountToDeposit);
@@ -148,4 +154,9 @@ abstract contract ERC4626Supply is ActionBase {
     /// @notice Returns the protocol name
     /// @return string Protocol name for the specific implementation
     function protocolName() public pure virtual override returns (string memory);
+
+    /// @dev Override for non-standard max deposit calculations
+    function _getMaxDeposit(address _vaultAddress) internal view virtual returns (uint256) {
+        return IERC4626(_vaultAddress).maxDeposit(address(this));
+    }
 }
