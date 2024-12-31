@@ -176,7 +176,6 @@ describe('Notional tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -251,7 +250,6 @@ describe('Notional tests', () => {
         );
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           PUSDC_ADDRESS
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
@@ -274,7 +272,6 @@ describe('Notional tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           PUSDC_ADDRESS
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
@@ -403,7 +400,6 @@ describe('Notional tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);

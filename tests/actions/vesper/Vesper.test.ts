@@ -151,12 +151,8 @@ describe('Vesper tests', () => {
           const vTokenBalanceAfterFirstTx = await poolContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Vesper']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -347,12 +343,8 @@ describe('Vesper tests', () => {
           const vTokenBalanceAfterSupply = await poolContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Vesper']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);

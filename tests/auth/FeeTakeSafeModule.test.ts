@@ -193,12 +193,8 @@ describe('FeeTakeSafeModule', function () {
       await adminVault.connect(admin).proposeFeeConfig(bob.address, 0, 1000);
       await adminVault.connect(admin).setFeeConfig();
 
-      const protocolId = BigInt(
-        ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid']))
-      );
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
-        protocolId,
         tokenConfig.fUSDC.address
       );
       const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp

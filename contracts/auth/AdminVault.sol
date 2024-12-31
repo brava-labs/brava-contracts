@@ -15,12 +15,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @dev 1000 = 10%
     uint256 public constant MAX_FEE_BASIS = 1000;
 
-    /// @notice Timestamp tracking for fee collection: user => protocolId => pool => timestamp
-    ///  Used to store the timestamp of the last fee collection for a given user, protocol and pool combination.
+    /// @notice Timestamp tracking for fee collection: user => token => timestamp
+    ///  Used to store the timestamp of the last fee collection for a given user and token combination.
     ///  Is zero if never deposited, or when balance reduced to zero.
-    /// @dev Certain protocols (e.g. Aave) have a singular pool, so instead we use the underlying asset address in place of the pool address.
-    /// @dev If a protocol was found that has non-unique pool and underlying asset addresses, a new unique value should be created for 'pool'.
-    mapping(address => mapping(uint256 => mapping(address => uint256))) public lastFeeTimestamp;
+    mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
 
     /// @notice Protocol and pool management: protocol => poolId => poolAddress
     ///  Action contracts are only given the poolId, so this mapping limits them to pool addresses we've approved.
@@ -287,12 +285,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
 
     /// @notice Initializes the fee timestamp for a pool.
     /// @dev This must only be called when the user has a zero balance.
-    /// @param _protocolName The name of the protocol.
-    /// @param _pool The address of the pool.
-    function setFeeTimestamp(string calldata _protocolName, address _pool) external {
+    /// @param _pool The address of the pool token.
+    function setFeeTimestamp(address _pool) external {
         _isPool(_pool);
-        uint256 protocolId = _protocolIdFromName(_protocolName);
-        lastFeeTimestamp[msg.sender][protocolId][_pool] = block.timestamp;
+        lastFeeTimestamp[msg.sender][_pool] = block.timestamp;
     }
 
     /// @notice Checks if a given address is a pool.
@@ -325,12 +321,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
     }
 
     /// @notice Retrieves the last fee timestamp for a given pool.
-    /// @param _protocolName The name of the protocol.
-    /// @param _pool The address of the pool.
+    /// @param _pool The address of the pool token.
     /// @return The last fee timestamp.
-    function getLastFeeTimestamp(string calldata _protocolName, address _pool) external view returns (uint256) {
-        uint256 protocolId = _protocolIdFromName(_protocolName);
-        return lastFeeTimestamp[msg.sender][protocolId][_pool];
+    function getLastFeeTimestamp(address _pool) external view returns (uint256) {
+        return lastFeeTimestamp[msg.sender][_pool];
     }
 
     /// @notice Checks if a given fee basis is within the allowed range.

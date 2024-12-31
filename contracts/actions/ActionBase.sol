@@ -80,11 +80,11 @@ abstract contract ActionBase {
         uint256 _feePercentage,
         address _feeToken
     ) internal returns (uint256 feeInTokens) {
-        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(protocolName(), _pool);
+        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_pool);
 
         // Initialize timestamp if not set, this will be the users first interaction with the pool
         if (lastFeeTimestamp == 0) {
-            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
+            ADMIN_VAULT.setFeeTimestamp(_pool);
             return 0;
         }
 
@@ -99,7 +99,7 @@ abstract contract ActionBase {
         if (fee > 0) {
             vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
         }
-        ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
+        ADMIN_VAULT.setFeeTimestamp(_pool);
         return fee;
     }
 

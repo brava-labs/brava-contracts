@@ -169,12 +169,8 @@ describe('Clearpool tests', () => {
           const poolBalanceAfterFirstTx = await poolContract.balanceOf(safeAddr);
 
           // Time travel 2 weeks (maximum allowed for Clearpool)
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 14); // 2 weeks
@@ -249,12 +245,8 @@ describe('Clearpool tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const protocolId = BigInt(
-          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
-        );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.cpALP_USDC.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
@@ -267,7 +259,6 @@ describe('Clearpool tests', () => {
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.cpALP_USDC.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
@@ -393,12 +384,8 @@ describe('Clearpool tests', () => {
           const poolBalanceAfterSupply = await poolContract.balanceOf(safeAddr);
 
           // Time travel 2 weeks (maximum allowed for Clearpool)
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 14); // 2 weeks

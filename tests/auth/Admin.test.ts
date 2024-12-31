@@ -827,14 +827,11 @@ describe('AdminVault', function () {
     it('should set fee timestamp correctly', async function () {
       await adminVault.proposePool('Fluid', alice.address);
       await adminVault.addPool('Fluid', alice.address);
-      const tx = await adminVault.connect(owner).setFeeTimestamp('Protocol', alice.address);
+      const tx = await adminVault.connect(owner).setFeeTimestamp(alice.address);
 
       const receipt = await tx.wait();
       const blockTimestamp = (await ethers.provider.getBlock(receipt!.blockNumber))!.timestamp;
-      const protocolId = BigInt(
-        ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Protocol']))
-      );
-      expect(await adminVault.lastFeeTimestamp(owner.address, protocolId, alice.address)).to.equal(
+      expect(await adminVault.lastFeeTimestamp(owner.address, alice.address)).to.equal(
         blockTimestamp
       );
     });
@@ -1004,7 +1001,6 @@ describe('AdminVault', function () {
       );
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
-        protocolId,
         tokenConfig.fUSDC.address
       );
       const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp

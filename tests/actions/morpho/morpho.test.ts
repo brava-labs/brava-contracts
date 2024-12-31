@@ -239,7 +239,6 @@ describe('Morpho tests', () => {
 
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
 
@@ -311,7 +310,6 @@ describe('Morpho tests', () => {
       it('Should initialize the last fee timestamp', async () => {
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.morpho_fxUSDC.address
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
@@ -333,7 +331,6 @@ describe('Morpho tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.morpho_fxUSDC.address
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
@@ -444,7 +441,6 @@ describe('Morpho tests', () => {
 
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);

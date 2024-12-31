@@ -178,7 +178,6 @@ describe('Fluid tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -260,7 +259,6 @@ describe('Fluid tests', () => {
         );
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           FLUID_USDC_ADDRESS
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
@@ -282,7 +280,6 @@ describe('Fluid tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           FLUID_USDC_ADDRESS
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
@@ -380,7 +377,6 @@ describe('Fluid tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);

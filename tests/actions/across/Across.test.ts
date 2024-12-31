@@ -192,7 +192,6 @@ describe('Across tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             tokenConfig[token].address
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -274,7 +273,6 @@ describe('Across tests', () => {
         );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig[token].address
         );
         expect(lastFeeTimestamp).to.equal(0n);
@@ -287,7 +285,6 @@ describe('Across tests', () => {
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig[token].address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
@@ -418,7 +415,6 @@ describe('Across tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             tokenConfig[token].address
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
