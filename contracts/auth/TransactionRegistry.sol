@@ -5,12 +5,13 @@ import {Errors} from "../Errors.sol";
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
+import {ITransactionRegistry} from "../interfaces/ITransactionRegistry.sol";
 import {Roles} from "./Roles.sol";
 
 /// @title TransactionRegistry
 /// @notice Manages transaction approvals with a delay mechanism
 /// @author BravaLabs.xyz
-contract TransactionRegistry is Multicall, Roles {
+contract TransactionRegistry is Multicall, Roles, ITransactionRegistry {
     /// @notice The AdminVault contract that manages permissions
     IAdminVault public immutable ADMIN_VAULT;
     
@@ -48,8 +49,7 @@ contract TransactionRegistry is Multicall, Roles {
         return ADMIN_VAULT.getDelayTimestamp();
     }
 
-    /// @notice Proposes a transaction for approval
-    /// @param _txHash The hash of the transaction to propose
+    /// @inheritdoc ITransactionRegistry
     function proposeTransaction(bytes32 _txHash) external onlyRole(Roles.TRANSACTION_PROPOSER_ROLE) {
         require(_txHash != bytes32(0), Errors.InvalidInput("TransactionRegistry", "proposeTransaction"));
         require(!approvedTransactions[_txHash], Errors.AdminVault_TransactionAlreadyApproved());
@@ -58,8 +58,7 @@ contract TransactionRegistry is Multicall, Roles {
         LOGGER.logAdminVaultEvent(105, abi.encode(_txHash));
     }
 
-    /// @notice Cancels a transaction proposal
-    /// @param _txHash The hash of the transaction proposal to cancel
+    /// @inheritdoc ITransactionRegistry
     function cancelTransactionProposal(bytes32 _txHash) external onlyRole(Roles.TRANSACTION_CANCELER_ROLE) {
         require(transactionProposals[_txHash] != 0, Errors.AdminVault_TransactionNotProposed());
 
@@ -67,8 +66,7 @@ contract TransactionRegistry is Multicall, Roles {
         LOGGER.logAdminVaultEvent(305, abi.encode(_txHash));
     }
 
-    /// @notice Approves a proposed transaction after the delay period
-    /// @param _txHash The hash of the transaction to approve
+    /// @inheritdoc ITransactionRegistry
     function approveTransaction(bytes32 _txHash) external onlyRole(Roles.TRANSACTION_EXECUTOR_ROLE) {
         require(_txHash != bytes32(0), Errors.InvalidInput("TransactionRegistry", "approveTransaction"));
         require(!approvedTransactions[_txHash], Errors.AdminVault_TransactionAlreadyApproved());
@@ -83,8 +81,7 @@ contract TransactionRegistry is Multicall, Roles {
         LOGGER.logAdminVaultEvent(205, abi.encode(_txHash));
     }
 
-    /// @notice Revokes an approved transaction
-    /// @param _txHash The hash of the transaction to revoke
+    /// @inheritdoc ITransactionRegistry
     function revokeTransaction(bytes32 _txHash) external onlyRole(Roles.TRANSACTION_DISPOSER_ROLE) {
         require(approvedTransactions[_txHash], Errors.AdminVault_TransactionNotApproved(_txHash));
 
@@ -92,9 +89,7 @@ contract TransactionRegistry is Multicall, Roles {
         LOGGER.logAdminVaultEvent(405, abi.encode(_txHash));
     }
 
-    /// @notice Checks if a transaction hash has been approved
-    /// @param _txHash The hash of the transaction to check
-    /// @return bool True if the transaction is approved
+    /// @inheritdoc ITransactionRegistry
     function isApprovedTransaction(bytes32 _txHash) external view returns (bool) {
         return approvedTransactions[_txHash];
     }

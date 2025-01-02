@@ -66,4 +66,8 @@ contract Errors {
 
     // SendToken errors
     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
+
+    // UpgradeAction errors
+    error UpgradeAction_TransactionNotApproved(bytes32 txHash);
+    error UpgradeAction_ExecutionFailed();
 }

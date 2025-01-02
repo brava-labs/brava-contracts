@@ -48,7 +48,8 @@ abstract contract ActionBase {
         CURVE_3POOL_SWAP,
         SEND_TOKEN,
         PULL_TOKEN,
-        PARASWAP_SWAP
+        PARASWAP_SWAP,
+        UPGRADE_ACTION
     }
 
     /// @notice Initializes the ActionBase contract

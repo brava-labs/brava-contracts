@@ -148,6 +148,11 @@ export interface BendDaoArgs extends BaseActionArgs {
   feeBasis?: number;
 }
 
+interface UpgradeArgs extends BaseActionArgs {
+  type: 'UpgradeAction';
+  data: string;
+}
+
 // Union type for all action args
 export type ActionArgs =
   | SupplyArgs
@@ -160,7 +165,8 @@ export type ActionArgs =
   | AaveV2Args
   | StrikeArgs
   | UwULendArgs
-  | BendDaoArgs;
+  | BendDaoArgs
+  | UpgradeArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
@@ -603,5 +609,14 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
     },
+  },
+  UpgradeAction: {
+    type: 'UpgradeAction',
+    useSDK: false,
+    data: '0x',
+    encoding: {
+      inputParams: ['bytes'],
+      encodingVariables: ['data']
+    }
   },
 };
