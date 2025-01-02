@@ -44,6 +44,7 @@ contract BravaGuard is ITransactionGuard, IModuleGuard {
         validateTransaction(to);
     }
 
+    // solhint-disable-next-line no-empty-blocks
     function checkAfterExecution(bytes32, bool) external pure override {}
 
     function checkModuleTransaction(
@@ -54,15 +55,10 @@ contract BravaGuard is ITransactionGuard, IModuleGuard {
         address module
     ) external view override returns (bytes32) {
         validateTransaction(to);
-        return keccak256(abi.encode(
-            to,
-            value,
-            keccak256(data),
-            operation,
-            module
-        ));
+        return keccak256(abi.encode(to, value, keccak256(data), operation, module));
     }
 
+    // solhint-disable-next-line no-empty-blocks
     function checkAfterModuleExecution(bytes32, bool) external pure override {}
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {

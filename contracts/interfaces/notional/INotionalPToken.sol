@@ -14,7 +14,9 @@ interface INotionalPToken {
         uint256 shares
     );
 
+    // solhint-disable-next-line func-name-mixedcase
     function EXCHANGE_RATE_PRECISION() external view returns (uint256);
+    // solhint-disable-next-line func-name-mixedcase
     function NOTIONAL() external view returns (address);
     function allowance(address account, address spender) external view returns (uint256);
     function approve(address spender, uint256 amount) external returns (bool ret);

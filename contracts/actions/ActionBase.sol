@@ -5,7 +5,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
-import {Errors} from "../Errors.sol";
 
 /// @title ActionBase - Base contract for all actions in the protocol
 /// @notice Implements common functionality and interfaces for all actions

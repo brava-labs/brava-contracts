@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// solhint-disable var-name-mixedcase
 interface IYearnVaultV3 {
     // Events
     event Transfer(address indexed sender, address indexed receiver, uint256 value);

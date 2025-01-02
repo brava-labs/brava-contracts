@@ -14,8 +14,9 @@ contract Logger is ILogger, Initializable {
     }
 
     /// @notice Initializes the contract
+    // solhint-disable-next-line no-empty-blocks
     function initialize() external initializer {
-        // No initialization needed for this contract
+        /// @dev No initialization needed for this contract
     }
 
     /// @notice Logs an event from an action

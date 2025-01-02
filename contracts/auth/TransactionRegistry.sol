@@ -10,6 +10,7 @@ import {Roles} from "./Roles.sol";
 
 /// @title TransactionRegistry
 /// @notice Manages transaction approvals with a delay mechanism
+/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract TransactionRegistry is Multicall, Roles, ITransactionRegistry {
     /// @notice The AdminVault contract that manages permissions

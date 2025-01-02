@@ -3,7 +3,6 @@ pragma solidity =0.8.28;
 
 import {IYearnVault} from "../../interfaces/yearn/IYearnVault.sol";
 import {ShareBasedWithdraw} from "../common/ShareBasedWithdraw.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Errors} from "../../Errors.sol";
 
 /// @title YearnWithdraw - Burns yTokens and receives underlying tokens in return

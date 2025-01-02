@@ -5,23 +5,18 @@ import {ActionBase} from "../ActionBase.sol";
 import {Errors} from "../../Errors.sol";
 import {ITransactionRegistry} from "../../interfaces/ITransactionRegistry.sol";
 
-
 /// @title UpgradeAction - An action for executing pre-approved upgrade transactions
 /// @notice This contract allows execution of pre-approved upgrade transactions through the sequence executor
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract UpgradeAction is ActionBase {
     struct Params {
-        bytes data;     // The calldata to execute
+        bytes data; // The calldata to execute
     }
 
     /// @notice The transaction registry contract
     ITransactionRegistry public immutable TRANSACTION_REGISTRY;
 
-    constructor(
-        address _adminVault,
-        address _logger,
-        address _transactionRegistry
-    ) ActionBase(_adminVault, _logger) {
+    constructor(address _adminVault, address _logger, address _transactionRegistry) ActionBase(_adminVault, _logger) {
         require(_transactionRegistry != address(0), Errors.InvalidInput("UpgradeAction", "constructor"));
         TRANSACTION_REGISTRY = ITransactionRegistry(_transactionRegistry);
     }
@@ -31,14 +26,15 @@ contract UpgradeAction is ActionBase {
         // Parse inputs - the data is directly encoded as bytes
         /// @dev Decoding bytes to bytes seems daft, but it fits the pattern of the other actions.
         bytes memory data = abi.decode(_callData, (bytes));
-        
+
         // Check if transaction is approved in TransactionRegistry
         bytes32 txHash = keccak256(abi.encodePacked(data));
 
         bool isApproved = TRANSACTION_REGISTRY.isApprovedTransaction(txHash);
         require(isApproved, Errors.UpgradeAction_TransactionNotApproved(txHash));
 
-        // Execute the upgrade transaction using delegatecall
+        // Execute the upgrade transaction, we must use a low level call for this.
+        // solhint-disable-next-line avoid-low-level-calls
         (bool success, ) = address(this).call(data);
         require(success, Errors.UpgradeAction_ExecutionFailed());
 
@@ -55,4 +51,4 @@ contract UpgradeAction is ActionBase {
     function protocolName() public pure override returns (string memory) {
         return "UpgradeAction";
     }
-} 
+}
