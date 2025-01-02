@@ -3,7 +3,6 @@ pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC721Metadata as IERC721} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {Errors} from "../../Errors.sol";
 import {ICoverBroker, BuyCoverParams, PoolAllocationRequest} from "../../interfaces/nexus-mutual/ICoverBroker.sol";
 import {TokenAddressesMainnet} from "../../libraries/TokenAddressesMainnet.sol";
@@ -30,9 +29,6 @@ contract BuyCover is ActionBase {
 
     /// @notice Address of the Nexus Mutual Cover Broker contract
     ICoverBroker public constant COVER_BROKER = ICoverBroker(0x0000cbD7a26f72Ff222bf5f136901D224b08BE4E);
-
-    /// @notice Address of the Nexus Mutual Cover NFT contract
-    IERC721 public constant COVER_NFT = IERC721(0xcafeaCa76be547F14D0220482667B42D8E7Bc3eb);
 
     /// @notice Thrown when an invalid asset ID is provided
     error InvalidAssetID();
@@ -90,6 +86,8 @@ contract BuyCover is ActionBase {
 
     /// @notice Converts asset ID to token address
     /// @param _assetId ID of the asset
+    /// @dev Asset ID 0 is ETH, but this case is handled separately in _buyCover. 
+    ///      We keep the ETH check here for code clarity/future-proofing, though it's never reached.
     /// @return address Token address corresponding to the asset ID
     function _assetIdToTokenAddress(uint256 _assetId) private pure returns (address) {
         if (_assetId == 0) {

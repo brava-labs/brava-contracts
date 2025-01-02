@@ -58,7 +58,7 @@ contract SendToken is ActionBase {
 
     /// @notice Sends a token to the specified addr, works with Eth also
     /// @param _tokenAddr Address of token, use 0xEeee... for eth
-    /// @param _to Where the tokens are sent
+    /// @param _to Where the tokens are sent (restricted to owners)
     /// @param _amount Amount of tokens to transfer
     function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal {
         if (_tokenAddr == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {

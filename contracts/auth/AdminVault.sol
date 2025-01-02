@@ -283,8 +283,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
         LOGGER.logAdminVaultEvent(401, abi.encode(_actionId));
     }
 
-    /// @notice Initializes the fee timestamp for a pool.
-    /// @dev This must only be called when the user has a zero balance.
+    /// @notice Sets the users fee timestamp for a pool to the current block timestamp.
     /// @param _pool The address of the pool token.
     function setFeeTimestamp(address _pool) external {
         _isPool(_pool);
