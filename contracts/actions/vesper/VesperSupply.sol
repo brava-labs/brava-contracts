@@ -3,8 +3,6 @@ pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
 import {IVesperPool} from "../../interfaces/vesper/IVesperPool.sol";
 import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 /// @title VesperSupply - Supplies tokens to Vesper Pool
@@ -30,7 +28,9 @@ contract VesperSupply is ERC4626Supply {
         return IERC20(_getUnderlying(_poolAddress)).balanceOf(address(this));
     }
 
-    /// @inheritdoc ActionBase
+    /// @inheritdoc ERC4626Supply
+    /// @notice Returns the protocol name
+    /// @return string "Vesper"
     function protocolName() public pure override returns (string memory) {
         return "Vesper";
     }
