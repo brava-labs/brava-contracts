@@ -31,6 +31,7 @@ import {
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
 
+export { deploySafe };
 export function log(...args: unknown[]): void {
   if (isLoggingEnabled) {
     console.log(...args);
@@ -170,12 +171,18 @@ type BaseSetup = {
   safeProxyFactory: ISafeProxyFactory;
   safe: ISafe;
   signer: Signer;
+  sequenceExecutor: SequenceExecutor;
 };
 
 export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
   const loggerImplementation = await deploy<Logger>('Logger', deploySigner);
-  const loggerProxy = await deploy<Proxy>('contracts/auth/Proxy.sol:Proxy', deploySigner, await loggerImplementation.getAddress(), "0x");
+  const loggerProxy = await deploy<Proxy>(
+    'contracts/auth/Proxy.sol:Proxy',
+    deploySigner,
+    await loggerImplementation.getAddress(),
+    '0x'
+  );
   const logger = await ethers.getContractAt('Logger', await loggerProxy.getAddress());
   const adminVault = await deploy<AdminVault>(
     'AdminVault',
@@ -184,15 +191,25 @@ export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
     0,
     await logger.getAddress()
   );
-  const proxy = await deploy<Proxy>('contracts/auth/Proxy.sol:Proxy', deploySigner, SAFE_PROXY_FACTORY_ADDRESS, "0x");
+  const proxy = await deploy<Proxy>(
+    'contracts/auth/Proxy.sol:Proxy',
+    deploySigner,
+    SAFE_PROXY_FACTORY_ADDRESS,
+    '0x'
+  );
   const safeProxyFactory = await ethers.getContractAt(
     'ISafeProxyFactory',
     await proxy.getAddress()
   );
   const safeAddress = await deploySafe(deploySigner, await safeProxyFactory.getAddress());
   const safe = await ethers.getContractAt('ISafe', safeAddress);
+  const sequenceExecutor = await deploy<SequenceExecutor>(
+    'SequenceExecutor',
+    deploySigner,
+    await adminVault.getAddress()
+  );
   log('Safe deployed at:', safeAddress);
-  return { logger, adminVault, safeProxyFactory, safe, signer: deploySigner };
+  return { logger, adminVault, safeProxyFactory, safe, signer: deploySigner, sequenceExecutor };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;

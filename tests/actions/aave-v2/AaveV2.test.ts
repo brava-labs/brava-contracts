@@ -187,7 +187,6 @@ describe('Aave V2 tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             aToken
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -271,7 +270,6 @@ describe('Aave V2 tests', () => {
         );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.aUSDC_V2.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
@@ -284,7 +282,6 @@ describe('Aave V2 tests', () => {
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.aUSDC_V2.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
@@ -410,7 +407,6 @@ describe('Aave V2 tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             aToken
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);

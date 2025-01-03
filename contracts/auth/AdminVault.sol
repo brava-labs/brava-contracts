@@ -15,12 +15,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @dev 1000 = 10%
     uint256 public constant MAX_FEE_BASIS = 1000;
 
-    /// @notice Timestamp tracking for fee collection: user => protocolId => pool => timestamp
-    ///  Used to store the timestamp of the last fee collection for a given user, protocol and pool combination.
+    /// @notice Timestamp tracking for fee collection: user => token => timestamp
+    ///  Used to store the timestamp of the last fee collection for a given user and token combination.
     ///  Is zero if never deposited, or when balance reduced to zero.
-    /// @dev Certain protocols (e.g. Aave) have a singular pool, so instead we use the underlying asset address in place of the pool address.
-    /// @dev If a protocol was found that has non-unique pool and underlying asset addresses, a new unique value should be created for 'pool'.
-    mapping(address => mapping(uint256 => mapping(address => uint256))) public lastFeeTimestamp;
+    mapping(address => mapping(address => uint256)) public lastFeeTimestamp;
 
     /// @notice Protocol and pool management: protocol => poolId => poolAddress
     ///  Action contracts are only given the poolId, so this mapping limits them to pool addresses we've approved.
@@ -78,6 +76,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
         _grantRole(ACTION_EXECUTOR_ROLE, _initialOwner);
         _grantRole(ACTION_DISPOSER_ROLE, _initialOwner);
         _grantRole(FEE_TAKER_ROLE, _initialOwner);
+        _grantRole(TRANSACTION_PROPOSER_ROLE, _initialOwner);
+        _grantRole(TRANSACTION_CANCELER_ROLE, _initialOwner);
+        _grantRole(TRANSACTION_EXECUTOR_ROLE, _initialOwner);
+        _grantRole(TRANSACTION_DISPOSER_ROLE, _initialOwner);
 
         // Set role hierarchy
         _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
@@ -96,6 +98,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
         _setRoleAdmin(ACTION_CANCELER_ROLE, ROLE_MANAGER_ROLE);
         _setRoleAdmin(ACTION_EXECUTOR_ROLE, ROLE_MANAGER_ROLE);
         _setRoleAdmin(ACTION_DISPOSER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(TRANSACTION_PROPOSER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(TRANSACTION_CANCELER_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(TRANSACTION_EXECUTOR_ROLE, ROLE_MANAGER_ROLE);
+        _setRoleAdmin(TRANSACTION_DISPOSER_ROLE, ROLE_MANAGER_ROLE);
     }
 
     /// Fee management
@@ -210,6 +216,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
             Errors.AdminVault_DelayNotPassed(block.timestamp, poolProposals[proposalId])
         );
 
+        delete poolProposals[proposalId];
         protocolPools[protocolId][poolId] = _poolAddress;
         pool[_poolAddress] = true;
         LOGGER.logAdminVaultEvent(202, abi.encode(protocolId, _poolAddress));
@@ -266,6 +273,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
             Errors.AdminVault_DelayNotPassed(block.timestamp, actionProposals[proposalId])
         );
 
+        delete actionProposals[proposalId];
         actionAddresses[_actionId] = _actionAddress;
         LOGGER.logAdminVaultEvent(201, abi.encode(_actionId, _actionAddress));
     }
@@ -275,14 +283,11 @@ contract AdminVault is AccessControlDelayed, Multicall {
         LOGGER.logAdminVaultEvent(401, abi.encode(_actionId));
     }
 
-    /// @notice Initializes the fee timestamp for a pool.
-    /// @dev This must only be called when the user has a zero balance.
-    /// @param _protocolName The name of the protocol.
-    /// @param _pool The address of the pool.
-    function setFeeTimestamp(string calldata _protocolName, address _pool) external {
+    /// @notice Sets the users fee timestamp for a pool to the current block timestamp.
+    /// @param _pool The address of the pool token.
+    function setFeeTimestamp(address _pool) external {
         _isPool(_pool);
-        uint256 protocolId = _protocolIdFromName(_protocolName);
-        lastFeeTimestamp[msg.sender][protocolId][_pool] = block.timestamp;
+        lastFeeTimestamp[msg.sender][_pool] = block.timestamp;
     }
 
     /// @notice Checks if a given address is a pool.
@@ -315,14 +320,10 @@ contract AdminVault is AccessControlDelayed, Multicall {
     }
 
     /// @notice Retrieves the last fee timestamp for a given pool.
-    /// @param _protocolName The name of the protocol.
-    /// @param _pool The address of the pool.
+    /// @param _pool The address of the pool token.
     /// @return The last fee timestamp.
-    function getLastFeeTimestamp(string calldata _protocolName, address _pool) external view returns (uint256) {
-        uint256 protocolId = _protocolIdFromName(_protocolName);
-        require(lastFeeTimestamp[msg.sender][protocolId][_pool] != 0, Errors.AdminVault_NotInitialized());
-
-        return lastFeeTimestamp[msg.sender][protocolId][_pool];
+    function getLastFeeTimestamp(address _pool) external view returns (uint256) {
+        return lastFeeTimestamp[msg.sender][_pool];
     }
 
     /// @notice Checks if a given fee basis is within the allowed range.
@@ -366,5 +367,11 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @return uint256 The protocol ID
     function _protocolIdFromName(string calldata _protocolName) internal pure returns (uint256) {
         return uint256(keccak256(abi.encode(_protocolName)));
+    }
+
+    /// @notice Returns the delay period for proposals
+    /// @return The timestamp to wait until
+    function getDelayTimestamp() external returns (uint256) {
+        return _getDelayTimestamp();
     }
 }

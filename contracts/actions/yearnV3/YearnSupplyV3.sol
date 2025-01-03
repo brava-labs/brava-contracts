@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.28;
 
-import {IYearnVaultV3} from "../../interfaces/yearnV3/IYearnVaultV3.sol";
 import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title ERC4626Supply - Supplies tokens to Yearn V3 vault

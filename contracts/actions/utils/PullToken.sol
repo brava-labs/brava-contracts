@@ -38,11 +38,17 @@ contract PullToken is ActionBase {
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
     /// @notice Pulls a token from the specified addr, doesn't work with ETH
-    /// @dev If amount is type(uint).max it will send whole user's wallet balance
+    /// @dev If amount is type(uint).max it will pull the minimum between allowance and balance
     /// @param _tokenAddr Address of token
     /// @param _from From where the tokens are pulled
     /// @param _amount Amount of tokens, can be type(uint).max
     function _pullToken(address _tokenAddr, address _from, uint256 _amount) internal {
+        if (_amount == type(uint256).max) {
+            IERC20 token = IERC20(_tokenAddr);
+            uint256 balance = token.balanceOf(_from);
+            uint256 allowance = token.allowance(_from, address(this));
+            _amount = balance < allowance ? balance : allowance;
+        }
         IERC20(_tokenAddr).safeTransferFrom(_from, address(this), _amount);
     }
 

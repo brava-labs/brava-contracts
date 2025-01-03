@@ -20,6 +20,14 @@ contract YearnSupply is ERC4626Supply {
     }
 
     /// @inheritdoc ERC4626Supply
+    /// @dev Yearn uses availableDepositLimit() to determine the remaining deposit capacity
+    /// @param _vaultAddress The vault address
+    /// @return The maximum amount that can be deposited to the vault
+    function _getMaxDeposit(address _vaultAddress) internal view override returns (uint256) {
+        return IYearnVault(_vaultAddress).availableDepositLimit();
+    }
+
+    /// @inheritdoc ERC4626Supply
     function protocolName() public pure override returns (string memory) {
         return "Yearn";
     }

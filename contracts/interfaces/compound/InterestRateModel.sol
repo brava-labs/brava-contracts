@@ -28,7 +28,7 @@ abstract contract InterestRateModel {
      * @param reserveFactorMantissa The current reserve factor the market has
      * @return The supply rate per block (as a percentage, and scaled by 1e18)
      */
-    // solhint-disable-next-line explicit-types
+    // solhint-disable explicit-types
     function getSupplyRate(
         uint cash,
         uint borrows,

@@ -161,12 +161,8 @@ describe('BendDAO V1 tests', () => {
           const bTokenBalanceAfterFirstTx = await bTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['BendDaoV1']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             bToken
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -242,12 +238,8 @@ describe('BendDAO V1 tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const protocolId = BigInt(
-          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['BendDaoV1']))
-        );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.bendUSDT.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
@@ -260,7 +252,6 @@ describe('BendDAO V1 tests', () => {
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.bendUSDT.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
@@ -378,12 +369,8 @@ describe('BendDAO V1 tests', () => {
           const bTokenBalanceAfterSupply = await bTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['BendDaoV1']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             bToken
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);

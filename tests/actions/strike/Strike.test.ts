@@ -37,9 +37,6 @@ describe('Strike tests', () => {
   let sUSDC: CTokenInterface;
   let sUSDT: CTokenInterface;
   let adminVault: AdminVault;
-  const protocolId = BigInt(
-    ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Strike']))
-  );
 
   // Define test cases for each supported token
   const testCases: Array<{
@@ -190,7 +187,6 @@ describe('Strike tests', () => {
           // Time travel 1 year
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -248,13 +244,9 @@ describe('Strike tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const protocolId = BigInt(
-          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Strike']))
-        );
         const token = 'sUSDC';
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig[token].address
         );
         expect(initialLastFeeTimestamp).to.equal(0n);
@@ -267,7 +259,6 @@ describe('Strike tests', () => {
 
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig[token].address
         );
         expect(finalLastFeeTimestamp).to.not.equal(0n);
@@ -359,20 +350,14 @@ describe('Strike tests', () => {
             feeBasis: 10,
           });
 
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Strike']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
-            tokenConfig.sUSDC.address
+            poolAddress
           );
-
-          const strikeBalanceAfterSupply = await sToken().balanceOf(safeAddr);
-
-          // Time travel 1 year
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
+
+          const strikeBalanceAfterSupply = await sToken().balanceOf(safeAddr);
 
           // Withdraw to trigger fees
           const withdrawTx = await executeAction({

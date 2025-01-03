@@ -169,12 +169,8 @@ describe('Clearpool tests', () => {
           const poolBalanceAfterFirstTx = await poolContract.balanceOf(safeAddr);
 
           // Time travel 2 weeks (maximum allowed for Clearpool)
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 14); // 2 weeks
@@ -249,12 +245,8 @@ describe('Clearpool tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const protocolId = BigInt(
-          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
-        );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.cpALP_USDC.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
@@ -267,7 +259,6 @@ describe('Clearpool tests', () => {
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           tokenConfig.cpALP_USDC.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
@@ -393,12 +384,8 @@ describe('Clearpool tests', () => {
           const poolBalanceAfterSupply = await poolContract.balanceOf(safeAddr);
 
           // Time travel 2 weeks (maximum allowed for Clearpool)
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Clearpool']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 14); // 2 weeks
@@ -479,6 +466,56 @@ describe('Clearpool tests', () => {
             amount: '1',
           })
         ).to.be.revertedWith('GS013');
+      });
+
+      it('Should not confuse underlying and share tokens', async () => {
+        const pool = await ethers.getContractAt('IClearpoolPool', tokenConfig.cpALP_USDC.address);
+        
+        // Fund with excess underlying tokens (1000 USDC)
+        const largeAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+        const smallDepositAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
+        await fundAccountWithToken(safeAddr, 'USDC', largeAmount);
+        
+        const initialUnderlyingBalance = await USDC.balanceOf(safeAddr);
+        expect(initialUnderlyingBalance).to.equal(largeAmount);
+
+        // Deposit smaller amount (100 USDC)
+        await executeAction({
+          type: 'ClearpoolSupply',
+          poolAddress: tokenConfig.cpALP_USDC.address,
+          amount: smallDepositAmount,
+        });
+
+        // Verify we still have 900 USDC
+        const remainingUnderlying = await USDC.balanceOf(safeAddr);
+        expect(remainingUnderlying).to.equal(largeAmount - smallDepositAmount);
+
+        // Get share balance - should represent 100 USDC worth
+        const sharesReceived = await pool.balanceOf(safeAddr);
+
+        // Try to withdraw only 10 USDC worth
+        const smallWithdrawAmount = ethers.parseUnits('10', tokenConfig.USDC.decimals);
+        await executeAction({
+          type: 'ClearpoolWithdraw',
+          poolAddress: tokenConfig.cpALP_USDC.address,
+          amount: smallWithdrawAmount,
+        });
+
+        // Verify balances
+        const finalShares = await pool.balanceOf(safeAddr);
+        const finalUnderlying = await USDC.balanceOf(safeAddr);
+        
+        // Should have ~90 worth of shares left (minus any fees/slippage)
+        expect(finalShares).to.be.closeTo(
+          sharesReceived - (sharesReceived * smallWithdrawAmount) / smallDepositAmount,
+          ethers.parseUnits('1', tokenConfig.USDC.decimals)
+        );
+        
+        // Should have ~910 USDC (900 + 10 withdrawn)
+        expect(finalUnderlying).to.be.closeTo(
+          remainingUnderlying + smallWithdrawAmount,
+          ethers.parseUnits('0.1', tokenConfig.USDC.decimals)
+        );
       });
     });
   });
