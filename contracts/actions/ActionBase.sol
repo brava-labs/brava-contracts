@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
+import {Errors} from "../Errors.sol";
 
 /// @title ActionBase - Base contract for all actions in the protocol
 /// @notice Implements common functionality and interfaces for all actions
@@ -143,6 +144,11 @@ abstract contract ActionBase {
         uint256 _feeInTokens
     ) internal pure returns (bytes memory) {
         return abi.encode(_strategyId, _poolId, _balanceBefore, _balanceAfter, _feeInTokens);
+    }
+
+    function _checkFeesTaken(address _token) internal view {
+        uint256 feeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_token);
+        require(feeTimestamp == 0 || feeTimestamp >= block.timestamp, Errors.Action_FeesNotPaid(protocolName(), actionType(), _token));
     }
 
     /// @notice Returns the name of the protocol

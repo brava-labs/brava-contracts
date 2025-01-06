@@ -1,7 +1,6 @@
 import { expect, ethers, Signer } from '../..';
-import { AdminVault, Logger, PullToken, SendToken, IERC20Metadata } from '../../../typechain-types';
-// import { IERC20Metadata } from '../../../typechain-types/contracts/interfaces/IERC20Metadata';
-import { getBaseSetup, deploy, executeAction, decodeLoggerLog } from '../../utils';
+import { AdminVault, Logger, PullToken, SendToken, IERC20Metadata, SequenceExecutor } from '../../../typechain-types';
+import { getBaseSetup, deploy, executeAction, decodeLoggerLog, encodeAction, executeSequence, getBytes4} from '../../utils';
 import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
 import { tokenConfig, ETH_ADDRESS } from '../../constants';
 import { ACTION_LOG_IDS } from '../../logs';
@@ -284,6 +283,71 @@ describe('Utils tests', () => {
 
       expect(finalSafeBalance).to.equal(0); // Should send entire balance
       expect(finalRecipientBalance).to.be.gt(initialRecipientBalance);
+    });
+
+    it('Should fail to send tokens without fees paid', async () => {
+      const fundAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
+      const sendAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(safeAddr, 'fUSDC', fundAmount);
+      await fundAccountWithToken(safeAddr, 'USDC', fundAmount);
+
+      const fluidSupplyContract = await deploy('FluidSupply', signer, await adminVault.getAddress(), loggerAddress);
+      const fluidSupplyAddress = await fluidSupplyContract.getAddress();
+
+      await adminVault.proposePool('Fluid', tokenConfig.fUSDC.address);
+      await adminVault.addPool('Fluid', tokenConfig.fUSDC.address);
+      await adminVault.proposeAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
+      await adminVault.addAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
+      await adminVault.proposeAction(getBytes4(sendTokenAddress), sendTokenAddress);
+      await adminVault.addAction(getBytes4(sendTokenAddress), sendTokenAddress);
+
+        const supplyPayload = await encodeAction({
+          type: 'FluidSupply',
+          poolAddress: tokenConfig.fUSDC.address,
+          amount: '0',
+        });
+        const sendPayload = await encodeAction({
+          type: 'SendToken',
+          token: 'fUSDC',
+          amount: sendAmount,
+          to: await signer.getAddress(),
+        });
+
+        /// A sequence with only a supply action, used to set the fee timestamp
+        const supplySequence: SequenceExecutor.SequenceStruct = {
+          name: 'SupplySequence',
+          callData: [supplyPayload],
+          actionIds: [getBytes4(fluidSupplyAddress)],
+        };
+
+        /// A sequence with only a send action, used to send the tokens
+        const sendSequence: SequenceExecutor.SequenceStruct = {
+          name: 'SendSequence',
+          callData: [sendPayload],
+          actionIds: [getBytes4(sendTokenAddress)],
+        };
+        /// A sequence with both a supply and send action, used to take fees and then send the tokens
+        const feeTakeSequence: SequenceExecutor.SequenceStruct = {
+          name: 'FeeTakeSequence',
+          callData: [supplyPayload, sendPayload],
+          actionIds: [getBytes4(fluidSupplyAddress), getBytes4(sendTokenAddress)],
+        };
+
+        // Firstly just sending should work because we haven't set the fee timestamp yet
+        const sendSequenceTx = await executeSequence(safeAddr, sendSequence);
+        await sendSequenceTx.wait();
+        
+        // Now perform a supply to set the fee timestamp
+        const supplySequenceTx = await executeSequence(safeAddr, supplySequence);
+        await supplySequenceTx.wait();
+
+        // Now we should fail to send because the fee timestamp has been set
+        await expect(executeSequence(safeAddr, sendSequence)).to.be.revertedWith('GS013');
+
+        // Now the correct way to send, take the fees and send at the same time
+        const feeTakeSequenceTx = await executeSequence(safeAddr, feeTakeSequence);
+        await feeTakeSequenceTx.wait();
+
     });
 
     it('Should fail to send ETH to a non-owner', async () => {

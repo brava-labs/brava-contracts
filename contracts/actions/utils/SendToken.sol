@@ -66,7 +66,8 @@ contract SendToken is ActionBase {
             (bool success, ) = _to.call{value: _amount}("");
             require(success, "ETH transfer failed");
         } else {
-            // Handle ERC20 transfer
+            // Handle ERC20 transfer - check fee timestamp first
+            _checkFeesTaken(_tokenAddr);
             IERC20(_tokenAddr).safeTransfer(_to, _amount);
         }
     }

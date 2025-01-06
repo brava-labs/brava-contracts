@@ -53,6 +53,7 @@ contract Errors {
     );
     error Action_InvalidPool(string _protocolName, uint8 _actionType);
     error Action_UnderlyingReceivedLessThanExpected(uint256 _underlyingReceived, uint256 _expected);
+    error Action_FeesNotPaid(string _protocolName, uint8 _actionType, address _token);
 
     // CompoundV2Supply errors
     error Action_CompoundError(string _protocolName, uint8 _actionType, uint256 _errorCode);
