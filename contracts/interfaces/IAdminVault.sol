@@ -30,12 +30,12 @@ interface IAdminVault {
     function ADMIN_ROLE() external view returns (bytes32);
     function feeConfig() external view returns (FeeConfig memory);
     function pendingFeeConfig() external view returns (FeeConfig memory);
-    function lastFeeTimestamp(address, uint256, address) external view returns (uint256);
+    function lastFeeTimestamp(address, address) external view returns (uint256);
     function protocolPools(uint256 protocolId, bytes4 poolId) external view returns (address);
     function actionAddresses(bytes4 actionId) external view returns (address);
     function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address);
     function getActionAddress(bytes4 _actionId) external view returns (address);
-    function getLastFeeTimestamp(string calldata _protocolName, address _vault) external view returns (uint256);
+    function getLastFeeTimestamp(address _vault) external view returns (uint256);
     function checkFeeBasis(uint256 _feeBasis) external view;
     function getPoolProposalTime(string calldata protocolName, address poolAddress) external view returns (uint256);
     function getActionProposalTime(bytes4 actionId, address actionAddress) external view returns (uint256);
@@ -51,7 +51,7 @@ interface IAdminVault {
     function proposeFeeConfig(address recipient, uint256 min, uint256 max) external;
     function cancelFeeConfigProposal() external;
     function setFeeConfig() external;
-    function setFeeTimestamp(string calldata _protocolName, address _vault) external;
+    function setFeeTimestamp(address _vault) external;
 
     // Pool Management Functions
     function proposePool(string calldata protocolName, address poolAddress) external;
@@ -64,4 +64,14 @@ interface IAdminVault {
     function cancelActionProposal(bytes4 actionId, address actionAddress) external;
     function addAction(bytes4 actionId, address actionAddress) external;
     function removeAction(bytes4 actionId) external;
+
+    // Transaction Management Functions
+    function proposeTransaction(bytes32 txHash) external;
+    function cancelTransactionProposal(bytes32 txHash) external;
+    function approveTransaction(bytes32 txHash) external;
+    function revokeTransaction(bytes32 txHash) external;
+    function isApprovedTransaction(bytes32 txHash) external view returns (bool);
+
+    // Delay Management Functions
+    function getDelayTimestamp() external returns (uint256);
 }

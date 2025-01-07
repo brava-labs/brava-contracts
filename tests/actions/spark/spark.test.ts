@@ -159,7 +159,6 @@ describe('Spark tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -240,7 +239,6 @@ describe('Spark tests', () => {
         );
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           SPARK_DAI_ADDRESS
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
@@ -262,7 +260,6 @@ describe('Spark tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           SPARK_DAI_ADDRESS
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
@@ -350,7 +347,6 @@ describe('Spark tests', () => {
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);

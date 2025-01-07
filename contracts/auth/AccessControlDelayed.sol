@@ -157,10 +157,4 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
         }
         return block.timestamp + delay;
     }
-
-    /// @notice Checks if the proposal has passed the wait time
-    /// @return True if the proposal has passed the wait time
-    function _checkProposalWaitTime(bytes32 proposalId) internal view returns (bool) {
-        return block.timestamp >= proposedRoles[proposalId];
-    }
 }

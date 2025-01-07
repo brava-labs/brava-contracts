@@ -30,6 +30,18 @@ contract ClearpoolSupply is ERC4626Supply {
     }
 
     /// @inheritdoc ERC4626Supply
+    /// @dev Clearpool uses maximumCapacity() and poolSize() to determine the remaining deposit capacity
+    /// @dev However, if maximumCapacity is 0, then the pool has no limit on deposit capacity
+    /// @param _poolAddress The pool address
+    /// @return The maximum amount that can be deposited to the pool
+    function _getMaxDeposit(address _poolAddress) internal view override returns (uint256) {
+        uint256 maxCapacity = IClearpoolPool(_poolAddress).maximumCapacity();
+        return maxCapacity == 0 
+            ? type(uint256).max 
+            : maxCapacity - IClearpoolPool(_poolAddress).poolSize();
+    }
+
+    /// @inheritdoc ERC4626Supply
     function protocolName() public pure override returns (string memory) {
         return "Clearpool";
     }

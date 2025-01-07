@@ -51,8 +51,11 @@ contract ParaswapSwap is ActionBase {
     function _paraswapSwap(Params memory _params) internal {
         require(
             _params.fromAmount != 0 && _params.minToAmount != 0,
-            Errors.InvalidInput("ParaswapSwap", "executeAction")
+            Errors.InvalidInput(protocolName(), "executeAction")
         );
+        // Check fee timestamps for both tokens
+        _checkFeesTaken(_params.tokenIn);
+        _checkFeesTaken(_params.tokenOut);
 
         IERC20 tokenIn = IERC20(_params.tokenIn);
         IERC20 tokenOut = IERC20(_params.tokenOut);

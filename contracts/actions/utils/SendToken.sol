@@ -29,10 +29,13 @@ contract SendToken is ActionBase {
         IOwnerManager ownerManager = IOwnerManager(address(this));
         require(ownerManager.isOwner(inputData.to), Errors.Action_InvalidRecipient(protocolName(), actionType()));
 
-        _sendToken(inputData.tokenAddr, inputData.to, inputData.amount);
+        uint256 amountToTransfer = (inputData.amount == type(uint256).max)
+            ? _getBalance(inputData.tokenAddr)
+            : inputData.amount;
 
-        // Log event
-        LOGGER.logActionEvent(LogType.SEND_TOKEN, abi.encode(inputData.tokenAddr, inputData.to, inputData.amount));
+        _sendToken(inputData.tokenAddr, inputData.to, amountToTransfer);
+
+        LOGGER.logActionEvent(LogType.SEND_TOKEN, abi.encode(inputData.tokenAddr, inputData.to, amountToTransfer));
     }
 
     /// @inheritdoc ActionBase
@@ -42,16 +45,31 @@ contract SendToken is ActionBase {
 
     //////////////////////////// ACTION LOGIC ////////////////////////////
 
-    /// @notice Sends a token to the specified addr, works with Eth also
-    /// @dev If amount is type(uint).max it will send whole user's wallet balance
+    /// @notice Gets the balance of a token or ETH
     /// @param _tokenAddr Address of token, use 0xEeee... for eth
-    /// @param _to Where the tokens are sent
-    /// @param _amount Amount of tokens, can be type(uint).max
-    function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal {
-        if (_amount == type(uint256).max) {
-            _amount = IERC20(_tokenAddr).balanceOf(address(this));
+    /// @return balance The balance of the token or ETH
+    function _getBalance(address _tokenAddr) internal view returns (uint256) {
+        if (_tokenAddr == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+            return address(this).balance;
+        } else {
+            return IERC20(_tokenAddr).balanceOf(address(this));
         }
-        IERC20(_tokenAddr).safeTransfer(_to, _amount);
+    }
+
+    /// @notice Sends a token to the specified addr, works with Eth also
+    /// @param _tokenAddr Address of token, use 0xEeee... for eth
+    /// @param _to Where the tokens are sent (restricted to owners)
+    /// @param _amount Amount of tokens to transfer
+    function _sendToken(address _tokenAddr, address _to, uint256 _amount) internal {
+        if (_tokenAddr == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+            // Handle ETH transfer
+            (bool success, ) = _to.call{value: _amount}("");
+            require(success, "ETH transfer failed");
+        } else {
+            // Handle ERC20 transfer - check fee timestamp first
+            _checkFeesTaken(_tokenAddr);
+            IERC20(_tokenAddr).safeTransfer(_to, _amount);
+        }
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory params) {

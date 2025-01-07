@@ -48,7 +48,8 @@ abstract contract ActionBase {
         CURVE_3POOL_SWAP,
         SEND_TOKEN,
         PULL_TOKEN,
-        PARASWAP_SWAP
+        PARASWAP_SWAP,
+        UPGRADE_ACTION
     }
 
     /// @notice Initializes the ActionBase contract
@@ -73,36 +74,34 @@ abstract contract ActionBase {
     /// @param _pool Address of the pool
     /// @param _feePercentage Fee percentage in basis points
     /// @param _feeToken Address of the fee token
-    /// @param _shareBalance Balance of the shares in the pool
     /// @return feeInTokens The amount of fee taken
     /// @dev it's rare but in some cases the _pool does differ from the _feeToken
     function _processFee(
         address _pool,
         uint256 _feePercentage,
-        address _feeToken,
-        uint256 _shareBalance
+        address _feeToken
     ) internal returns (uint256 feeInTokens) {
-        if (actionType() == uint8(ActionType.DEPOSIT_ACTION) && _shareBalance == 0) {
-            // If the share balance is zero, we need to initialize the fee timestamp
-            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
+        uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_pool);
+
+        // Initialize timestamp if not set, this will be the users first interaction with the pool
+        if (lastFeeTimestamp == 0) {
+            ADMIN_VAULT.setFeeTimestamp(_pool);
             return 0;
-        } else {
-            // Otherwise, we take the fee
-            uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(protocolName(), _pool);
-            require(lastFeeTimestamp != 0, Errors.AdminVault_NotInitialized());
-
-            uint256 currentTimestamp = block.timestamp;
-            if (lastFeeTimestamp == currentTimestamp) {
-                return 0; // Don't take fees twice in the same block
-            }
-
-            IERC20 vault = IERC20(_feeToken);
-            uint256 balance = vault.balanceOf(address(this));
-            uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
-            vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
-            ADMIN_VAULT.setFeeTimestamp(protocolName(), _pool);
-            return fee;
         }
+
+        uint256 currentTimestamp = block.timestamp;
+        if (lastFeeTimestamp == currentTimestamp) {
+            return 0; // Don't take fees twice in the same block
+        }
+
+        IERC20 vault = IERC20(_feeToken);
+        uint256 balance = vault.balanceOf(address(this));
+        uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
+        if (fee > 0) {
+            vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
+        }
+        ADMIN_VAULT.setFeeTimestamp(_pool);
+        return fee;
     }
 
     /// @notice Calculates the fee due from the vault
@@ -145,6 +144,11 @@ abstract contract ActionBase {
         uint256 _feeInTokens
     ) internal pure returns (bytes memory) {
         return abi.encode(_strategyId, _poolId, _balanceBefore, _balanceAfter, _feeInTokens);
+    }
+
+    function _checkFeesTaken(address _token) internal view {
+        uint256 feeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(_token);
+        require(feeTimestamp == 0 || feeTimestamp >= block.timestamp, Errors.Action_FeesNotPaid(protocolName(), actionType(), _token));
     }
 
     /// @notice Returns the name of the protocol

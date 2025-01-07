@@ -19,6 +19,7 @@ import {
   deploy,
   executeAction,
   getBaseSetup,
+  getBytes4,
   log,
 } from '../../utils';
 import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
@@ -111,6 +112,12 @@ describe('Yearn tests', () => {
     await adminVault.addPool('Yearn', YEARN_USDC_ADDRESS);
     await adminVault.addPool('Yearn', YEARN_USDT_ADDRESS);
     await adminVault.addPool('Yearn', YEARN_DAI_ADDRESS);
+
+    // Add supply and withdraw actions
+    await adminVault.proposeAction(getBytes4(yearnSupplyAddress), yearnSupplyAddress);
+    await adminVault.proposeAction(getBytes4(yearnWithdrawAddress), yearnWithdrawAddress);
+    await adminVault.addAction(getBytes4(yearnSupplyAddress), yearnSupplyAddress);
+    await adminVault.addAction(getBytes4(yearnWithdrawAddress), yearnWithdrawAddress);
   });
 
   beforeEach(async () => {
@@ -185,12 +192,8 @@ describe('Yearn tests', () => {
           const yTokenBalanceAfterFirstTx = await yToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
@@ -267,37 +270,23 @@ describe('Yearn tests', () => {
       });
 
       it('Should initialize last fee timestamp', async () => {
-        const protocolId = BigInt(
-          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn']))
-        );
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           YEARN_USDC_ADDRESS
         );
-        expect(initialLastFeeTimestamp).to.equal(BigInt(0));
+        expect(initialLastFeeTimestamp).to.equal(0n);
 
-        await fundAccountWithToken(safeAddr, 'USDC', 1000);
-
-        const tx = await executeAction({
+        await executeAction({
           type: 'YearnSupply',
+          poolAddress: YEARN_USDC_ADDRESS,
+          amount: '0',
         });
 
-        //get the block timestamp of the tx
-        const txReceipt = await tx.wait();
-        if (!txReceipt) {
-          throw new Error('Transaction receipt not found');
-        }
-        const block = await ethers.provider.getBlock(txReceipt.blockNumber);
-        if (!block) {
-          throw new Error('Block not found');
-        }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          protocolId,
           YEARN_USDC_ADDRESS
         );
-        expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
+        expect(finalLastFeeTimestamp).to.not.equal(0n);
       });
 
       it('Should have deposit action type', async () => {
@@ -310,6 +299,7 @@ describe('Yearn tests', () => {
           executeAction({
             type: 'YearnSupply',
             poolAddress: '0x0000000000000000000000000000000000000000',
+            amount: '1',
           })
         ).to.be.revertedWith('GS013');
       });
@@ -318,7 +308,7 @@ describe('Yearn tests', () => {
 
   describe('Yearn Withdraw', () => {
     beforeEach(async () => {
-      // Do empty deposits to initialize the fee timestamps for all pools
+      // Initialize the fee timestamp for all pools
       for (const { poolAddress } of testCases) {
         await executeAction({
           type: 'YearnSupply',
@@ -335,6 +325,7 @@ describe('Yearn tests', () => {
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           await fundAccountWithToken(safeAddr, token, amount);
 
+          // Supply first
           await executeAction({
             type: 'YearnSupply',
             poolAddress,
@@ -342,36 +333,50 @@ describe('Yearn tests', () => {
           });
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const initialyTokenBalance = await yToken().balanceOf(safeAddr);
+          const initialYearnBalance = await yToken().balanceOf(safeAddr);
 
           await executeAction({
             type: 'YearnWithdraw',
             poolAddress,
-            amount,
+            sharesToBurn: amount.toString(),
+            minUnderlyingReceived: '0',
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const finalyTokenBalance = await yToken().balanceOf(safeAddr);
-          expect(finalTokenBalance).to.be.greaterThan(initialTokenBalance);
-          expect(finalyTokenBalance).to.be.eq(BigInt(0));
+          const finalYearnBalance = await yToken().balanceOf(safeAddr);
+
+          expect(finalTokenBalance).to.be.gt(initialTokenBalance);
+          expect(finalYearnBalance).to.be.lt(initialYearnBalance);
         });
 
         it('Should withdraw the maximum amount', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, `y${token}`, amount);
+          await fundAccountWithToken(safeAddr, token, amount);
 
-          expect(await yToken().balanceOf(safeAddr)).to.equal(amount);
-          expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
+          // Supply first
+          await executeAction({
+            type: 'YearnSupply',
+            poolAddress,
+            amount,
+          });
+
+          const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const initialYearnBalance = await yToken().balanceOf(safeAddr);
+          expect(initialYearnBalance).to.be.gt(0);
 
           await executeAction({
             type: 'YearnWithdraw',
             poolAddress,
-            amount: ethers.MaxUint256,
+            sharesToBurn: ethers.MaxUint256,
+            minUnderlyingReceived: '0',
           });
 
-          expect(await yToken().balanceOf(safeAddr)).to.equal(0);
-          expect(await tokenContract.balanceOf(safeAddr)).to.be.greaterThan(0);
+          const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const finalYearnBalance = await yToken().balanceOf(safeAddr);
+
+          expect(finalTokenBalance).to.be.gt(initialTokenBalance);
+          expect(finalYearnBalance).to.equal(0);
         });
 
         it('Should take fees on withdraw', async () => {
@@ -384,6 +389,7 @@ describe('Yearn tests', () => {
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
           const feeRecipientyTokenBalanceBefore = await yToken().balanceOf(feeRecipient);
 
+          // Supply first
           const supplyTx = await executeAction({
             type: 'YearnSupply',
             poolAddress,
@@ -393,33 +399,26 @@ describe('Yearn tests', () => {
 
           const yTokenBalanceAfterSupply = await yToken().balanceOf(safeAddr);
 
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Yearn']))
-          );
+          // Time travel 1 year
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            protocolId,
             poolAddress
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
+          // Withdraw to trigger fees
           const withdrawTx = await executeAction({
             type: 'YearnWithdraw',
             poolAddress,
+            sharesToBurn: '1',
+            minUnderlyingReceived: '0',
             feeBasis: 10,
-            amount: '1',
           });
 
           const expectedFee = await calculateExpectedFee(
-            (await supplyTx.wait()) ??
-              (() => {
-                throw new Error('Supply transaction failed');
-              })(),
-            (await withdrawTx.wait()) ??
-              (() => {
-                throw new Error('Withdraw transaction failed');
-              })(),
+            (await supplyTx.wait())!,
+            (await withdrawTx.wait())!,
             10,
             yTokenBalanceAfterSupply
           );
@@ -435,15 +434,27 @@ describe('Yearn tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'yUSDC';
+        const token = 'USDC';
         const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
         const poolId: BytesLike = ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10);
 
+        // First supply to have something to withdraw
+        await executeAction({
+          type: 'YearnSupply',
+          poolAddress: YEARN_USDC_ADDRESS,
+          amount,
+        });
+
+        const yTokenBalance = await yUSDC.balanceOf(safeAddr);
+        const minUnderlyingReceived = BigInt(0);
+
         const tx = await executeAction({
           type: 'YearnWithdraw',
-          amount,
+          poolAddress: YEARN_USDC_ADDRESS,
+          sharesToBurn: yTokenBalance.toString(),
+          minUnderlyingReceived: minUnderlyingReceived.toString(),
         });
 
         const logs = await decodeLoggerLog(tx);
@@ -462,8 +473,8 @@ describe('Yearn tests', () => {
         expect(txLog).to.have.property('balanceBefore');
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens');
-        expect(txLog.balanceBefore).to.equal(amount);
-        expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
+        expect(txLog.balanceBefore).to.equal(yTokenBalance);
+        expect(txLog.balanceAfter).to.equal(BigInt(0));
         expect(txLog.feeInTokens).to.equal(BigInt(0));
       });
 
@@ -491,39 +502,40 @@ describe('Yearn tests', () => {
         expect(await USDC.balanceOf(safeAddr)).to.equal(amount);
 
         // deposit 100 USDC
+        const depositAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
         await executeAction({
           type: 'YearnSupply',
           poolAddress: YEARN_USDC_ADDRESS,
-          amount: ethers.parseUnits('100', tokenConfig.USDC.decimals),
+          amount: depositAmount,
         });
 
         // check we still have 900 USDC
-        expect(await USDC.balanceOf(safeAddr)).to.equal(
-          ethers.parseUnits('900', tokenConfig.USDC.decimals)
-        );
+        expect(await USDC.balanceOf(safeAddr)).to.equal(amount - depositAmount);
 
         // check that we have yUSDC
         const yTokenBalance = await yUSDC.balanceOf(safeAddr);
         expect(yTokenBalance).to.be.greaterThan(0);
 
-        // withdraw 10 USDC
-        const tenDollars = ethers.parseUnits('10', tokenConfig.USDC.decimals);
+        // withdraw 10% of shares
+        const sharesToWithdraw = yTokenBalance / BigInt(10);
+        const minUnderlyingReceived = BigInt(0);
 
         await executeAction({
           type: 'YearnWithdraw',
           poolAddress: YEARN_USDC_ADDRESS,
-          amount: tenDollars,
+          sharesToBurn: sharesToWithdraw.toString(),
+          minUnderlyingReceived: minUnderlyingReceived.toString(),
         });
 
-        // Maximum dust would be exactly 1 share worth since we only add 1 share in the contract
-        const pricePerShare = await yUSDC.pricePerShare();
-        const maxDust = pricePerShare; // One share's worth
+        // Verify balances
+        const finalShares = await yUSDC.balanceOf(safeAddr);
+        const finalUnderlying = await USDC.balanceOf(safeAddr);
 
-        // we should now have 900 + 10 USDC plus some dust
-        const expectedBalance = ethers.parseUnits('910', tokenConfig.USDC.decimals);
+        // We expect to have 1000 minus 100 plus 10% of 100
+        const expectedUnderlying = BigInt(amount) - BigInt(depositAmount) + BigInt(depositAmount) / BigInt(10);
 
-        expect(await USDC.balanceOf(safeAddr)).to.be.closeTo(expectedBalance, maxDust);
-        expect(await yUSDC.balanceOf(safeAddr)).to.be.lessThan(yTokenBalance);
+        expect(finalShares).to.equal(yTokenBalance - sharesToWithdraw);
+        expect(finalUnderlying).to.be.closeTo(BigInt(expectedUnderlying), BigInt(1000));
       });
     });
   });

@@ -2,24 +2,23 @@
 pragma solidity =0.8.28;
 
 import {Errors} from "../../Errors.sol";
-import {IERC4626} from "../../interfaces/common/IERC4626.sol";
 import {ActionBase} from "../ActionBase.sol";
 
-/// @title ERC4626Withdraw - Burns vault shares and receives underlying tokens in return
-/// @notice This contract allows users to withdraw tokens from any ERC4626 vault
-/// @dev Inherits from ActionBase and implements generic withdraw functionality
+/// @title ShareBasedWithdraw - Burns vault shares and receives underlying tokens in return
+/// @notice This contract allows users to withdraw tokens from vaults that require share-based withdrawals
+/// @dev Inherits from ActionBase and implements generic share-based withdraw functionality
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
-abstract contract ERC4626Withdraw is ActionBase {
+abstract contract ShareBasedWithdraw is ActionBase {
     /// @notice Parameters for the withdraw action
     /// @param poolId ID of vault contract
     /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
-    /// @param withdrawRequest Amount of underlying token to withdraw
-    /// @param maxSharesBurned Maximum amount of shares to burn
+    /// @param sharesToBurn Amount of shares to burn
+    /// @param minUnderlyingReceived Minimum amount of underlying tokens to receive
     struct Params {
         bytes4 poolId;
         uint16 feeBasis;
-        uint256 withdrawRequest;
-        uint256 maxSharesBurned;
+        uint256 sharesToBurn;
+        uint256 minUnderlyingReceived;
     }
 
     constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
@@ -55,26 +54,13 @@ abstract contract ERC4626Withdraw is ActionBase {
 
         feeInTokens = _processFee(_vaultAddress, _inputData.feeBasis, _vaultAddress);
 
-        uint256 maxWithdrawAmount = _getMaxWithdraw(_vaultAddress);
-        uint256 amountToWithdraw = _inputData.withdrawRequest > maxWithdrawAmount
-            ? maxWithdrawAmount
-            : _inputData.withdrawRequest;
+        uint256 maxShares = _getBalance(_vaultAddress);
+        uint256 sharesToWithdraw = _inputData.sharesToBurn > maxShares ? maxShares : _inputData.sharesToBurn;
 
-        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), uint8(actionType())));
+        require(sharesToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
         // Perform the withdraw
-        uint256 sharesBurned = _executeWithdraw(_vaultAddress, amountToWithdraw);
-
-        // check we didn't burn more shares than we were allowed to
-        require(
-            sharesBurned <= _inputData.maxSharesBurned,
-            Errors.Action_MaxSharesBurnedExceeded(
-                protocolName(),
-                uint8(actionType()),
-                sharesBurned,
-                _inputData.maxSharesBurned
-            )
-        );
+        _executeWithdraw(_vaultAddress, sharesToWithdraw, _inputData.minUnderlyingReceived);
 
         // for logging, get the balance after
         sharesAfter = _getBalance(_vaultAddress);
@@ -97,21 +83,16 @@ abstract contract ERC4626Withdraw is ActionBase {
     /// @notice Executes the withdraw from the vault
     /// @dev Override for non-standard withdraw implementations
     /// @param _vaultAddress The vault address
-    /// @param amount The amount of underlying token to withdraw
-    /// @return _sharesBurned The amount of shares burned
-    function _executeWithdraw(address _vaultAddress, uint256 amount) internal virtual returns (uint256 _sharesBurned) {
-        _sharesBurned = IERC4626(_vaultAddress).withdraw(amount, address(this), address(this));
-    }
+    /// @param _sharesToBurn The amount of shares to burn
+    /// @param _minUnderlyingReceived The minimum amount of underlying tokens to receive
+    function _executeWithdraw(
+        address _vaultAddress,
+        uint256 _sharesToBurn,
+        uint256 _minUnderlyingReceived
+    ) internal virtual;
 
     /// @dev Override for non-standard balance calculations
-    function _getBalance(address _vaultAddress) internal view virtual returns (uint256) {
-        return IERC4626(_vaultAddress).balanceOf(address(this));
-    }
-
-    /// @dev Override for non-standard max withdraw calculations
-    function _getMaxWithdraw(address _vaultAddress) internal view virtual returns (uint256) {
-        return IERC4626(_vaultAddress).maxWithdraw(address(this));
-    }
+    function _getBalance(address _vaultAddress) internal view virtual returns (uint256);
 
     /// @inheritdoc ActionBase
     function protocolName() public pure virtual override returns (string memory);

@@ -209,7 +209,7 @@ export const tokenConfig = {
   pUSDC: {
     address: '0xaEeAfB1259f01f363d09D7027ad80a9d442de762',
     whale: '0x2920F9Fc667E780C0CB5a78a104d21413377f97E',
-    decimals: 18,
+    decimals: 8,
   },
   yearnV3_DAI: {
     address: '0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e',

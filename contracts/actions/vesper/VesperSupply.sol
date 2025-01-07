@@ -3,97 +3,34 @@ pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
 import {IVesperPool} from "../../interfaces/vesper/IVesperPool.sol";
+import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 /// @title VesperSupply - Supplies tokens to Vesper Pool
 /// @notice This contract allows users to supply tokens to Vesper Pool
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
-contract VesperSupply is ActionBase {
+contract VesperSupply is ERC4626Supply {
     using SafeERC20 for IERC20;
 
-    /// @notice Parameters for the supply action
-    /// @param poolId The pool ID
-    /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
-    /// @param amount Amount of underlying token to supply
-    /// @param minSharesReceived Minimum number of shares to receive
-    struct Params {
-        bytes4 poolId;
-        uint16 feeBasis;
-        uint256 amount;
-        uint256 minSharesReceived;
+    constructor(address _adminVault, address _logger) ERC4626Supply(_adminVault, _logger) {}
+
+    function _getUnderlying(address _poolAddress) internal view override returns (address) {
+        return address(IVesperPool(_poolAddress).token());
     }
 
-    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
-
-    /// @inheritdoc ActionBase
-    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
-        // Parse inputs
-        Params memory inputData = _parseInputs(_callData);
-
-        // Check inputs
-        ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
-
-        address poolAddress = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
-        // Execute action
-        (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) = _supplyToPool(inputData, poolAddress);
-
-        // Log event
-        LOGGER.logActionEvent(
-            LogType.BALANCE_UPDATE,
-            _encodeBalanceUpdate(_strategyId, inputData.poolId, sharesBefore, sharesAfter, feeInTokens)
-        );
+    function _deposit(address _poolAddress, uint256 _amount) internal override returns (uint256) {
+        uint256 balanceBefore = IERC20(_poolAddress).balanceOf(address(this));
+        IVesperPool(_poolAddress).deposit(_amount);
+        uint256 balanceAfter = IERC20(_poolAddress).balanceOf(address(this));
+        return balanceAfter - balanceBefore;
     }
 
-    function _supplyToPool(
-        Params memory _inputData,
-        address _poolAddress
-    ) internal returns (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) {
-        IVesperPool pool = IVesperPool(_poolAddress);
-        IERC20 underlyingToken = pool.token();
-
-        // Get initial balance
-        sharesBefore = IERC20(_poolAddress).balanceOf(address(this));
-
-        feeInTokens = _processFee(_poolAddress, _inputData.feeBasis, _poolAddress, sharesBefore);
-
-        // If we have an amount to deposit, do that
-        if (_inputData.amount != 0) {
-            uint256 amountToDeposit = _inputData.amount == type(uint256).max
-                ? underlyingToken.balanceOf(address(this))
-                : _inputData.amount;
-
-            require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
-
-            // Approve and supply
-            underlyingToken.safeIncreaseAllowance(_poolAddress, amountToDeposit);
-            pool.deposit(amountToDeposit);
-
-            // Check received shares meet minimum
-            sharesAfter = IERC20(_poolAddress).balanceOf(address(this));
-            uint256 sharesReceived = sharesAfter - sharesBefore;
-            require(
-                sharesReceived >= _inputData.minSharesReceived,
-                Errors.Action_InsufficientSharesReceived(
-                    protocolName(),
-                    uint8(actionType()),
-                    sharesReceived,
-                    _inputData.minSharesReceived
-                )
-            );
-        }
+    function _getMaxDeposit(address _poolAddress) internal view override returns (uint256) {
+        return IERC20(_getUnderlying(_poolAddress)).balanceOf(address(this));
     }
 
-    function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
-        inputData = abi.decode(_callData, (Params));
-    }
-
-    /// @inheritdoc ActionBase
-    function actionType() public pure override returns (uint8) {
-        return uint8(ActionType.DEPOSIT_ACTION);
-    }
-
-    /// @inheritdoc ActionBase
+    /// @inheritdoc ERC4626Supply
+    /// @notice Returns the protocol name
+    /// @return string "Vesper"
     function protocolName() public pure override returns (string memory) {
         return "Vesper";
     }

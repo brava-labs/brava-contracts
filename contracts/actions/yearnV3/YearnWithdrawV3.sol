@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.28;
 
-import {IYearnVaultV3} from "../../interfaces/yearnV3/IYearnVaultV3.sol";
 import {ERC4626Withdraw} from "../common/ERC4626Withdraw.sol";
 
 /// @title YearnWithdrawV3 - Burns yTokens and receives underlying tokens in return

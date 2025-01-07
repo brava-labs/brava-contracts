@@ -27,6 +27,10 @@ contract Errors {
     error AdminVault_NotPool(address _pool);
     error AdminVault_AlreadyGranted();
     error AdminVault_NotGranted();
+    error AdminVault_TransactionNotProposed();
+    error AdminVault_TransactionAlreadyApproved();
+    error AdminVault_TransactionNotApproved(bytes32 txHash);
+    error AdminVault_MissingRole(bytes32 role, address account);
 
     // FeeTakeSafeModule errors
     error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);
@@ -48,6 +52,8 @@ contract Errors {
         uint256 _maxAllowed
     );
     error Action_InvalidPool(string _protocolName, uint8 _actionType);
+    error Action_UnderlyingReceivedLessThanExpected(uint256 _underlyingReceived, uint256 _expected);
+    error Action_FeesNotPaid(string _protocolName, uint8 _actionType, address _token);
 
     // CompoundV2Supply errors
     error Action_CompoundError(string _protocolName, uint8 _actionType, uint256 _errorCode);
@@ -61,4 +67,8 @@ contract Errors {
 
     // SendToken errors
     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
+
+    // UpgradeAction errors
+    error UpgradeAction_TransactionNotApproved(bytes32 txHash);
+    error UpgradeAction_ExecutionFailed();
 }

@@ -14,8 +14,9 @@ contract Logger is ILogger, Initializable {
     }
 
     /// @notice Initializes the contract
+    // solhint-disable-next-line no-empty-blocks
     function initialize() external initializer {
-        // No initialization needed for this contract
+        /// @dev No initialization needed for this contract
     }
 
     /// @notice Logs an event from an action
@@ -32,7 +33,7 @@ contract Logger is ILogger, Initializable {
     // The logId initial digit is the type of event:
     // 1XX = Proposal, 2XX = Grant, 3XX = Cancel, 4XX = Removal
     // The next two digits are what category this permission change belongs to:
-    // 00 = DelayChange, 01 = Action, 02 = Pool, 03 = Fees, 04 = Role
+    // 00 = DelayChange, 01 = Action, 02 = Pool, 03 = Fees, 04 = Role, 05 = Transaction
     function logAdminVaultEvent(uint256 _logId, bytes memory _data) public {
         emit AdminVaultEvent(_logId, _data);
     }

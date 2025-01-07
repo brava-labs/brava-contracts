@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.28;
 
-import {ILendingPool} from "../../interfaces/aave-v2/ILendingPool.sol";
 import {AaveSupplyBase} from "../common/AaveSupply.sol";
 
 /// @title UwULendSupply - Supplies tokens to UwULend

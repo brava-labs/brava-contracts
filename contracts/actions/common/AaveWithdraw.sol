@@ -42,12 +42,6 @@ abstract contract AaveWithdrawBase is ActionBase {
         );
     }
 
-    /// @notice Withdraws all of the underlying tokens from the aToken provided
-    function exit(address _aTokenAddress) external {
-        address underlyingAsset = _getUnderlyingAsset(_aTokenAddress);
-        _withdraw(underlyingAsset, type(uint256).max);
-    }
-
     function _aaveWithdraw(
         Params memory _inputData,
         address _aTokenAddress
@@ -58,7 +52,7 @@ abstract contract AaveWithdrawBase is ActionBase {
         address underlyingAsset = _getUnderlyingAsset(_aTokenAddress);
         balanceBefore = IERC20(_aTokenAddress).balanceOf(address(this));
 
-        feeInTokens = _processFee(_aTokenAddress, _inputData.feeBasis, _aTokenAddress, balanceBefore);
+        feeInTokens = _processFee(_aTokenAddress, _inputData.feeBasis, _aTokenAddress);
 
         if (amountToWithdraw > IERC20(_aTokenAddress).balanceOf(address(this))) {
             amountToWithdraw = type(uint256).max;

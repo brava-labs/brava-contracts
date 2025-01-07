@@ -60,7 +60,7 @@ contract AcrossSupply is ActionBase {
         // Get initial balance
         sharesBefore = IERC20(lpToken).balanceOf(address(this));
 
-        feeInTokens = _processFee(l1Token, _inputData.feeBasis, lpToken, sharesBefore);
+        feeInTokens = _processFee(l1Token, _inputData.feeBasis, lpToken);
 
         // If we have an amount to deposit, do that
         if (_inputData.amount != 0) {
