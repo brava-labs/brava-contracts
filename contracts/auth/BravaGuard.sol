@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+pragma solidity =0.8.28;
 
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Enum} from "../libraries/Enum.sol";
