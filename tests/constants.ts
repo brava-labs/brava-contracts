@@ -71,6 +71,11 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 18,
   },
+  USDS: {
+    address: '0xdC035D45d973E3EC169d2276DDab16f1e407384F',
+    whale: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD',
+    decimals: 18,
+  },
   WETH: {
     address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
@@ -174,6 +179,11 @@ export const tokenConfig = {
   sDAI: {
     address: '0x83f20f44975d03b1b09e64809b757c47f942beea',
     whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
+    decimals: 18,
+  },
+  sUSDS: {
+    address: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD',
+    whale: '0x1be45feF92C4E2538fEcd150757Ed62b7B3757D7',
     decimals: 18,
   },
   across_lpUSDC: {

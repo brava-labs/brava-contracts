@@ -27,23 +27,32 @@ describe('Spark tests', () => {
   let sparkSupplyAddress: string;
   let sparkWithdrawAddress: string;
   let sDAI: IERC20;
+  let sUSDS: IERC20;
   let adminVault: AdminVault;
   const SPARK_DAI_ADDRESS = tokenConfig.sDAI.address;
+  const SPARK_USDS_ADDRESS = tokenConfig.sUSDS.address;
   const protocolId = BigInt(
     ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Spark']))
   );
 
   const testCases: Array<{
-    token: keyof typeof tokenConfig;
+    underlyingToken: keyof typeof tokenConfig;
+    shareToken: keyof typeof tokenConfig;
     poolAddress: string;
-    mToken: () => IERC20;
+    sToken: () => IERC20;
   }> = [
     {
-      token: 'DAI',
+      underlyingToken: 'DAI',
+      shareToken: 'sDAI',
       poolAddress: SPARK_DAI_ADDRESS,
-      mToken: () => sDAI,
+      sToken: () => sDAI,
     },
-    // Add more tokens here as needed
+    {
+      underlyingToken: 'USDS',
+      shareToken: 'sUSDS',
+      poolAddress: SPARK_USDS_ADDRESS,
+      sToken: () => sUSDS,
+    },
   ];
 
   const getTokenNameFromAddress = (address: string): string => {
@@ -82,9 +91,12 @@ describe('Spark tests', () => {
     sparkSupplyAddress = await sparkSupplyContract.getAddress();
     sparkWithdrawAddress = await sparkWithdrawContract.getAddress();
     sDAI = await ethers.getContractAt('IERC20', SPARK_DAI_ADDRESS);
+    sUSDS = await ethers.getContractAt('IERC20', SPARK_USDS_ADDRESS);
 
     await adminVault.proposePool('Spark', SPARK_DAI_ADDRESS);
     await adminVault.addPool('Spark', SPARK_DAI_ADDRESS);
+    await adminVault.proposePool('Spark', SPARK_USDS_ADDRESS);
+    await adminVault.addPool('Spark', SPARK_USDS_ADDRESS);
   });
 
   beforeEach(async () => {
@@ -96,14 +108,16 @@ describe('Spark tests', () => {
   });
 
   describe('Spark Supply', () => {
-    testCases.forEach(({ token, poolAddress, mToken }) => {
+    testCases.forEach(({ underlyingToken, poolAddress, sToken }) => {
       describe(`${getTokenNameFromAddress(poolAddress)} Supply Tests`, () => {
         it('Should deposit', async () => {
-          const supplyAmount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-          await fundAccountWithToken(safeAddr, token, supplyAmount);
+          const supplyAmount = ethers.parseUnits('2000', tokenConfig[underlyingToken].decimals);
+          await fundAccountWithToken(safeAddr, underlyingToken, supplyAmount);
 
-          const initialTokenBalance = await DAI.balanceOf(safeAddr);
-          const initialSparkBalance = await mToken().balanceOf(safeAddr);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlyingToken].address);
+
+          const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const initialSparkBalance = await sToken().balanceOf(safeAddr);
 
           await executeAction({
             type: 'SparkSupply',
@@ -111,18 +125,20 @@ describe('Spark tests', () => {
             poolAddress,
           });
 
-          const finalTokenBalance = await DAI.balanceOf(safeAddr);
-          const finalsTokenBalance = await mToken().balanceOf(safeAddr);
+          const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const finalsTokenBalance = await sToken().balanceOf(safeAddr);
 
           expect(finalTokenBalance).to.equal(initialTokenBalance - supplyAmount);
           expect(finalsTokenBalance).to.be.greaterThan(initialSparkBalance);
         });
 
         it('Should deposit max', async () => {
-          const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-          await fundAccountWithToken(safeAddr, token, amount);
+          const amount = ethers.parseUnits('2000', tokenConfig[underlyingToken].decimals);
+          await fundAccountWithToken(safeAddr, underlyingToken, amount);
 
-          expect(await DAI.balanceOf(safeAddr)).to.equal(amount);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlyingToken].address);
+
+          expect(await tokenContract.balanceOf(safeAddr)).to.equal(amount);
 
           await executeAction({
             type: 'SparkSupply',
@@ -130,18 +146,19 @@ describe('Spark tests', () => {
             poolAddress,
           });
 
-          expect(await DAI.balanceOf(safeAddr)).to.equal(0);
-          expect(await mToken().balanceOf(safeAddr)).to.be.greaterThan(0);
+          expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
+          expect(await sToken().balanceOf(safeAddr)).to.be.greaterThan(0);
         });
+
         it('Should take fees on deposit', async () => {
-          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, token, amount);
+          const amount = ethers.parseUnits('100', tokenConfig[underlyingToken].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlyingToken].address);
+          await fundAccountWithToken(safeAddr, underlyingToken, amount);
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
-          const feeRecipientmTokenBalanceBefore = await mToken().balanceOf(feeRecipient);
+          const feeRecipientsTokenBalanceBefore = await sToken().balanceOf(feeRecipient);
 
           // Do an initial deposit
           const firstTx = await executeAction({
@@ -151,12 +168,9 @@ describe('Spark tests', () => {
             feeBasis: 10,
           });
 
-          const mTokenBalanceAfterFirstTx = await mToken().balanceOf(safeAddr);
+          const sTokenBalanceAfterFirstTx = await sToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Spark']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
             poolAddress
@@ -188,15 +202,15 @@ describe('Spark tests', () => {
             firstTxReceipt,
             secondTxReceipt,
             10,
-            mTokenBalanceAfterFirstTx
+            sTokenBalanceAfterFirstTx
           );
-          const expectedFeeRecipientBalance = feeRecipientmTokenBalanceBefore + expectedFee;
+          const expectedFeeRecipientBalance = feeRecipientsTokenBalanceBefore + expectedFee;
 
           // Check fees were taken in fTokens, not underlying
           expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
             feeRecipientTokenBalanceBefore
           );
-          expect(await mToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
+          expect(await sToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
         });
       });
     });
@@ -281,7 +295,7 @@ describe('Spark tests', () => {
   });
 
   describe('Spark Withdraw', () => {
-    testCases.forEach(({ token, poolAddress, mToken }) => {
+    testCases.forEach(({ underlyingToken, shareToken, poolAddress, sToken }) => {
       describe(`${getTokenNameFromAddress(poolAddress)} Withdraw Tests`, () => {
         beforeEach(async () => {
           await executeAction({
@@ -291,11 +305,13 @@ describe('Spark tests', () => {
         });
 
         it('Should withdraw token', async () => {
-          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          await fundAccountWithToken(safeAddr, `s${token}`, amount);
+          const amount = ethers.parseUnits('100', tokenConfig[shareToken].decimals);
+          await fundAccountWithToken(safeAddr, shareToken, amount);
 
-          const initialTokenBalance = await DAI.balanceOf(safeAddr);
-          const initialsTokenBalance = await mToken().balanceOf(safeAddr);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlyingToken].address);
+
+          const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const initialsTokenBalance = await sToken().balanceOf(safeAddr);
 
           await executeAction({
             type: 'SparkWithdraw',
@@ -303,17 +319,17 @@ describe('Spark tests', () => {
             poolAddress,
           });
 
-          const finalTokenBalance = await DAI.balanceOf(safeAddr);
-          const finalsTokenBalance = await mToken().balanceOf(safeAddr);
+          const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const finalsTokenBalance = await sToken().balanceOf(safeAddr);
           expect(finalTokenBalance).to.equal(initialTokenBalance + amount);
           expect(finalsTokenBalance).to.be.lessThan(initialsTokenBalance);
         });
 
         it('Should withdraw max', async () => {
-          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          await fundAccountWithToken(safeAddr, `s${token}`, amount);
+          const amount = ethers.parseUnits('100', tokenConfig[shareToken].decimals);
+          await fundAccountWithToken(safeAddr, shareToken, amount);
 
-          expect(await mToken().balanceOf(safeAddr)).to.equal(amount);
+          expect(await sToken().balanceOf(safeAddr)).to.equal(amount);
 
           await executeAction({
             type: 'SparkWithdraw',
@@ -321,17 +337,18 @@ describe('Spark tests', () => {
             poolAddress,
           });
 
-          expect(await mToken().balanceOf(safeAddr)).to.equal(0);
+          expect(await sToken().balanceOf(safeAddr)).to.equal(0);
         });
+
         it('Should take fees on withdraw', async () => {
-          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, token, amount);
+          const amount = ethers.parseUnits('100', tokenConfig[underlyingToken].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlyingToken].address);
+          await fundAccountWithToken(safeAddr, underlyingToken, amount);
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
-          const feeRecipientmTokenBalanceBefore = await mToken().balanceOf(feeRecipient);
+          const feeRecipientsTokenBalanceBefore = await sToken().balanceOf(feeRecipient);
 
           const supplyTx = await executeAction({
             type: 'SparkSupply',
@@ -340,7 +357,7 @@ describe('Spark tests', () => {
             feeBasis: 10,
           });
 
-          const mTokenBalanceAfterSupply = await mToken().balanceOf(safeAddr);
+          const sTokenBalanceAfterSupply = await sToken().balanceOf(safeAddr);
 
           const protocolId = BigInt(
             ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Spark']))
@@ -369,14 +386,14 @@ describe('Spark tests', () => {
                 throw new Error('Withdraw transaction failed');
               })(),
             10,
-            mTokenBalanceAfterSupply
+            sTokenBalanceAfterSupply
           );
-          const expectedFeeRecipientBalance = feeRecipientmTokenBalanceBefore + expectedFee;
+          const expectedFeeRecipientBalance = feeRecipientsTokenBalanceBefore + expectedFee;
 
           expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
             feeRecipientTokenBalanceBefore
           );
-          expect(await mToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
+          expect(await sToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
         });
       });
     });
