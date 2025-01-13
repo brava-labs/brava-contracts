@@ -113,7 +113,7 @@ export const tokenConfig = {
   },
   aUSDC_V2: {
     address: '0xBcca60bB61934080951369a648Fb03DF4F96263C',
-    whale: '0xc9E6E51C7dA9FF1198fdC5b3369EfeDA9b19C34c',
+    whale: '0x464C71f6c2F760DdA6093dCB91C24c39e5d6e18c',
     decimals: 6,
   },
   aUSDT_V2: {
@@ -128,7 +128,7 @@ export const tokenConfig = {
   },
   aUSDC_V3: {
     address: '0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c',
-    whale: '0xA91661efEe567b353D55948C0f051C1A16E503A5',
+    whale: '0x3570BB17176dDb7e3F644576Fd78eaC0003e6f93',
     decimals: 6,
   },
   aUSDT_V3: {

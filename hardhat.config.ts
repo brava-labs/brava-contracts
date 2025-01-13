@@ -14,12 +14,13 @@ const config: HardhatUserConfig = {
   networks: {
     virtualMainnet: {
       url: process.env.TENDERLY_VIRTUAL_MAINNET_RPC!,
-      chainId: 1,
+      chainId: 2131213115,
+      accounts: [process.env.TENDERLY_PRIVATE_KEY!],
     },
     hardhat: {
       forking: {
         url: 'https://mainnet.gateway.tenderly.co/' + process.env.TENDERLY_API_KEY!,
-        blockNumber: 20978000, // If this is updated, also update the quotes for Nexus Mutual in constants.ts. Or just use latest
+        blockNumber: 21615102, // If this is updated, also update the quotes for Nexus Mutual in constants.ts. Or just use latest
         enabled: true,
       },
     },
