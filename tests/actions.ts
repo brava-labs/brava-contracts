@@ -56,7 +56,8 @@ type WithdrawArgs =
         | 'SparkWithdraw'
         | 'AcrossWithdraw'
         | 'MorphoWithdraw'
-        | 'YearnWithdrawV3';
+        | 'YearnWithdrawV3'
+        | 'GearboxPassiveWithdraw';
     })
   | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnWithdraw' | 'VesperWithdraw' });
 
@@ -71,7 +72,8 @@ interface SupplyArgs extends BaseActionArgs {
     | 'MorphoSupply'
     | 'VesperSupply'
     | 'NotionalV3Supply'
-    | 'YearnSupplyV3';
+    | 'YearnSupplyV3'
+    | 'GearboxPassiveSupply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -608,6 +610,34 @@ export const actionDefaults: Record<string, ActionArgs> = {
     encoding: {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
+    },
+  },
+  GearboxPassiveSupply: {
+    type: 'GearboxPassiveSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.sdUSDCV3.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  GearboxPassiveWithdraw: {
+    type: 'GearboxPassiveWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.sdUSDCV3.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
   },
   UpgradeAction: {
