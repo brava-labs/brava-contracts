@@ -76,7 +76,7 @@ contract AcrossSupply is ActionBase {
 
             // Check received shares meet minimum
             sharesAfter = IERC20(lpToken).balanceOf(address(this));
-            uint256 sharesReceived = sharesAfter - sharesBefore;
+            uint256 sharesReceived = sharesAfter + feeInTokens - sharesBefore;
             require(
                 sharesReceived >= _inputData.minSharesReceived,
                 Errors.Action_InsufficientSharesReceived(
