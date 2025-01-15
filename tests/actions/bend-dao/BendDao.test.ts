@@ -41,7 +41,7 @@ describe('BendDAO V1 tests', () => {
   }> = [
     {
       token: 'USDT',
-      bToken: tokenConfig.bendUSDT.address,
+      bToken: tokenConfig.BEND_V1_USDT.address,
     },
   ];
 
@@ -215,7 +215,7 @@ describe('BendDAO V1 tests', () => {
 
         const tx = await executeAction({
           type: 'BendDaoSupply',
-          assetId: getBytes4(tokenConfig.bendUSDT.address),
+          assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
           amount: amount.toString(),
         });
 
@@ -228,7 +228,7 @@ describe('BendDAO V1 tests', () => {
         const txLog = logs[0] as BalanceUpdateLog;
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.bendUSDT.address));
+        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.BEND_V1_USDT.address));
         expect(txLog).to.have.property('balanceBefore', 0n);
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens', 0n);
@@ -240,19 +240,19 @@ describe('BendDAO V1 tests', () => {
       it('Should initialize the last fee timestamp', async () => {
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.bendUSDT.address
+          tokenConfig.BEND_V1_USDT.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
 
         await executeAction({
           type: 'BendDaoSupply',
-          assetId: getBytes4(tokenConfig.bendUSDT.address),
+          assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
           amount: '0',
         });
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.bendUSDT.address
+          tokenConfig.BEND_V1_USDT.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
       });
@@ -409,7 +409,7 @@ describe('BendDAO V1 tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'bendUSDT';
+        const token = 'BEND_V1_USDT';
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;

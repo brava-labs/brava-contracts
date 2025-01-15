@@ -166,7 +166,7 @@ export const tokenConfig = {
     whale: '0x31d3243CfB54B34Fc9C73e1CB1137124bD6B13E1',
     decimals: 6,
   },
-  bendUSDT: {
+  BEND_V1_USDT: {
     address: '0x9631C79BfD6123A5B53307B6cdfb35F97606F954',
     whale: '0xdd02Bd6e347DE7107d864abD4Ad6437cd3ae99b4',
     decimals: 6,

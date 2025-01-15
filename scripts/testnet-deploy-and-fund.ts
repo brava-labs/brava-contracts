@@ -521,7 +521,7 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_yvDAI_ADDRESS);
   console.log(`Yearn yvDAI pool added. PoolId: ${getBytes4(YEARN_yvDAI_ADDRESS)}`);
 
-  const BEND_DAO_V1_USDT_ADDRESS = constants.tokenConfig.bendUSDT.address;
+  const BEND_DAO_V1_USDT_ADDRESS = constants.tokenConfig.BEND_V1_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('BendDaoV1', BEND_DAO_V1_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('BendDaoV1', BEND_DAO_V1_USDT_ADDRESS);
   console.log(`BendDaoV1 USDT pool added. PoolId: ${getBytes4(BEND_DAO_V1_USDT_ADDRESS)}`);

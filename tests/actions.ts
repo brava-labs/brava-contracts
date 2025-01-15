@@ -448,7 +448,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   BendDaoSupply: {
     type: 'BendDaoSupply',
-    assetId: getBytes4(tokenConfig.bendUSDT.address),
+    assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -460,7 +460,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   BendDaoWithdraw: {
     type: 'BendDaoWithdraw',
-    assetId: getBytes4(tokenConfig.bendUSDT.address),
+    assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
