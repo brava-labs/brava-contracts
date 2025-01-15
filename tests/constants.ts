@@ -252,17 +252,17 @@ export const tokenConfig = {
     whale: '0x3691EF68Ba22a854c36bC92f6b5F30473eF5fb0A',
     decimals: 18,
   },
-  sdUSDCV3: {
+  GEARBOX_PASSIVE_V3_USDC: {
     address: '0xda00000035fef4082f78def6a8903bee419fbf8e',
     whale: '0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2',
     decimals: 6,
   },
-  sdUSDTV3: {
+  GEARBOX_PASSIVE_V3_USDT: {
     address: '0x05a811275fe9b4de503b3311f51edf6a856d936e',
     whale: '0x16adAb68bDEcE3089D4f1626Bb5AEDD0d02471aD',
     decimals: 6,
   },
-  sdDAIV3: {
+  GEARBOX_PASSIVE_V3_DAI: {
     address: '0xe7146f53dbcae9d6fa3555fe502648deb0b2f823',
     whale: '0xC853E4DA38d9Bd1d01675355b8c8f3BBC1451973',
     decimals: 18,
