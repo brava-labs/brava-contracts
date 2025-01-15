@@ -489,12 +489,12 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('Spark', SPARK_DAI_ADDRESS);
   console.log(`Spark DAI pool added. PoolId: ${getBytes4(SPARK_DAI_ADDRESS)}`);
 
-  const STRIKE_SUSDC_ADDRESS = constants.tokenConfig.sUSDC.address;
+  const STRIKE_SUSDC_ADDRESS = constants.tokenConfig.STRIKE_V1_USDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Strike', STRIKE_SUSDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Strike', STRIKE_SUSDC_ADDRESS);
   console.log(`Strike sUSDC pool added. PoolId: ${getBytes4(STRIKE_SUSDC_ADDRESS)}`);
 
-  const STRIKE_SUSDT_ADDRESS = constants.tokenConfig.sUSDT.address;
+  const STRIKE_SUSDT_ADDRESS = constants.tokenConfig.STRIKE_V1_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Strike', STRIKE_SUSDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Strike', STRIKE_SUSDT_ADDRESS);
   console.log(`Strike sUSDT pool added. PoolId: ${getBytes4(STRIKE_SUSDT_ADDRESS)}`);

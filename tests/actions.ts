@@ -372,7 +372,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   StrikeWithdraw: {
     type: 'StrikeWithdraw',
-    assetId: getBytes4(tokenConfig.sUSDC.address),
+    assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -384,7 +384,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   StrikeSupply: {
     type: 'StrikeSupply',
-    assetId: getBytes4(tokenConfig.sUSDC.address),
+    assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {

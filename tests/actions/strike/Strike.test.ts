@@ -46,12 +46,12 @@ describe('Strike tests', () => {
   }> = [
     {
       token: 'USDC',
-      poolAddress: tokenConfig.sUSDC.address,
+      poolAddress: tokenConfig.STRIKE_V1_USDC.address,
       sToken: () => sUSDC,
     },
     {
       token: 'USDT',
-      poolAddress: tokenConfig.sUSDT.address,
+      poolAddress: tokenConfig.STRIKE_V1_USDT.address,
       sToken: () => sUSDT,
     },
   ];
@@ -69,8 +69,8 @@ describe('Strike tests', () => {
     // Fetch the USDC and USDT tokens
     USDC = await getUSDC();
     USDT = await getUSDT();
-    sUSDC = await ethers.getContractAt('CTokenInterface', tokenConfig.sUSDC.address);
-    sUSDT = await ethers.getContractAt('CTokenInterface', tokenConfig.sUSDT.address);
+    sUSDC = await ethers.getContractAt('CTokenInterface', tokenConfig.STRIKE_V1_USDC.address);
+    sUSDT = await ethers.getContractAt('CTokenInterface', tokenConfig.STRIKE_V1_USDT.address);
 
     // Initialize StrikeSupply and StrikeWithdraw actions
     strikeSupplyContract = await deploy(
@@ -93,10 +93,10 @@ describe('Strike tests', () => {
     await adminVault.proposeAction(getBytes4(strikeWithdrawAddress), strikeWithdrawAddress);
     await adminVault.addAction(getBytes4(strikeSupplyAddress), strikeSupplyAddress);
     await adminVault.addAction(getBytes4(strikeWithdrawAddress), strikeWithdrawAddress);
-    await adminVault.proposePool('Strike', tokenConfig.sUSDC.address);
-    await adminVault.proposePool('Strike', tokenConfig.sUSDT.address);
-    await adminVault.addPool('Strike', tokenConfig.sUSDC.address);
-    await adminVault.addPool('Strike', tokenConfig.sUSDT.address);
+    await adminVault.proposePool('Strike', tokenConfig.STRIKE_V1_USDC.address);
+    await adminVault.proposePool('Strike', tokenConfig.STRIKE_V1_USDT.address);
+    await adminVault.addPool('Strike', tokenConfig.STRIKE_V1_USDC.address);
+    await adminVault.addPool('Strike', tokenConfig.STRIKE_V1_USDT.address);
   });
 
   beforeEach(async () => {
@@ -222,7 +222,7 @@ describe('Strike tests', () => {
 
         const tx = await executeAction({
           type: 'StrikeSupply',
-          assetId: getBytes4(tokenConfig['sUSDC'].address),
+          assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
           amount: amount.toString(),
         });
 
@@ -235,7 +235,7 @@ describe('Strike tests', () => {
         const txLog = logs[0] as BalanceUpdateLog;
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig['sUSDC'].address));
+        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.STRIKE_V1_USDC.address));
         expect(txLog).to.have.property('balanceBefore', 0n);
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens', 0n);
@@ -244,7 +244,7 @@ describe('Strike tests', () => {
       });
 
       it('Should initialize the last fee timestamp', async () => {
-        const token = 'sUSDC';
+        const token = 'STRIKE_V1_USDC';
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
           tokenConfig[token].address
@@ -253,7 +253,7 @@ describe('Strike tests', () => {
 
         await executeAction({
           type: 'StrikeSupply',
-          assetId: getBytes4(tokenConfig['sUSDC'].address),
+          assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
           amount: '0',
         });
 
@@ -298,7 +298,7 @@ describe('Strike tests', () => {
         it('Should withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, `s${token}`, amount);
+          await fundAccountWithToken(safeAddr, `STRIKE_V1_${token}`, amount);
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialStrikeBalance = await sToken().balanceOf(safeAddr);
@@ -318,7 +318,7 @@ describe('Strike tests', () => {
 
         it('Should withdraw max', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          await fundAccountWithToken(safeAddr, `s${token}`, amount);
+          await fundAccountWithToken(safeAddr, `STRIKE_V1_${token}`, amount);
 
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           const initialStrikeBalance = await sToken().balanceOf(safeAddr);
@@ -384,7 +384,7 @@ describe('Strike tests', () => {
       it('Should emit the correct log on withdraw', async () => {
         const token = 'USDC';
         const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-        await fundAccountWithToken(safeAddr, `s${token}`, amount);
+        await fundAccountWithToken(safeAddr, 'STRIKE_V1_USDC', amount);
         const strategyId: number = 42;
         const poolAddress = await sUSDC.getAddress();
         const poolId: string = getBytes4(poolAddress);
