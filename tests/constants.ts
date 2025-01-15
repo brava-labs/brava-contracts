@@ -102,6 +102,11 @@ export const tokenConfig = {
     whale: '0x54C6b2b293297e65b1d163C3E8dbc45338bfE443',
     decimals: 18,
   },
+  VESPER_V1_USDC: {
+    address: '0xa8b607Aa09B6A2E306F93e74c282Fb13f6A80452',
+    whale: '0x3691EF68Ba22a854c36bC92f6b5F30473eF5fb0A',
+    decimals: 18,
+  },
   AAVE_V2_aDAI: {
     address: '0x028171bCA77440897B824Ca71D1c56caC55b68A3',
     whale: '0x07edE94cF6316F4809f2B725f5d79AD303fB4Dc8',
@@ -245,11 +250,6 @@ export const tokenConfig = {
   MORPHO_V1_gtUSDT: {
     address: '0x8CB3649114051cA5119141a34C200D65dc0Faa73',
     whale: '0xdb02Da0A36c7b19461fD00DA62D4fF3be884668e',
-    decimals: 18,
-  },
-  vaUSDC: {
-    address: '0xa8b607Aa09B6A2E306F93e74c282Fb13f6A80452',
-    whale: '0x3691EF68Ba22a854c36bC92f6b5F30473eF5fb0A',
     decimals: 18,
   },
   GEARBOX_PASSIVE_V3_USDC: {

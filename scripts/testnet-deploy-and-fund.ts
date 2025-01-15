@@ -524,6 +524,11 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('BendDaoV1', BEND_DAO_V1_USDT_ADDRESS);
   console.log(`BendDaoV1 USDT pool added. PoolId: ${getBytes4(BEND_DAO_V1_USDT_ADDRESS)}`);
 
+  const VESPER_USDC_ADDRESS = constants.tokenConfig.VESPER_V1_USDC.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('Vesper', VESPER_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('Vesper', VESPER_USDC_ADDRESS);
+  console.log(`Vesper USDC pool added. PoolId: ${getBytes4(VESPER_USDC_ADDRESS)}`);
+
   // Fund test accounts with USDC
   const fundAmount = ethers.parseUnits('100000', constants.tokenConfig.USDC.decimals);
   for (const account of testAccounts) {

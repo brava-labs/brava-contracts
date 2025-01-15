@@ -35,7 +35,7 @@ describe('Vesper tests', () => {
   }> = [
     {
       token: 'USDC',
-      poolAddress: tokenConfig.vaUSDC.address,
+      poolAddress: tokenConfig.VESPER_V1_USDC.address,
     },
   ];
 
