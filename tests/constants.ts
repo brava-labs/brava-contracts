@@ -187,17 +187,17 @@ export const tokenConfig = {
     whale: '0x9040e41eF5E8b281535a96D9a48aCb8cfaBD9a48',
     decimals: 18,
   },
-  morpho_fxUSDC: {
+  MORPHO_V1_fxUSDC: {
     address: '0x4F460bb11cf958606C69A963B4A17f9DaEEea8b6',
     whale: '0xd3c082cDC4a31ABe9Ce02A785b89947800D0898C',
     decimals: 18,
   },
-  morpho_usualUSDC: {
+  MORPHO_V1_USUALUSDC: {
     address: '0xd63070114470f685b75b74d60eec7c1113d33a3d',
     whale: '0xeABD4A433D9BD08DDbB086503b18BBe2dD51a414',
     decimals: 18,
   },
-  morpho_gauntletUSDC: {
+  MORPHO_V1_gtUSDCcore: {
     address: '0x8eB67A509616cd6A7c1B3c8C21D48FF57df3d458',
     whale: '0x8a95a711A56bD837D678ab299dE7B1Ec9863051C',
     decimals: 18,
@@ -217,32 +217,32 @@ export const tokenConfig = {
     whale: '0x54C6b2b293297e65b1d163C3E8dbc45338bfE443',
     decimals: 18,
   },
-  morpho_blue_re7USDT: {
+  MORPHO_V1_re7USDT: {
     address: '0x95EeF579155cd2C5510F312c8fA39208c3Be01a8',
     whale: '0xFc2a0F6fD177c8BF40d0FaB7e6027d6f290ef11D',
     decimals: 18,
   },
-  morpho_blue_reUSDC: {
+  MORPHO_V1_reUSDC: {
     address: '0x0F359FD18BDa75e9c49bC027E7da59a4b01BF32a',
     whale: '0x6f78d13a8A7c5965cAcAA9b116A35CE315F52566',
     decimals: 18,
   },
-  morpho_blue_steakUSDT: {
+  MORPHO_V1_steakUSDT: {
     address: '0xbEef047a543E45807105E51A8BBEFCc5950fcfBa',
     whale: '0x649fe0BBa5098e9ec1cCA4aA416c0551e309A568',
     decimals: 18,
   },
-  morpho_blue_steakUSDC: {
+  MORPHO_V1_steakUSDC: {
     address: '0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB',
     whale: '0xb99a2c4C1C4F1fc27150681B740396F6CE1cBcF5',
     decimals: 18,
   },
-  morpho_blue_gtUSDC: {
+  MORPHO_V1_gtUSDC: {
     address: '0xdd0f28e19C1780eb6396170735D45153D261490d',
     whale: '0xC977d218Fde6A39c7aCE71C8243545c276B48931',
     decimals: 18,
   },
-  morpho_blue_gtUSDT: {
+  MORPHO_V1_gtUSDT: {
     address: '0x8CB3649114051cA5119141a34C200D65dc0Faa73',
     whale: '0xdb02Da0A36c7b19461fD00DA62D4fF3be884668e',
     decimals: 18,

@@ -46,12 +46,12 @@ describe('Morpho tests', () => {
   let fxUSDC: IERC4626;
   let usualUSDC: IERC4626;
   let gauntletUSDC: IERC4626;
-  let blueRe7USDT: IERC4626;
-  let blueReUSDC: IERC4626;
-  let blueSteakUSDT: IERC4626;
-  let blueSteakUSDC: IERC4626;
-  let blueGtUSDC: IERC4626;
-  let blueGtUSDT: IERC4626;
+  let re7USDT: IERC4626;
+  let reUSDC: IERC4626;
+  let steakUSDT: IERC4626;
+  let steakUSDC: IERC4626;
+  let gtUSDC: IERC4626;
+  let gtUSDT: IERC4626;
   // let fUSDT: IFluidLending;
   let adminVault: AdminVault;
   const protocolId = BigInt(
@@ -66,48 +66,48 @@ describe('Morpho tests', () => {
   }> = [
     {
       token: 'USDC',
-      poolAddress: tokenConfig.morpho_fxUSDC.address,
+      poolAddress: tokenConfig.MORPHO_V1_fxUSDC.address,
       mToken: () => fxUSDC,
     },
     {
       token: 'USDC',
-      poolAddress: tokenConfig.morpho_usualUSDC.address,
+      poolAddress: tokenConfig.MORPHO_V1_USUALUSDC.address,
       mToken: () => usualUSDC,
     },
     {
       token: 'USDC',
-      poolAddress: tokenConfig.morpho_gauntletUSDC.address,
+      poolAddress: tokenConfig.MORPHO_V1_gtUSDCcore.address,
       mToken: () => gauntletUSDC,
     },
     {
       token: 'USDT',
-      poolAddress: tokenConfig.morpho_blue_re7USDT.address,
-      mToken: () => blueRe7USDT,
+      poolAddress: tokenConfig.MORPHO_V1_re7USDT.address,
+      mToken: () => re7USDT,
     },
     {
       token: 'USDC',
-      poolAddress: tokenConfig.morpho_blue_reUSDC.address,
-      mToken: () => blueReUSDC,
+      poolAddress: tokenConfig.MORPHO_V1_reUSDC.address,
+      mToken: () => reUSDC,
     },
     {
       token: 'USDT',
-      poolAddress: tokenConfig.morpho_blue_steakUSDT.address,
-      mToken: () => blueSteakUSDT,
+      poolAddress: tokenConfig.MORPHO_V1_steakUSDT.address,
+      mToken: () => steakUSDT,
     },
     {
       token: 'USDC',
-      poolAddress: tokenConfig.morpho_blue_steakUSDC.address,
-      mToken: () => blueSteakUSDC,
+      poolAddress: tokenConfig.MORPHO_V1_steakUSDC.address,
+      mToken: () => steakUSDC,
     },
     {
       token: 'USDC',
-      poolAddress: tokenConfig.morpho_blue_gtUSDC.address,
-      mToken: () => blueGtUSDC,
+      poolAddress: tokenConfig.MORPHO_V1_gtUSDC.address,
+      mToken: () => gtUSDC,
     },
     {
       token: 'USDT',
-      poolAddress: tokenConfig.morpho_blue_gtUSDT.address,
-      mToken: () => blueGtUSDT,
+      poolAddress: tokenConfig.MORPHO_V1_gtUSDT.address,
+      mToken: () => gtUSDT,
     },
   ];
 
@@ -140,21 +140,15 @@ describe('Morpho tests', () => {
     );
     morphoSupplyAddress = await morphoSupplyContract.getAddress();
     morphoWithdrawAddress = await morphoWithdrawContract.getAddress();
-    fxUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_fxUSDC.address);
-    usualUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_usualUSDC.address);
-    gauntletUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_gauntletUSDC.address);
-    blueRe7USDT = await ethers.getContractAt('IERC4626', tokenConfig.morpho_blue_re7USDT.address);
-    blueReUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_blue_reUSDC.address);
-    blueSteakUSDT = await ethers.getContractAt(
-      'IERC4626',
-      tokenConfig.morpho_blue_steakUSDT.address
-    );
-    blueSteakUSDC = await ethers.getContractAt(
-      'IERC4626',
-      tokenConfig.morpho_blue_steakUSDC.address
-    );
-    blueGtUSDC = await ethers.getContractAt('IERC4626', tokenConfig.morpho_blue_gtUSDC.address);
-    blueGtUSDT = await ethers.getContractAt('IERC4626', tokenConfig.morpho_blue_gtUSDT.address);
+    fxUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_fxUSDC.address);
+    usualUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_USUALUSDC.address);
+    gauntletUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_gtUSDCcore.address);
+    re7USDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_re7USDT.address);
+    reUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_reUSDC.address);
+    steakUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_steakUSDT.address);
+    steakUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_steakUSDC.address);
+    gtUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_gtUSDC.address);
+    gtUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_gtUSDT.address);
 
     // propose and add all tokens in the testCases array
     for (const { poolAddress } of testCases) {
@@ -283,7 +277,7 @@ describe('Morpho tests', () => {
         const amount = ethers.parseUnits('2000', tokenConfig.USDC.decimals);
         await fundAccountWithToken(safeAddr, 'USDC', amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(tokenConfig.morpho_fxUSDC.address).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.MORPHO_V1_fxUSDC.address).slice(0, 10);
 
         const tx = await executeAction({
           type: 'MorphoSupply',
@@ -310,7 +304,7 @@ describe('Morpho tests', () => {
       it('Should initialize the last fee timestamp', async () => {
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.morpho_fxUSDC.address
+          tokenConfig.MORPHO_V1_fxUSDC.address
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
 
@@ -331,7 +325,7 @@ describe('Morpho tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.morpho_fxUSDC.address
+          tokenConfig.MORPHO_V1_fxUSDC.address
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
       });
@@ -484,7 +478,7 @@ describe('Morpho tests', () => {
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(tokenConfig.morpho_fxUSDC.address).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.MORPHO_V1_fxUSDC.address).slice(0, 10);
 
         // First supply to have something to withdraw
         await fundAccountWithToken(safeAddr, token, amount);
@@ -529,7 +523,7 @@ describe('Morpho tests', () => {
       });
 
       it('Should not confuse underlying and share tokens', async () => {
-        const pool = await ethers.getContractAt('IERC4626', tokenConfig.morpho_fxUSDC.address);
+        const pool = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_fxUSDC.address);
         
         // Fund with excess underlying tokens (1000 USDC)
         const largeAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
@@ -542,7 +536,7 @@ describe('Morpho tests', () => {
         // Deposit smaller amount (100 USDC)
         await executeAction({
           type: 'MorphoSupply',
-          poolAddress: tokenConfig.morpho_fxUSDC.address,
+          poolAddress: tokenConfig.MORPHO_V1_fxUSDC.address,
           amount: smallDepositAmount,
         });
 
@@ -557,7 +551,7 @@ describe('Morpho tests', () => {
         const smallWithdrawAmount = ethers.parseUnits('10', tokenConfig.USDC.decimals);
         await executeAction({
           type: 'MorphoWithdraw',
-          poolAddress: tokenConfig.morpho_fxUSDC.address,
+          poolAddress: tokenConfig.MORPHO_V1_fxUSDC.address,
           amount: smallWithdrawAmount,
         });
 
