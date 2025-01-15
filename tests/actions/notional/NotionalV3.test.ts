@@ -30,14 +30,14 @@ describe('Notional tests', () => {
   let logger: Logger;
   let snapshotId: string;
   let USDC: IERC20;
-  let pUSDC: INotionalPToken;
+  let notionalV3USDC: INotionalPToken;
   let NotionalV3SupplyContract: NotionalV3Supply;
   let NotionalV3WithdrawContract: NotionalV3Withdraw;
   let NotionalV3SupplyAddress: string;
   let NotionalV3WithdrawAddress: string;
   let adminVault: AdminVault;
   const NOTIONAL_ROUTER = '0x6e7058c91F85E0F6db4fc9da2CA41241f5e4263f';
-  const PUSDC_ADDRESS = '0xaEeAfB1259f01f363d09D7027ad80a9d442de762';
+  const NOTIONAL_V3_USDC_ADDRESS = tokenConfig.NOTIONAL_V3_USDC.address;
 
   // Run tests for each supported token
   const testCases: Array<{
@@ -47,8 +47,8 @@ describe('Notional tests', () => {
   }> = [
     {
       token: 'USDC',
-      poolAddress: PUSDC_ADDRESS,
-      pToken: () => pUSDC,
+      poolAddress: NOTIONAL_V3_USDC_ADDRESS,
+      pToken: () => notionalV3USDC,
     },
   ];
 
@@ -65,7 +65,7 @@ describe('Notional tests', () => {
 
     // Fetch the USDC token
     USDC = await ethers.getContractAt('IERC20', tokenConfig.USDC.address);
-    pUSDC = await ethers.getContractAt('INotionalPToken', PUSDC_ADDRESS);
+    notionalV3USDC = await ethers.getContractAt('INotionalPToken', NOTIONAL_V3_USDC_ADDRESS);
 
     // Initialize NotionalV3Supply and NotionalV3Withdraw actions
     NotionalV3SupplyContract = await deploy(
@@ -92,8 +92,8 @@ describe('Notional tests', () => {
     await adminVault.addAction(getBytes4(NotionalV3WithdrawAddress), NotionalV3WithdrawAddress);
 
     // Add pUSDC to supported pools
-    await adminVault.proposePool('NotionalV3', PUSDC_ADDRESS);
-    await adminVault.addPool('NotionalV3', PUSDC_ADDRESS);
+    await adminVault.proposePool('NotionalV3', NOTIONAL_V3_USDC_ADDRESS);
+    await adminVault.addPool('NotionalV3', NOTIONAL_V3_USDC_ADDRESS);
   });
 
   beforeEach(async () => {
@@ -219,7 +219,7 @@ describe('Notional tests', () => {
         const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(PUSDC_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(NOTIONAL_V3_USDC_ADDRESS).slice(0, 10);
 
         const tx = await executeAction({
           type: 'NotionalV3Supply',
@@ -250,7 +250,7 @@ describe('Notional tests', () => {
         );
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          PUSDC_ADDRESS
+          NOTIONAL_V3_USDC_ADDRESS
         );
         expect(initialLastFeeTimestamp).to.equal(BigInt(0));
 
@@ -272,7 +272,7 @@ describe('Notional tests', () => {
         }
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          PUSDC_ADDRESS
+          NOTIONAL_V3_USDC_ADDRESS
         );
         expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
       });
@@ -447,7 +447,7 @@ describe('Notional tests', () => {
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(PUSDC_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(NOTIONAL_V3_USDC_ADDRESS).slice(0, 10);
 
         // First supply to have something to withdraw
         await fundAccountWithToken(safeAddr, token, amount);
@@ -457,8 +457,8 @@ describe('Notional tests', () => {
           minSharesReceived: '0',
         });
 
-        const initialBalance = await pUSDC.balanceOf(safeAddr);
-        const expectedUnderlying = await pUSDC.previewRedeem(initialBalance);
+        const initialBalance = await notionalV3USDC.balanceOf(safeAddr);
+        const expectedUnderlying = await notionalV3USDC.previewRedeem(initialBalance);
 
         const tx = await executeAction({
           type: 'NotionalV3Withdraw',
@@ -498,7 +498,7 @@ describe('Notional tests', () => {
       });
 
       it('Should not confuse underlying and share tokens', async () => {
-        const pool = await ethers.getContractAt('INotionalPToken', PUSDC_ADDRESS);
+        const pool = await ethers.getContractAt('INotionalPToken', NOTIONAL_V3_USDC_ADDRESS);
         
         // Fund with excess underlying tokens (1000 USDC)
         const largeAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
@@ -511,7 +511,7 @@ describe('Notional tests', () => {
         // Deposit smaller amount (100 USDC)
         await executeAction({
           type: 'NotionalV3Supply',
-          poolAddress: PUSDC_ADDRESS,
+          poolAddress: NOTIONAL_V3_USDC_ADDRESS,
           amount: smallDepositAmount,
           minSharesReceived: '0',
         });
@@ -529,7 +529,7 @@ describe('Notional tests', () => {
 
         await executeAction({
           type: 'NotionalV3Withdraw',
-          poolAddress: PUSDC_ADDRESS,
+          poolAddress: NOTIONAL_V3_USDC_ADDRESS,
           sharesToBurn: sharesToWithdraw.toString(),
           minUnderlyingReceived: expectedUnderlying.toString(),
         });

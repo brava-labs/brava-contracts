@@ -202,7 +202,7 @@ export const tokenConfig = {
     whale: '0x8a95a711A56bD837D678ab299dE7B1Ec9863051C',
     decimals: 18,
   },
-  pUSDC: {
+  NOTIONAL_V3_USDC: {
     address: '0xaEeAfB1259f01f363d09D7027ad80a9d442de762',
     whale: '0x2920F9Fc667E780C0CB5a78a104d21413377f97E',
     decimals: 8,
