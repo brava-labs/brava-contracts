@@ -347,7 +347,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   AaveV2Withdraw: {
     type: 'AaveV2Withdraw',
-    assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -359,7 +359,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   AaveV2Supply: {
     type: 'AaveV2Supply',
-    assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {

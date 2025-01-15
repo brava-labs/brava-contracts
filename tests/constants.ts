@@ -106,17 +106,17 @@ export const tokenConfig = {
     whale: '0x54C6b2b293297e65b1d163C3E8dbc45338bfE443',
     decimals: 18,
   },
-  aDAI_V2: {
+  AAVE_V2_aDAI: {
     address: '0x028171bCA77440897B824Ca71D1c56caC55b68A3',
     whale: '0x07edE94cF6316F4809f2B725f5d79AD303fB4Dc8',
     decimals: 18,
   },
-  aUSDC_V2: {
+  AAVE_V2_aUSDC: {
     address: '0xBcca60bB61934080951369a648Fb03DF4F96263C',
     whale: '0xc9E6E51C7dA9FF1198fdC5b3369EfeDA9b19C34c',
     decimals: 6,
   },
-  aUSDT_V2: {
+  AAVE_V2_aUSDT: {
     address: '0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811',
     whale: '0x295E5eE985246cfD09B615f8706854600084c529',
     decimals: 6,
