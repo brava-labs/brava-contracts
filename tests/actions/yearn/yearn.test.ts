@@ -42,9 +42,9 @@ describe('Yearn tests', () => {
   let yUSDT: IYearnVault;
   let yDAI: IYearnVault;
   let adminVault: AdminVault;
-  const YEARN_USDC_ADDRESS = tokenConfig.yUSDC.address;
-  const YEARN_USDT_ADDRESS = tokenConfig.yUSDT.address;
-  const YEARN_DAI_ADDRESS = tokenConfig.yDAI.address;
+  const YEARN_USDC_ADDRESS = tokenConfig.YEARN_V1_USDC.address;
+  const YEARN_USDT_ADDRESS = tokenConfig.YEARN_V1_USDT.address;
+  const YEARN_DAI_ADDRESS = tokenConfig.YEARN_V1_DAI.address;
 
   // Run tests for each supported token
   const testCases: Array<{
