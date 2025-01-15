@@ -97,11 +97,6 @@ export const tokenConfig = {
     whale: '0x5C6374a2ac4EBC38DeA0Fc1F8716e5Ea1AdD94dd',
     decimals: 18,
   },
-  yvDAI: {
-    address: '0xe24BA27551aBE96Ca401D39761cA2319Ea14e3CB',
-    whale: '0x54C6b2b293297e65b1d163C3E8dbc45338bfE443',
-    decimals: 18,
-  },
   VESPER_V1_USDC: {
     address: '0xa8b607Aa09B6A2E306F93e74c282Fb13f6A80452',
     whale: '0x3691EF68Ba22a854c36bC92f6b5F30473eF5fb0A',
@@ -212,12 +207,12 @@ export const tokenConfig = {
     whale: '0x2920F9Fc667E780C0CB5a78a104d21413377f97E',
     decimals: 8,
   },
-  yearnV3_DAI: {
+  YEARN_V3_DAI: {
     address: '0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e',
     whale: '0x38E3d865e34f7367a69f096C80A4fc329DB38BF4',
     decimals: 18,
   },
-  yearnV3_ajnaDAI: {
+  YEARN_V3_AJNA_DAI: {
     address: '0xe24BA27551aBE96Ca401D39761cA2319Ea14e3CB',
     whale: '0x54C6b2b293297e65b1d163C3E8dbc45338bfE443',
     decimals: 18,

@@ -42,8 +42,8 @@ describe('YearnV3 tests', () => {
   let yDAI: IYearnVaultV3;
   let yajnaDAI: IYearnVaultV3;
   let adminVault: AdminVault;
-  const YEARN_DAI_ADDRESS = tokenConfig.yearnV3_DAI.address;
-  const AJNA_DAI_ADDRESS = tokenConfig.yearnV3_ajnaDAI.address;
+  const YEARN_DAI_ADDRESS = tokenConfig.YEARN_V3_DAI.address;
+  const AJNA_DAI_ADDRESS = tokenConfig.YEARN_V3_AJNA_DAI.address;
 
   const testCases: Array<{
     token: keyof typeof tokenConfig;
