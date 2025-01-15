@@ -26,9 +26,9 @@ describe('Spark tests', () => {
   let sparkWithdrawContract: SparkWithdraw;
   let sparkSupplyAddress: string;
   let sparkWithdrawAddress: string;
-  let sDAI: IERC20;
+  let sparkDAI: IERC20;
   let adminVault: AdminVault;
-  const SPARK_DAI_ADDRESS = tokenConfig.sDAI.address;
+  const SPARK_DAI_ADDRESS = tokenConfig.SPARK_V1_DAI.address;
   const protocolId = BigInt(
     ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Spark']))
   );
@@ -41,7 +41,7 @@ describe('Spark tests', () => {
     {
       token: 'DAI',
       poolAddress: SPARK_DAI_ADDRESS,
-      mToken: () => sDAI,
+      mToken: () => sparkDAI,
     },
     // Add more tokens here as needed
   ];
@@ -81,7 +81,7 @@ describe('Spark tests', () => {
     );
     sparkSupplyAddress = await sparkSupplyContract.getAddress();
     sparkWithdrawAddress = await sparkWithdrawContract.getAddress();
-    sDAI = await ethers.getContractAt('IERC20', SPARK_DAI_ADDRESS);
+    sparkDAI = await ethers.getContractAt('IERC20', SPARK_DAI_ADDRESS);
 
     await adminVault.proposePool('Spark', SPARK_DAI_ADDRESS);
     await adminVault.addPool('Spark', SPARK_DAI_ADDRESS);
@@ -292,7 +292,7 @@ describe('Spark tests', () => {
 
         it('Should withdraw token', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          await fundAccountWithToken(safeAddr, `s${token}`, amount);
+          await fundAccountWithToken(safeAddr, 'SPARK_V1_DAI', amount);
 
           const initialTokenBalance = await DAI.balanceOf(safeAddr);
           const initialsTokenBalance = await mToken().balanceOf(safeAddr);
@@ -311,7 +311,7 @@ describe('Spark tests', () => {
 
         it('Should withdraw max', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          await fundAccountWithToken(safeAddr, `s${token}`, amount);
+          await fundAccountWithToken(safeAddr, 'SPARK_V1_DAI', amount);
 
           expect(await mToken().balanceOf(safeAddr)).to.equal(amount);
 

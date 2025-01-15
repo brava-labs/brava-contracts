@@ -167,7 +167,7 @@ export const tokenConfig = {
     whale: '0xdd02Bd6e347DE7107d864abD4Ad6437cd3ae99b4',
     decimals: 6,
   },
-  sDAI: {
+  SPARK_V1_DAI: {
     address: '0x83f20f44975d03b1b09e64809b757c47f942beea',
     whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
     decimals: 18,

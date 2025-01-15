@@ -484,7 +484,7 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_STEAK_USDC_ADDRESS);
   console.log(`Morpho Steak USDC pool added. PoolId: ${getBytes4(MORPHO_STEAK_USDC_ADDRESS)}`);
 
-  const SPARK_DAI_ADDRESS = constants.tokenConfig.sDAI.address;
+  const SPARK_DAI_ADDRESS = constants.tokenConfig.SPARK_V1_DAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Spark', SPARK_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Spark', SPARK_DAI_ADDRESS);
   console.log(`Spark DAI pool added. PoolId: ${getBytes4(SPARK_DAI_ADDRESS)}`);
