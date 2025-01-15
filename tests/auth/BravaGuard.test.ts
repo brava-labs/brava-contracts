@@ -108,8 +108,8 @@ describe('BravaGuard', () => {
       const fluidSupplyAddress = await fluidSupplyContract.getAddress();
       await adminVault.proposeAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
       await adminVault.addAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
-      await adminVault.proposePool('Fluid', tokenConfig.fUSDC.address);
-      await adminVault.addPool('Fluid', tokenConfig.fUSDC.address);
+      await adminVault.proposePool('Fluid', tokenConfig.FLUID_V1_USDC.address);
+      await adminVault.addPool('Fluid', tokenConfig.FLUID_V1_USDC.address);
 
       const token = 'USDC';
       const amount = ethers.parseUnits('100', tokenConfig[token].decimals);

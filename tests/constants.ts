@@ -54,7 +54,6 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 6,
     pools: {
-      fluid: '0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33',
       yearn: '0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE',
     },
   },
@@ -62,9 +61,6 @@ export const tokenConfig = {
     address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 6,
-    pools: {
-      fluid: '0x5c20b550819128074fd538edf79791733ccedd18',
-    },
   },
   DAI: {
     address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
@@ -76,12 +72,12 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 18,
   },
-  fUSDC: {
+  FLUID_V1_USDC: {
     address: '0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33',
     whale: '0x2fA6c95B69c10f9F52b8990b6C03171F13C46225',
     decimals: 6,
   },
-  fUSDT: {
+  FLUID_V1_USDT: {
     address: '0x5c20b550819128074fd538edf79791733ccedd18',
     whale: '0x490681095ed277B45377d28cA15Ac41d64583048',
     decimals: 6,

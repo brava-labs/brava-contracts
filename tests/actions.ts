@@ -177,7 +177,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.USDC.pools.fluid, // Default to USDC Fluid pool
+    poolAddress: tokenConfig.FLUID_V1_USDC.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
@@ -192,7 +192,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.USDC.pools.fluid, // Default to USDC Fluid pool
+    poolAddress: tokenConfig.FLUID_V1_USDC.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
@@ -200,6 +200,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
+    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
   YearnSupply: {
     type: 'YearnSupply',

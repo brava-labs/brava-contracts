@@ -364,12 +364,12 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
     .addAction(getBytes4(bendDaoWithdrawAddress), bendDaoWithdrawAddress);
 
   console.log('Adding pools to admin vault');
-  const FLUID_USDC_ADDRESS = constants.tokenConfig.fUSDC.address;
+  const FLUID_USDC_ADDRESS = constants.tokenConfig.FLUID_V1_USDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Fluid', FLUID_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Fluid', FLUID_USDC_ADDRESS);
   console.log(`Fluid USDC pool added. PoolId: ${getBytes4(FLUID_USDC_ADDRESS)}`);
 
-  const FLUID_USDT_ADDRESS = constants.tokenConfig.fUSDT.address;
+  const FLUID_USDT_ADDRESS = constants.tokenConfig.FLUID_V1_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Fluid', FLUID_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Fluid', FLUID_USDT_ADDRESS);
   console.log(`Fluid USDT pool added. PoolId: ${getBytes4(FLUID_USDT_ADDRESS)}`);

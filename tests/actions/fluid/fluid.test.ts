@@ -37,24 +37,27 @@ describe('Fluid tests', () => {
   let fUSDC: IFluidLending;
   let fUSDT: IFluidLending;
   let adminVault: AdminVault;
-  const FLUID_USDC_ADDRESS = tokenConfig.fUSDC.address;
-  const FLUID_USDT_ADDRESS = tokenConfig.fUSDT.address;
+  const FLUID_USDC_ADDRESS = tokenConfig.FLUID_V1_USDC.address;
+  const FLUID_USDT_ADDRESS = tokenConfig.FLUID_V1_USDT.address;
 
-  // Run tests for each supported token
+  // Run tests for each supported pool
   const testCases: Array<{
-    token: keyof typeof tokenConfig;
+    poolName: string;
     poolAddress: string;
+    underlying: keyof typeof tokenConfig;
     fToken: () => IFluidLending;
   }> = [
     {
-      token: 'USDC',
-      poolAddress: tokenConfig.fUSDC.address,
+      poolAddress: tokenConfig.FLUID_V1_USDC.address,
       fToken: () => fUSDC,
+      poolName: 'USDC',
+      underlying: 'USDC',
     },
     {
-      token: 'USDT',
-      poolAddress: tokenConfig.fUSDT.address,
+      poolAddress: tokenConfig.FLUID_V1_USDT.address,
       fToken: () => fUSDT,
+      poolName: 'USDT',
+      underlying: 'USDT',
     },
   ];
 
@@ -109,12 +112,12 @@ describe('Fluid tests', () => {
   });
 
   describe('Fluid Supply', () => {
-    testCases.forEach(({ token, poolAddress, fToken }) => {
-      describe(`Testing ${token}`, () => {
+    testCases.forEach(({ poolName, poolAddress, underlying, fToken }) => {
+      describe(`Testing ${poolName}`, () => {
         it('Should deposit', async () => {
-          const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, token, amount);
+          const amount = ethers.parseUnits('2000', tokenConfig[underlying].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlying].address);
+          await fundAccountWithToken(safeAddr, underlying, amount);
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialFluidBalance = await fToken().balanceOf(safeAddr);
@@ -133,9 +136,9 @@ describe('Fluid tests', () => {
         });
 
         it('Should deposit max', async () => {
-          const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, token, amount);
+          const amount = ethers.parseUnits('2000', tokenConfig[underlying].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlying].address);
+          await fundAccountWithToken(safeAddr, underlying, amount);
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialFluidBalance = await fToken().balanceOf(safeAddr);
@@ -153,9 +156,9 @@ describe('Fluid tests', () => {
         });
 
         it('Should take fees on deposit', async () => {
-          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, token, amount);
+          const amount = ethers.parseUnits('100', tokenConfig[underlying].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlying].address);
+          await fundAccountWithToken(safeAddr, underlying, amount);
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
@@ -226,7 +229,7 @@ describe('Fluid tests', () => {
         const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(FLUID_USDC_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.FLUID_V1_USDC.address).slice(0, 10);
 
         const tx = await executeAction({
           type: 'FluidSupply',
@@ -313,12 +316,12 @@ describe('Fluid tests', () => {
       }
     });
 
-    testCases.forEach(({ token, poolAddress, fToken }) => {
-      describe(`Testing ${token}`, () => {
+    testCases.forEach(({ poolName, poolAddress, underlying, fToken }) => {
+      describe(`Testing ${poolName}`, () => {
         it('Should withdraw', async () => {
-          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, `f${token}`, amount);
+          const amount = ethers.parseUnits('100', tokenConfig[underlying].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlying].address);
+          await fundAccountWithToken(safeAddr, `FLUID_V1_${underlying}`, amount);
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialfTokenBalance = await fToken().balanceOf(safeAddr);
@@ -336,9 +339,9 @@ describe('Fluid tests', () => {
         });
 
         it('Should withdraw the maximum amount', async () => {
-          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, `f${token}`, amount);
+          const amount = ethers.parseUnits('100', tokenConfig[underlying].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlying].address);
+          await fundAccountWithToken(safeAddr, `FLUID_V1_${underlying}`, amount);
 
           expect(await fToken().balanceOf(safeAddr)).to.equal(amount);
           expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
@@ -354,9 +357,9 @@ describe('Fluid tests', () => {
         });
 
         it('Should take fees on withdraw', async () => {
-          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, token, amount);
+          const amount = ethers.parseUnits('100', tokenConfig[underlying].decimals);
+          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlying].address);
+          await fundAccountWithToken(safeAddr, underlying, amount);
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
@@ -413,7 +416,7 @@ describe('Fluid tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'fUSDC';
+        const token = 'FLUID_V1_USDC';
         const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;

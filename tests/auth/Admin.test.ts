@@ -974,7 +974,7 @@ describe('AdminVault', function () {
         loggerAddress
       );
       fluidSupplyAddress = await fluidSupplyContract.getAddress();
-      fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.fUSDC.address);
+      fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.FLUID_V1_USDC.address);
       await adminVault.proposePool('Fluid', await fUSDC.getAddress());
       await adminVault.addPool('Fluid', await fUSDC.getAddress());
     });
@@ -1001,7 +1001,7 @@ describe('AdminVault', function () {
       );
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
-        tokenConfig.fUSDC.address
+        tokenConfig.FLUID_V1_USDC.address
       );
       const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp
 
@@ -1010,7 +1010,7 @@ describe('AdminVault', function () {
 
       const withdrawTx = await executeAction({
         type: 'FluidSupply',
-        poolAddress: tokenConfig.fUSDC.address,
+        poolAddress: tokenConfig.FLUID_V1_USDC.address,
         feeBasis: 10,
         amount: '0',
       });

@@ -74,7 +74,7 @@ describe('FeeTakeSafeModule', function () {
     );
     fluidSupplyAddress = await fluidSupplyContract.getAddress();
     fluidSupplyId = getBytes4(fluidSupplyAddress);
-    fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.fUSDC.address);
+    fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.FLUID_V1_USDC.address);
     await adminVault.proposePool('Fluid', await fUSDC.getAddress());
     await adminVault.addPool('Fluid', await fUSDC.getAddress());
     poolId = getBytes4(await fUSDC.getAddress());
@@ -195,7 +195,7 @@ describe('FeeTakeSafeModule', function () {
 
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
-        tokenConfig.fUSDC.address
+        tokenConfig.FLUID_V1_USDC.address
       );
       const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp
 

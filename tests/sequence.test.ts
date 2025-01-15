@@ -64,7 +64,7 @@ describe('Sequence tests', () => {
     await adminVault.addAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
     await adminVault.addAction(getBytes4(fluidWithdrawAddress), fluidWithdrawAddress);
     await adminVault.addAction(getBytes4(swapActionAddress), swapActionAddress);
-    const FLUID_USDC_ADDRESS = tokenConfig.fUSDC.address;
+    const FLUID_USDC_ADDRESS = tokenConfig.FLUID_V1_USDC.address;
     await adminVault.proposePool('Fluid', FLUID_USDC_ADDRESS);
     await adminVault.addPool('Fluid', FLUID_USDC_ADDRESS);
   });
