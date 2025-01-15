@@ -57,6 +57,7 @@ type WithdrawArgs =
         | 'AcrossWithdraw'
         | 'MorphoWithdraw'
         | 'YearnWithdrawV3'
+        | 'CompoundV3Withdraw'
         | 'GearboxPassiveWithdraw';
     })
   | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnWithdraw' | 'VesperWithdraw' });
@@ -73,6 +74,7 @@ interface SupplyArgs extends BaseActionArgs {
     | 'VesperSupply'
     | 'NotionalV3Supply'
     | 'YearnSupplyV3'
+    | 'CompoundV3Supply'
     | 'GearboxPassiveSupply';
   poolAddress?: string;
   feeBasis?: number;
@@ -610,6 +612,32 @@ export const actionDefaults: Record<string, ActionArgs> = {
     encoding: {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
+    },
+  },
+  CompoundV3Supply: {
+    type: 'CompoundV3Supply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.cUSDCv3.address,
+    feeBasis: 0,
+    amount: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount'],
+    },
+  },
+  CompoundV3Withdraw: {
+    type: 'CompoundV3Withdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.cUSDCv3.address,
+    feeBasis: 0,
+    amount: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount'],
     },
   },
   GearboxPassiveSupply: {

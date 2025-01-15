@@ -256,6 +256,16 @@ export const tokenConfig = {
     whale: '0x3691EF68Ba22a854c36bC92f6b5F30473eF5fb0A',
     decimals: 18,
   },
+  cUSDCv3: {
+    address: '0xc3d688B66703497DAA19211EEdff47f25384cdc3',
+    whale: '0x7f714b13249BeD8fdE2ef3FBDfB18Ed525544B03',
+    decimals: 6,
+  },
+  cUSDTv3: {
+    address: '0x3Afdc9BCA9213A35503b077a6072F3D0d5AB0840',
+    whale: '0x5B380F23375C52626a891CCd8073bf2EcEe609A6',
+    decimals: 6,
+  },
   sdUSDCV3: {
     address: '0xda00000035fef4082f78def6a8903bee419fbf8e',
     whale: '0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2',
