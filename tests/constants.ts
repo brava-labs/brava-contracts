@@ -176,17 +176,17 @@ export const tokenConfig = {
     whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
     decimals: 18,
   },
-  across_lpUSDC: {
+  ACROSS_V3_lpUSDC: {
     address: '0xC9b09405959f63F72725828b5d449488b02be1cA',
     whale: '0x9040e41eF5E8b281535a96D9a48aCb8cfaBD9a48',
     decimals: 6,
   },
-  across_lpUSDT: {
+  ACROSS_V3_lpUSDT: {
     address: '0xC2faB88f215f62244d2E32c8a65E8F58DA8415a5',
     whale: '0x9040e41eF5E8b281535a96D9a48aCb8cfaBD9a48',
     decimals: 6,
   },
-  across_lpDAI: {
+  ACROSS_V3_lpDAI: {
     address: '0x4FaBacAC8C41466117D6A38F46d08ddD4948A0cB',
     whale: '0x9040e41eF5E8b281535a96D9a48aCb8cfaBD9a48',
     decimals: 18,

@@ -45,15 +45,15 @@ describe('Across tests', () => {
   }> = [
     {
       token: 'USDC',
-      lpToken: 'across_lpUSDC',
+      lpToken: 'ACROSS_V3_lpUSDC',
     },
     {
       token: 'USDT',
-      lpToken: 'across_lpUSDT',
+      lpToken: 'ACROSS_V3_lpUSDT',
     },
     {
       token: 'DAI',
-      lpToken: 'across_lpDAI',
+      lpToken: 'ACROSS_V3_lpDAI',
     },
   ];
 
