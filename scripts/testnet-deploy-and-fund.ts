@@ -419,7 +419,7 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('Across', ACROSS_DAI_ADDRESS);
   console.log(`Across DAI pool added. PoolId: ${getBytes4(ACROSS_DAI_ADDRESS)}`);
 
-  const CLEARPOOL_ALPHANONCE_USDC_ADDRESS = constants.tokenConfig.cpALP_USDC.address;
+  const CLEARPOOL_ALPHANONCE_USDC_ADDRESS = constants.tokenConfig.CLEARPOOL_V1_ALP_USDC.address;
   await baseSetup.adminVault
     .connect(deployer)
     .proposePool('Clearpool', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
@@ -430,7 +430,7 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
     `Clearpool Alphanonce USDC pool added. PoolId: ${getBytes4(CLEARPOOL_ALPHANONCE_USDC_ADDRESS)}`
   );
 
-  const CLEARPOOL_AUROS_USDC_ADDRESS = constants.tokenConfig.cpAUR_USDC.address;
+  const CLEARPOOL_AUROS_USDC_ADDRESS = constants.tokenConfig.CLEARPOOL_V1_AUR_USDC.address;
   await baseSetup.adminVault
     .connect(deployer)
     .proposePool('Clearpool', CLEARPOOL_AUROS_USDC_ADDRESS);

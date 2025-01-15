@@ -42,12 +42,12 @@ describe('Clearpool tests', () => {
   }> = [
     {
       poolName: 'ALP',
-      poolAddress: tokenConfig.cpALP_USDC.address,
+      poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
       underlying: 'USDC',
     },
     {
       poolName: 'AUR',
-      poolAddress: tokenConfig.cpAUR_USDC.address,
+      poolAddress: tokenConfig.CLEARPOOL_V1_AUR_USDC.address,
       underlying: 'USDC',
     },
   ];
@@ -219,11 +219,11 @@ describe('Clearpool tests', () => {
         const amount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
         await fundAccountWithToken(safeAddr, 'USDC', amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(tokenConfig.cpALP_USDC.address).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.CLEARPOOL_V1_ALP_USDC.address).slice(0, 10);
 
         const tx = await executeAction({
           type: 'ClearpoolSupply',
-          poolAddress: tokenConfig.cpALP_USDC.address,
+          poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
           amount: amount.toString(),
         });
 
@@ -247,19 +247,19 @@ describe('Clearpool tests', () => {
       it('Should initialize the last fee timestamp', async () => {
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.cpALP_USDC.address
+          tokenConfig.CLEARPOOL_V1_ALP_USDC.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
 
         await executeAction({
           type: 'ClearpoolSupply',
-          poolAddress: tokenConfig.cpALP_USDC.address,
+          poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
           amount: '0',
         });
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.cpALP_USDC.address
+          tokenConfig.CLEARPOOL_V1_ALP_USDC.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
       });
@@ -424,7 +424,7 @@ describe('Clearpool tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'cpALP_USDC';
+        const token = 'CLEARPOOL_V1_ALP_USDC';
         const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
@@ -469,7 +469,7 @@ describe('Clearpool tests', () => {
       });
 
       it('Should not confuse underlying and share tokens', async () => {
-        const pool = await ethers.getContractAt('IClearpoolPool', tokenConfig.cpALP_USDC.address);
+        const pool = await ethers.getContractAt('IClearpoolPool', tokenConfig.CLEARPOOL_V1_ALP_USDC.address);
         
         // Fund with excess underlying tokens (1000 USDC)
         const largeAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
@@ -482,7 +482,7 @@ describe('Clearpool tests', () => {
         // Deposit smaller amount (100 USDC)
         await executeAction({
           type: 'ClearpoolSupply',
-          poolAddress: tokenConfig.cpALP_USDC.address,
+          poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
           amount: smallDepositAmount,
         });
 
@@ -497,7 +497,7 @@ describe('Clearpool tests', () => {
         const smallWithdrawAmount = ethers.parseUnits('10', tokenConfig.USDC.decimals);
         await executeAction({
           type: 'ClearpoolWithdraw',
-          poolAddress: tokenConfig.cpALP_USDC.address,
+          poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
           amount: smallWithdrawAmount,
         });
 

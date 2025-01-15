@@ -146,12 +146,12 @@ export const tokenConfig = {
     whale: '0xee2826453A4Fd5AfeB7ceffeEF3fFA2320081268',
     decimals: 8,
   },
-  cpALP_USDC: {
+  CLEARPOOL_V1_ALP_USDC: {
     address: '0x68F311351e7196D71f8E6372e4A1D2e725669BF2',
     whale: '0x804cc33C14d804a96d9f5D0e27489e64920eD775',
     decimals: 6,
   },
-  cpAUR_USDC: {
+  CLEARPOOL_V1_AUR_USDC: {
     address: '0x3aeB3a8F0851249682A6a836525CDEeE5aA2A153',
     whale: '0xB0E6faDc3e16f0f1440d254E095F7b1019ec03DB',
     decimals: 6,
