@@ -499,12 +499,12 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('Strike', STRIKE_SUSDT_ADDRESS);
   console.log(`Strike sUSDT pool added. PoolId: ${getBytes4(STRIKE_SUSDT_ADDRESS)}`);
 
-  const UWU_LEND_USDT_ADDRESS = constants.tokenConfig.uUSDT.address;
+  const UWU_LEND_USDT_ADDRESS = constants.tokenConfig.UWU_V1_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('UwULend', UWU_LEND_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('UwULend', UWU_LEND_USDT_ADDRESS);
   console.log(`UwULend USDT pool added. PoolId: ${getBytes4(UWU_LEND_USDT_ADDRESS)}`);
 
-  const UWU_LEND_DAI_ADDRESS = constants.tokenConfig.uDAI.address;
+  const UWU_LEND_DAI_ADDRESS = constants.tokenConfig.UWU_V1_DAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('UwULend', UWU_LEND_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('UwULend', UWU_LEND_DAI_ADDRESS);
   console.log(`UwULend DAI pool added. PoolId: ${getBytes4(UWU_LEND_DAI_ADDRESS)}`);

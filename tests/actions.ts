@@ -424,7 +424,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   UwULendWithdraw: {
     type: 'UwULendWithdraw',
-    assetId: getBytes4(tokenConfig.uUSDT.address),
+    assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -436,7 +436,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   UwULendSupply: {
     type: 'UwULendSupply',
-    assetId: getBytes4(tokenConfig.uUSDT.address),
+    assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
     amount: '0',
     feeBasis: 0,
     encoding: {

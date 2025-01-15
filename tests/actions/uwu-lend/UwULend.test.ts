@@ -44,11 +44,11 @@ describe('UwU Lend tests', () => {
   }> = [
     {
       token: 'USDT',
-      uToken: tokenConfig.uUSDT.address,
+      uToken: tokenConfig.UWU_V1_USDT.address,
     },
     {
       token: 'DAI',
-      uToken: tokenConfig.uDAI.address,
+      uToken: tokenConfig.UWU_V1_DAI.address,
     },
   ];
 
@@ -224,7 +224,7 @@ describe('UwU Lend tests', () => {
 
         const tx = await executeAction({
           type: 'UwULendSupply',
-          assetId: getBytes4(tokenConfig.uUSDT.address),
+          assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
           amount: amount.toString(),
         });
 
@@ -237,7 +237,7 @@ describe('UwU Lend tests', () => {
         const txLog = logs[0] as BalanceUpdateLog;
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.uUSDT.address));
+        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.UWU_V1_USDT.address));
         expect(txLog).to.have.property('balanceBefore', 0n);
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens', 0n);
@@ -251,19 +251,19 @@ describe('UwU Lend tests', () => {
       it('Should initialize the last fee timestamp', async () => {
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.uUSDT.address
+          tokenConfig.UWU_V1_USDT.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
 
         await executeAction({
           type: 'UwULendSupply',
-          assetId: getBytes4(tokenConfig.uUSDT.address),
+          assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
           amount: '0',
         });
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.uUSDT.address
+          tokenConfig.UWU_V1_USDT.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
       });
@@ -420,7 +420,7 @@ describe('UwU Lend tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'uUSDT';
+        const token = 'UWU_V1_USDT';
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;

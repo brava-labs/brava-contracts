@@ -152,12 +152,12 @@ export const tokenConfig = {
     whale: '0xB0E6faDc3e16f0f1440d254E095F7b1019ec03DB',
     decimals: 6,
   },
-  uDAI: {
+  UWU_V1_DAI: {
     address: '0xb95BD0793bCC5524AF358ffaae3e38c3903C7626',
     whale: '0x31d3243CfB54B34Fc9C73e1CB1137124bD6B13E1',
     decimals: 18,
   },
-  uUSDT: {
+  UWU_V1_USDT: {
     address: '0x24959F75d7BDA1884f1Ec9861f644821Ce233c7D',
     whale: '0x31d3243CfB54B34Fc9C73e1CB1137124bD6B13E1',
     decimals: 6,
