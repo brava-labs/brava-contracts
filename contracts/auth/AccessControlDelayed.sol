@@ -54,6 +54,9 @@ abstract contract AccessControlDelayed is AccessControl, Roles {
             // OWNER_ROLE can grant any role immediately
             super.grantRole(role, account);
             LOGGER.logAdminVaultEvent(204, abi.encode(role, account));
+
+            // If a proposal was made for this role, we should delete it
+            delete proposedRoles[keccak256(abi.encodePacked(role, account))];
             return;
         }
 
