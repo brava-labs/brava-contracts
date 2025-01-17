@@ -82,17 +82,17 @@ export const tokenConfig = {
     whale: '0x490681095ed277B45377d28cA15Ac41d64583048',
     decimals: 6,
   },
-  YEARN_V1_USDC: {
+  YEARN_V2_USDC: {
     address: '0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE',
     whale: '0xC4080c19DE69c2362d01B20F071D4046364A0226',
     decimals: 6,
   },
-  YEARN_V1_USDT: {
+  YEARN_V2_USDT: {
     address: '0x3B27F92C0e212C671EA351827EDF93DB27cc0c65',
     whale: '0xB0eb24077563DB8b88384949011dc46410C0A31D',
     decimals: 6,
   },
-  YEARN_V1_DAI: {
+  YEARN_V2_DAI: {
     address: '0xdA816459F1AB5631232FE5e97a05BBBb94970c95',
     whale: '0x5C6374a2ac4EBC38DeA0Fc1F8716e5Ea1AdD94dd',
     decimals: 18,

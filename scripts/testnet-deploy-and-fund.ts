@@ -509,17 +509,17 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('UwULend', UWU_LEND_DAI_ADDRESS);
   console.log(`UwULend DAI pool added. PoolId: ${getBytes4(UWU_LEND_DAI_ADDRESS)}`);
 
-  const YEARN_DAI_ADDRESS = constants.tokenConfig.YEARN_V1_DAI.address;
+  const YEARN_DAI_ADDRESS = constants.tokenConfig.YEARN_V2_DAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_DAI_ADDRESS);
   console.log(`Yearn DAI pool added. PoolId: ${getBytes4(YEARN_DAI_ADDRESS)}`);
 
-  const YEARN_USDC_ADDRESS = constants.tokenConfig.YEARN_V1_USDC.address;
+  const YEARN_USDC_ADDRESS = constants.tokenConfig.YEARN_V2_USDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_USDC_ADDRESS);
   console.log(`Yearn USDC pool added. PoolId: ${getBytes4(YEARN_USDC_ADDRESS)}`);
 
-  const YEARN_USDT_ADDRESS = constants.tokenConfig.YEARN_V1_USDT.address;
+  const YEARN_USDT_ADDRESS = constants.tokenConfig.YEARN_V2_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_USDT_ADDRESS);
   console.log(`Yearn USDT pool added. PoolId: ${getBytes4(YEARN_USDT_ADDRESS)}`);

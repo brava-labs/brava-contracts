@@ -320,7 +320,7 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
   await baseSetup.adminVault.connect(deployer).addPool('UwULend', UWU_LEND_DAI_ADDRESS);
   console.log(`UwULend DAI pool added. PoolId: ${getBytes4(UWU_LEND_DAI_ADDRESS)}`);
 
-  const YEARN_DAI_ADDRESS = constants.tokenConfig.YEARN_V1_DAI.address;
+  const YEARN_DAI_ADDRESS = constants.tokenConfig.YEARN_V2_DAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_DAI_ADDRESS);
   console.log(`Yearn DAI pool added. PoolId: ${getBytes4(YEARN_DAI_ADDRESS)}`);
