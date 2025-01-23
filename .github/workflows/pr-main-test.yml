@@ -24,6 +24,8 @@ jobs:
           alchemy-api-key: ${{ secrets.ALCHEMY_API_KEY }}
           owner-addr: ${{ secrets.OWNER_ADDR }}
           admin-addr: ${{ secrets.ADMIN_ADDR }}
+          SUBGRAPH_URL:
+          NEXT_PUBLIC_SUBGRAPH_URL:
 
       - name: Run tests with coverage
         run: npm run coverage
