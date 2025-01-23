@@ -288,27 +288,27 @@ describe('Utils tests', () => {
     it('Should fail to send tokens without fees paid', async () => {
       const fundAmount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
       const sendAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
-      await fundAccountWithToken(safeAddr, 'fUSDC', fundAmount);
+      await fundAccountWithToken(safeAddr, 'FLUID_V1_USDC', fundAmount);
       await fundAccountWithToken(safeAddr, 'USDC', fundAmount);
 
-      const fluidSupplyContract = await deploy('FluidSupply', signer, await adminVault.getAddress(), loggerAddress);
+      const fluidSupplyContract = await deploy('FluidV1Supply', signer, await adminVault.getAddress(), loggerAddress);
       const fluidSupplyAddress = await fluidSupplyContract.getAddress();
 
-      await adminVault.proposePool('Fluid', tokenConfig.fUSDC.address);
-      await adminVault.addPool('Fluid', tokenConfig.fUSDC.address);
+      await adminVault.proposePool('FluidV1', tokenConfig.FLUID_V1_USDC.address);
+      await adminVault.addPool('FluidV1', tokenConfig.FLUID_V1_USDC.address);
       await adminVault.proposeAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
       await adminVault.addAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
       await adminVault.proposeAction(getBytes4(sendTokenAddress), sendTokenAddress);
       await adminVault.addAction(getBytes4(sendTokenAddress), sendTokenAddress);
 
         const supplyPayload = await encodeAction({
-          type: 'FluidSupply',
-          poolAddress: tokenConfig.fUSDC.address,
+          type: 'FluidV1Supply',
+          poolAddress: tokenConfig.FLUID_V1_USDC.address,
           amount: '0',
         });
         const sendPayload = await encodeAction({
           type: 'SendToken',
-          token: 'fUSDC',
+          token: 'FLUID_V1_USDC',
           amount: sendAmount,
           to: await signer.getAddress(),
         });

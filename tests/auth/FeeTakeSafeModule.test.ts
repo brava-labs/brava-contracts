@@ -6,7 +6,7 @@ import { ethers, network } from 'hardhat';
 import {
   AdminVault,
   FeeTakeSafeModule,
-  FluidSupply,
+  FluidV1Supply,
   IERC20,
   IFluidLending,
   ISafe,
@@ -21,7 +21,7 @@ describe('FeeTakeSafeModule', function () {
   let adminVault: AdminVault;
   let feeTakeSafeModule: FeeTakeSafeModule;
   let logger: Logger;
-  let fluidSupplyContract: FluidSupply;
+  let fluidSupplyContract: FluidV1Supply;
   let fluidSupplyAddress: string;
   let fluidSupplyId: BytesLike;
   let poolId: BytesLike;
@@ -65,18 +65,18 @@ describe('FeeTakeSafeModule', function () {
     // Fetch the USDC token
     USDC = await getUSDC();
 
-    // Initialize FluidSupply action
+    // Initialize FluidV1Supply action
     fluidSupplyContract = await deploy(
-      'FluidSupply',
+      'FluidV1Supply',
       admin,
       await adminVault.getAddress(),
       await logger.getAddress()
     );
     fluidSupplyAddress = await fluidSupplyContract.getAddress();
     fluidSupplyId = getBytes4(fluidSupplyAddress);
-    fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.fUSDC.address);
-    await adminVault.proposePool('Fluid', await fUSDC.getAddress());
-    await adminVault.addPool('Fluid', await fUSDC.getAddress());
+    fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.FLUID_V1_USDC.address);
+    await adminVault.proposePool('FluidV1', await fUSDC.getAddress());
+    await adminVault.addPool('FluidV1', await fUSDC.getAddress());
     poolId = getBytes4(await fUSDC.getAddress());
     await adminVault.proposeAction(fluidSupplyId, fluidSupplyAddress);
     await adminVault.addAction(fluidSupplyId, fluidSupplyAddress);
@@ -144,9 +144,9 @@ describe('FeeTakeSafeModule', function () {
 
     it('should revert if an invalid action type is provided', async function () {
       if (!this.test!.ctx!.proposed) this.skip();
-      // deploy an invalid action (FluidWithdraw)
+      // deploy an invalid action (FluidV1Withdraw)
       const invalidAction = await deploy(
-        'FluidWithdraw',
+        'FluidV1Withdraw',
         admin,
         await adminVault.getAddress(),
         await logger.getAddress()
@@ -181,7 +181,7 @@ describe('FeeTakeSafeModule', function () {
 
       // deposit 100 USDC
       const supplyTx = await executeAction({
-        type: 'FluidSupply',
+        type: 'FluidV1Supply',
         amount: ethers.parseUnits('100', tokenConfig.USDC.decimals),
       });
 
@@ -195,7 +195,7 @@ describe('FeeTakeSafeModule', function () {
 
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
-        tokenConfig.fUSDC.address
+        tokenConfig.FLUID_V1_USDC.address
       );
       const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365); // add 1 year to the initial timestamp
 

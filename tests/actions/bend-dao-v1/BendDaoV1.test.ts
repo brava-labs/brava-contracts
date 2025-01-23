@@ -1,15 +1,14 @@
 import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
-import { actionTypes } from '../../../tests/actions';
-import { AAVE_V2_POOL, tokenConfig } from '../../../tests/constants';
+import { BEND_DAO_V1_POOL, tokenConfig } from '../../../tests/constants';
 import {
-  AaveV2Supply,
-  AaveV2Withdraw,
   AdminVault,
+  BendDaoV1Supply,
+  BendDaoV1Withdraw,
   IERC20,
-  ILendingPool,
   Logger,
 } from '../../../typechain-types';
+import { actionTypes } from '../../actions';
 import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
 import {
   calculateExpectedFee,
@@ -20,44 +19,26 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getUSDT } from '../../utils-stable';
 
-describe('Aave V2 tests', () => {
+describe('BendDAO V1 tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let loggerAddress: string;
   let logger: Logger;
   let snapshotId: string;
-  let USDC: IERC20;
   let USDT: IERC20;
-  let DAI: IERC20;
-  let aaveSupplyContract: AaveV2Supply;
-  let aaveWithdrawContract: AaveV2Withdraw;
-  let aaveSupplyAddress: string;
-  let aaveWithdrawAddress: string;
-  let aavePool: ILendingPool;
+  let bendSupplyContract: BendDaoV1Supply;
+  let bendWithdrawContract: BendDaoV1Withdraw;
+  let bendSupplyAddress: string;
+  let bendWithdrawAddress: string;
   let adminVault: AdminVault;
 
   // Run tests for each supported token
-  const testCases: Array<{
-    token: keyof typeof tokenConfig;
-    aToken: string;
-    isIsolated: boolean;
-  }> = [
+  const testCases = [
     {
-      token: 'USDC',
-      aToken: tokenConfig.AAVE_V2_aUSDC.address,
-      isIsolated: false,
-    },
-    {
-      token: 'USDT',
-      aToken: tokenConfig.AAVE_V2_aUSDT.address,
-      isIsolated: true,
-    },
-    {
-      token: 'DAI',
-      aToken: tokenConfig.AAVE_V2_aDAI.address,
-      isIsolated: false,
+      token: 'USDT' as keyof typeof tokenConfig,
+      bToken: tokenConfig.BEND_V1_USDT.address,
     },
   ];
 
@@ -73,38 +54,35 @@ describe('Aave V2 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDC = await getUSDC();
     USDT = await getUSDT();
-    DAI = await getDAI();
 
-    // Initialize AaveSupply and AaveWithdraw actions
-    aaveSupplyContract = await deploy(
-      'AaveV2Supply',
+    // Initialize BendDaoV1Supply and BendDaoV1Withdraw actions
+    bendSupplyContract = await deploy(
+      'BendDaoV1Supply',
       signer,
       await adminVault.getAddress(),
       loggerAddress,
-      AAVE_V2_POOL
+      BEND_DAO_V1_POOL
     );
-    aaveWithdrawContract = await deploy(
-      'AaveV2Withdraw',
+    bendWithdrawContract = await deploy(
+      'BendDaoV1Withdraw',
       signer,
       await adminVault.getAddress(),
       loggerAddress,
-      AAVE_V2_POOL
+      BEND_DAO_V1_POOL
     );
-    aaveSupplyAddress = await aaveSupplyContract.getAddress();
-    aaveWithdrawAddress = await aaveWithdrawContract.getAddress();
-    aavePool = await ethers.getContractAt('ILendingPool', AAVE_V2_POOL);
+    bendSupplyAddress = await bendSupplyContract.getAddress();
+    bendWithdrawAddress = await bendWithdrawContract.getAddress();
 
     // grant the aToken contracts the POOL_ROLE and add actions
-    await adminVault.proposeAction(getBytes4(aaveSupplyAddress), aaveSupplyAddress);
-    await adminVault.proposeAction(getBytes4(aaveWithdrawAddress), aaveWithdrawAddress);
-    await adminVault.addAction(getBytes4(aaveSupplyAddress), aaveSupplyAddress);
-    await adminVault.addAction(getBytes4(aaveWithdrawAddress), aaveWithdrawAddress);
+    await adminVault.proposeAction(getBytes4(bendSupplyAddress), bendSupplyAddress);
+    await adminVault.proposeAction(getBytes4(bendWithdrawAddress), bendWithdrawAddress);
+    await adminVault.addAction(getBytes4(bendSupplyAddress), bendSupplyAddress);
+    await adminVault.addAction(getBytes4(bendWithdrawAddress), bendWithdrawAddress);
 
-    for (const { aToken } of testCases) {
-      await adminVault.proposePool('AaveV2', aToken);
-      await adminVault.addPool('AaveV2', aToken);
+    for (const { token, bToken } of testCases) {
+      await adminVault.proposePool('BendDaoV1', bToken);
+      await adminVault.addPool('BendDaoV1', bToken);
     }
   });
 
@@ -117,114 +95,109 @@ describe('Aave V2 tests', () => {
     log('Reverting to local snapshot');
     await network.provider.send('evm_revert', [snapshotId]);
   });
-  describe('Aave Supply', () => {
-    testCases.forEach(({ token, aToken, isIsolated }) => {
+
+  describe('BendDAO V1 Supply', () => {
+    testCases.forEach(({ token, bToken }) => {
       describe(`Testing ${token}`, () => {
         it('Should deposit', async () => {
           const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          const bTokenContract = await ethers.getContractAt('IERC20', bToken);
           await fundAccountWithToken(safeAddr, token, amount);
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const initialAaveBalance = isIsolated
-            ? await (await ethers.getContractAt('IERC20', aToken)).balanceOf(safeAddr)
-            : (await aavePool.getUserAccountData(safeAddr)).totalCollateralBase;
+          const initialBTokenBalance = await bTokenContract.balanceOf(safeAddr);
 
           await executeAction({
-            type: 'AaveV2Supply',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Supply',
+            assetId: getBytes4(bToken),
             amount,
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const finalAaveBalance = isIsolated
-            ? await (await ethers.getContractAt('IERC20', aToken)).balanceOf(safeAddr)
-            : (await aavePool.getUserAccountData(safeAddr)).totalCollateralBase;
+          const finalBTokenBalance = await bTokenContract.balanceOf(safeAddr);
 
           expect(finalTokenBalance).to.be.lt(initialTokenBalance);
-          expect(finalAaveBalance).to.be.gt(initialAaveBalance);
+          expect(finalBTokenBalance).to.be.gt(initialBTokenBalance);
         });
 
         it('Should deposit max', async () => {
           const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
+          const bTokenContract = await ethers.getContractAt('IERC20', bToken);
           await fundAccountWithToken(safeAddr, token, amount);
 
           await executeAction({
-            type: 'AaveV2Supply',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Supply',
+            assetId: getBytes4(bToken),
             amount: ethers.MaxUint256.toString(),
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
+          const finalBTokenBalance = await bTokenContract.balanceOf(safeAddr);
           expect(finalTokenBalance).to.equal(0n);
+          expect(finalBTokenBalance).to.be.gt(0n);
         });
 
         it('Should take fees on deposit', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const aTokenContract = await ethers.getContractAt('IERC20', aToken);
+          const bTokenContract = await ethers.getContractAt('IERC20', bToken);
           await fundAccountWithToken(safeAddr, token, amount);
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
-          const feeRecipientaTokenBalanceBefore = await aTokenContract.balanceOf(feeRecipient);
+          const feeRecipientBTokenBalanceBefore = await bTokenContract.balanceOf(feeRecipient);
 
           // Do an initial deposit
           const firstTx = await executeAction({
-            type: 'AaveV2Supply',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Supply',
+            assetId: getBytes4(bToken),
             amount,
             feeBasis: 10,
           });
 
-          const aTokenBalanceAfterFirstTx = await aTokenContract.balanceOf(safeAddr);
+          const bTokenBalanceAfterFirstTx = await bTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
           const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV2']))
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['BendDaoV1']))
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            aToken
+            bToken
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
           // Do another deposit to trigger fees
           const secondTx = await executeAction({
-            type: 'AaveV2Supply',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Supply',
+            assetId: getBytes4(bToken),
             amount: '0',
             feeBasis: 10,
           });
 
-          const firstTxReceipt =
-            (await firstTx.wait()) ??
-            (() => {
-              throw new Error('First deposit transaction failed');
-            })();
-          const secondTxReceipt =
-            (await secondTx.wait()) ??
-            (() => {
-              throw new Error('Second deposit transaction failed');
-            })();
-
-          // Calculate expected fee
           const expectedFee = await calculateExpectedFee(
-            firstTxReceipt,
-            secondTxReceipt,
+            (await firstTx.wait()) ??
+              (() => {
+                throw new Error('First deposit transaction failed');
+              })(),
+            (await secondTx.wait()) ??
+              (() => {
+                throw new Error('Second deposit transaction failed');
+              })(),
             10,
-            aTokenBalanceAfterFirstTx
+            bTokenBalanceAfterFirstTx
           );
-          const expectedFeeRecipientBalance = feeRecipientaTokenBalanceBefore + expectedFee;
+          const expectedFeeRecipientBalance = feeRecipientBTokenBalanceBefore + expectedFee;
 
           // With Aave we earn extra tokens over time, so the fee recipient should have more than the expected fee
           expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
             feeRecipientTokenBalanceBefore
           );
-          expect(await aTokenContract.balanceOf(feeRecipient)).to.be.greaterThanOrEqual(
+          expect(await bTokenContract.balanceOf(feeRecipient)).to.be.greaterThanOrEqual(
             expectedFeeRecipientBalance
           );
         });
@@ -233,14 +206,14 @@ describe('Aave V2 tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on deposit', async () => {
-        const token = 'USDC';
+        const token = 'USDT';
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
 
         const tx = await executeAction({
-          type: 'AaveV2Supply',
-          assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
+          type: 'BendDaoV1Supply',
+          assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
           amount: amount.toString(),
         });
 
@@ -253,49 +226,48 @@ describe('Aave V2 tests', () => {
         const txLog = logs[0] as BalanceUpdateLog;
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.AAVE_V2_aUSDC.address));
+        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.BEND_V1_USDT.address));
         expect(txLog).to.have.property('balanceBefore', 0n);
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens', 0n);
         expect(txLog.balanceAfter).to.be.a('bigint');
         expect(txLog.balanceAfter).to.not.equal(BigInt(0));
-        // With aave we earn extra tokens over time, so slow tests mean we can't check exact amounts
-        // We check 1 wei less because of edges cases in the aave protocol
         expect(txLog.balanceAfter).to.be.greaterThanOrEqual(amount - 1n);
       });
 
       it('Should initialize the last fee timestamp', async () => {
+        const token = 'USDT';
         const protocolId = BigInt(
-          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV2']))
+          ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['BendDaoV1']))
         );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.AAVE_V2_aUSDC.address
+          tokenConfig.BEND_V1_USDT.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
 
         await executeAction({
-          type: 'AaveV2Supply',
-          assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
+          type: 'BendDaoV1Supply',
+          assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
           amount: '0',
         });
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.AAVE_V2_aUSDC.address
+          tokenConfig.BEND_V1_USDT.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
       });
 
       it('Should have deposit action type', async () => {
-        const actionType = await aaveSupplyContract.actionType();
+        const actionType = await bendSupplyContract.actionType();
         expect(actionType).to.equal(actionTypes.DEPOSIT_ACTION);
       });
 
       it('Should reject invalid token', async () => {
         await expect(
           executeAction({
-            type: 'AaveV2Supply',
+            type: 'BendDaoV1Supply',
             assetId: '0x00000000',
             amount: '1',
           })
@@ -303,119 +275,116 @@ describe('Aave V2 tests', () => {
       });
     });
   });
-  describe('Aave Withdraw', () => {
+
+  describe('BendDAO V1 Withdraw', () => {
     beforeEach(async () => {
       // Do empty deposits to initialize the fee timestamps for all pools
-      for (const { aToken } of testCases) {
+      for (const { bToken } of testCases) {
         await executeAction({
-          type: 'AaveV2Supply',
-          assetId: getBytes4(aToken),
+          type: 'BendDaoV1Supply',
+          assetId: getBytes4(bToken),
           amount: '0',
         });
       }
     });
 
-    testCases.forEach(({ token, aToken, isIsolated }) => {
+    testCases.forEach(({ token, bToken }) => {
       describe(`Testing ${token}`, () => {
         it('Should withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const aTokenContract = await ethers.getContractAt('IERC20', aToken);
+          const bTokenContract = await ethers.getContractAt('IERC20', bToken);
 
           // Supply first
           await fundAccountWithToken(safeAddr, token, amount);
           await executeAction({
-            type: 'AaveV2Supply',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Supply',
+            assetId: getBytes4(bToken),
             amount,
           });
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const initialAaveBalance = isIsolated
-            ? await aTokenContract.balanceOf(safeAddr)
-            : (await aavePool.getUserAccountData(safeAddr)).totalCollateralBase;
+          const initialBTokenBalance = await bTokenContract.balanceOf(safeAddr);
 
           await executeAction({
-            type: 'AaveV2Withdraw',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Withdraw',
+            assetId: getBytes4(bToken),
             amount,
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const finalAaveBalance = isIsolated
-            ? await aTokenContract.balanceOf(safeAddr)
-            : (await aavePool.getUserAccountData(safeAddr)).totalCollateralBase;
+          const finalBTokenBalance = await bTokenContract.balanceOf(safeAddr);
 
           expect(finalTokenBalance).to.be.gt(initialTokenBalance);
-          expect(finalAaveBalance).to.be.lt(initialAaveBalance);
+          expect(finalBTokenBalance).to.be.lt(initialBTokenBalance);
         });
 
         it('Should withdraw the maximum amount', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const aTokenContract = await ethers.getContractAt('IERC20', aToken);
+          const bTokenContract = await ethers.getContractAt('IERC20', bToken);
 
           // Supply first
           await fundAccountWithToken(safeAddr, token, amount);
           await executeAction({
-            type: 'AaveV2Supply',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Supply',
+            assetId: getBytes4(bToken),
             amount,
           });
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const initialAaveBalance = await aTokenContract.balanceOf(safeAddr);
-          expect(initialAaveBalance).to.be.gt(0);
+          const initialBTokenBalance = await bTokenContract.balanceOf(safeAddr);
+          expect(initialBTokenBalance).to.be.gt(0);
 
           await executeAction({
-            type: 'AaveV2Withdraw',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Withdraw',
+            assetId: getBytes4(bToken),
             amount: ethers.MaxUint256,
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const finalAaveBalance = await aTokenContract.balanceOf(safeAddr);
+          const finalBTokenBalance = await bTokenContract.balanceOf(safeAddr);
 
           expect(finalTokenBalance).to.be.gt(initialTokenBalance);
-          expect(finalAaveBalance).to.equal(0);
+          expect(finalBTokenBalance).to.equal(0);
         });
 
         it('Should take fees on withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          const aTokenContract = await ethers.getContractAt('IERC20', aToken);
+          const bTokenContract = await ethers.getContractAt('IERC20', bToken);
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
-          const feeRecipientaTokenBalanceBefore = await aTokenContract.balanceOf(feeRecipient);
+          const feeRecipientBTokenBalanceBefore = await bTokenContract.balanceOf(feeRecipient);
 
           // Supply first
           await fundAccountWithToken(safeAddr, token, amount);
           const supplyTx = await executeAction({
-            type: 'AaveV2Supply',
-            assetId: getBytes4(aToken),
+            type: 'BendDaoV1Supply',
+            assetId: getBytes4(bToken),
             amount,
             feeBasis: 10,
           });
 
-          const aTokenBalanceAfterSupply = await aTokenContract.balanceOf(safeAddr);
+          const bTokenBalanceAfterSupply = await bTokenContract.balanceOf(safeAddr);
 
           // Time travel 1 year
           const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['AaveV2']))
+            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['BendDaoV1']))
           );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
-            aToken
+            bToken
           );
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
           const withdrawTx = await executeAction({
-            type: 'AaveV2Withdraw',
-            assetId: getBytes4(aToken),
-            amount: '1',
+            type: 'BendDaoV1Withdraw',
+            assetId: getBytes4(bToken),
+            amount: '10',
             feeBasis: 10,
           });
 
@@ -429,14 +398,14 @@ describe('Aave V2 tests', () => {
                 throw new Error('Withdraw transaction failed');
               })(),
             10,
-            aTokenBalanceAfterSupply
+            bTokenBalanceAfterSupply
           );
-          const expectedFeeRecipientBalance = feeRecipientaTokenBalanceBefore + expectedFee;
+          const expectedFeeRecipientBalance = feeRecipientBTokenBalanceBefore + expectedFee;
 
           expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
             feeRecipientTokenBalanceBefore
           );
-          expect(await aTokenContract.balanceOf(feeRecipient)).to.be.greaterThanOrEqual(
+          expect(await bTokenContract.balanceOf(feeRecipient)).to.be.greaterThanOrEqual(
             expectedFeeRecipientBalance
           );
         });
@@ -445,15 +414,22 @@ describe('Aave V2 tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'AAVE_V2_aUSDC';
+        const token = 'USDT';
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
 
+        // Supply first
+        await executeAction({
+          type: 'BendDaoV1Supply',
+          assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
+          amount,
+        });
+
         const tx = await executeAction({
-          type: 'AaveV2Withdraw',
-          assetId: getBytes4(tokenConfig[token].address),
-          amount: ethers.MaxUint256.toString(),
+          type: 'BendDaoV1Withdraw',
+          assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
+          amount: amount.toString(),
         });
 
         const logs = await decodeLoggerLog(tx);
@@ -465,24 +441,23 @@ describe('Aave V2 tests', () => {
         const txLog = logs[0] as BalanceUpdateLog;
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig[token].address));
+        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.BEND_V1_USDT.address));
         expect(txLog).to.have.property('balanceBefore');
-        expect(txLog).to.have.property('balanceAfter', 0n);
+        expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens', 0n);
-        expect(txLog.balanceAfter).to.be.a('bigint');
-        expect(txLog.balanceBefore).to.be.a('bigint');
-        // With aave we earn extra tokens over time, so slow tests mean we can't check exact amounts
         expect(txLog.balanceBefore).to.be.greaterThanOrEqual(amount);
+        expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
       });
+
       it('Should have withdraw action type', async () => {
-        const actionType = await aaveWithdrawContract.actionType();
+        const actionType = await bendWithdrawContract.actionType();
         expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
       });
 
       it('Should reject invalid token', async () => {
         await expect(
           executeAction({
-            type: 'AaveV2Withdraw',
+            type: 'BendDaoV1Withdraw',
             assetId: '0x00000000',
             amount: '1',
           })
