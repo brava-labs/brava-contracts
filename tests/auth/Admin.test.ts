@@ -2,7 +2,7 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { ethers, network } from 'hardhat';
-import { AdminVault, FluidSupply, IERC20, IFluidLending } from '../../typechain-types';
+import { AdminVault, FluidV1Supply, IERC20, IFluidLending } from '../../typechain-types';
 import { tokenConfig } from '../constants';
 import {
   calculateExpectedFee,
@@ -329,19 +329,19 @@ describe('AdminVault', function () {
 
         // Pool management
         await expect(
-          adminVault.connect(alice).proposePool('Fluid', alice.address)
+          adminVault.connect(alice).proposePool('FluidV1', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
 
         await expect(
-          adminVault.connect(alice).cancelPoolProposal('Fluid', alice.address)
+          adminVault.connect(alice).cancelPoolProposal('FluidV1', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
 
         await expect(
-          adminVault.connect(alice).addPool('Fluid', alice.address)
+          adminVault.connect(alice).addPool('FluidV1', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
 
         await expect(
-          adminVault.connect(alice).removePool('Fluid', alice.address)
+          adminVault.connect(alice).removePool('FluidV1', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount');
 
         // Action management
@@ -428,15 +428,15 @@ describe('AdminVault', function () {
 
         // POOL MANAGEMENT
         // Alice can now propose and bobby can cancel a pool
-        await adminVault.connect(alice).proposePool('Fluid', alice.address);
-        await adminVault.connect(bobby).cancelPoolProposal('Fluid', alice.address);
+        await adminVault.connect(alice).proposePool('FluidV1', alice.address);
+        await adminVault.connect(bobby).cancelPoolProposal('FluidV1', alice.address);
 
         // Carol can add a pool (after another proposal from alice)
-        await adminVault.connect(alice).proposePool('Fluid', alice.address);
-        await adminVault.connect(carol).addPool('Fluid', alice.address);
+        await adminVault.connect(alice).proposePool('FluidV1', alice.address);
+        await adminVault.connect(carol).addPool('FluidV1', alice.address);
 
         // david can remove the pool
-        await adminVault.connect(david).removePool('Fluid', alice.address);
+        await adminVault.connect(david).removePool('FluidV1', alice.address);
 
         // Remove their roles and now make them action proposer and executor
         await adminVault
@@ -645,24 +645,24 @@ describe('AdminVault', function () {
     describe('Pool management', function () {
       it('should be able to propose a pool', async function () {
         // alice should not be able to propose a pool (not an admin)
-        await expect(adminVault.connect(alice).proposePool('Fluid', alice.address))
+        await expect(adminVault.connect(alice).proposePool('FluidV1', alice.address))
           .to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
           .withArgs(alice.address, getRoleBytes('POOL_PROPOSER_ROLE'));
 
         // admin should be able to propose a pool
-        await adminVault.connect(admin).proposePool('Fluid', alice.address);
-        expect(await adminVault.getPoolProposalTime('Fluid', alice.address)).to.not.equal(0);
+        await adminVault.connect(admin).proposePool('FluidV1', alice.address);
+        expect(await adminVault.getPoolProposalTime('FluidV1', alice.address)).to.not.equal(0);
         this.test!.ctx!.proposed = true;
       });
 
       it('should be able to cancel a pool proposal', async function () {
-        await expect(adminVault.connect(alice).cancelPoolProposal('Fluid', alice.address))
+        await expect(adminVault.connect(alice).cancelPoolProposal('FluidV1', alice.address))
           .to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
           .withArgs(alice.address, getRoleBytes('POOL_CANCELER_ROLE'));
       });
 
       it('should be able to add a pool', async function () {
-        await expect(adminVault.connect(alice).addPool('Fluid', alice.address))
+        await expect(adminVault.connect(alice).addPool('FluidV1', alice.address))
           .to.be.revertedWithCustomError(adminVault, 'AccessControlUnauthorizedAccount')
           .withArgs(alice.address, getRoleBytes('POOL_EXECUTOR_ROLE'));
       });
@@ -671,16 +671,16 @@ describe('AdminVault', function () {
         if (!this.test!.ctx!.added) this.skip();
         const delay = 60 * 60 * 24;
         await adminVault.connect(admin).changeDelay(delay);
-        await adminVault.connect(admin).proposePool('Fluid', alice.address);
+        await adminVault.connect(admin).proposePool('FluidV1', alice.address);
         await expect(
-          adminVault.connect(admin).addPool('Fluid', alice.address)
+          adminVault.connect(admin).addPool('FluidV1', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_DelayNotPassed');
       });
 
       it('should not be able to add a pool if the pool is not proposed', async function () {
         if (!this.test!.ctx!.added) this.skip();
         await expect(
-          adminVault.connect(admin).addPool('Fluid', alice.address)
+          adminVault.connect(admin).addPool('FluidV1', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
       });
 
@@ -692,32 +692,32 @@ describe('AdminVault', function () {
         ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
         // pool address is zero address
         await expect(
-          adminVault.connect(admin).addPool('Fluid', ethers.ZeroAddress)
+          adminVault.connect(admin).addPool('FluidV1', ethers.ZeroAddress)
         ).to.be.revertedWithCustomError(adminVault, 'InvalidInput');
       });
       it('should revert if pool is not found', async function () {
         if (!this.test!.ctx!.added) this.skip();
         await expect(
-          adminVault.connect(admin).getPoolAddress('Fluid', getBytes4(alice.address))
+          adminVault.connect(admin).getPoolAddress('FluidV1', getBytes4(alice.address))
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotFound');
       });
       it('should be able to remove a pool', async function () {
-        await adminVault.connect(admin).proposePool('Fluid', alice.address);
-        await adminVault.connect(admin).addPool('Fluid', alice.address);
-        expect(await adminVault.getPoolAddress('Fluid', getBytes4(alice.address))).to.not.equal(
+        await adminVault.connect(admin).proposePool('FluidV1', alice.address);
+        await adminVault.connect(admin).addPool('FluidV1', alice.address);
+        expect(await adminVault.getPoolAddress('FluidV1', getBytes4(alice.address))).to.not.equal(
           ethers.ZeroAddress
         );
-        await adminVault.connect(admin).removePool('Fluid', alice.address);
+        await adminVault.connect(admin).removePool('FluidV1', alice.address);
         await expect(
-          adminVault.connect(admin).getPoolAddress('Fluid', getBytes4(alice.address))
+          adminVault.connect(admin).getPoolAddress('FluidV1', getBytes4(alice.address))
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotFound');
       });
       it('should not be able to reuse a proposed pool', async function () {
-        await adminVault.connect(admin).proposePool('Fluid', alice.address);
-        await adminVault.connect(admin).addPool('Fluid', alice.address);
-        await adminVault.connect(admin).removePool('Fluid', alice.address);
+        await adminVault.connect(admin).proposePool('FluidV1', alice.address);
+        await adminVault.connect(admin).addPool('FluidV1', alice.address);
+        await adminVault.connect(admin).removePool('FluidV1', alice.address);
         await expect(
-          adminVault.connect(admin).addPool('Fluid', alice.address)
+          adminVault.connect(admin).addPool('FluidV1', alice.address)
         ).to.be.revertedWithCustomError(adminVault, 'AdminVault_NotProposed');
       });
     });
@@ -825,8 +825,8 @@ describe('AdminVault', function () {
       expect(feeConfig.maxBasis).to.equal(200);
     });
     it('should set fee timestamp correctly', async function () {
-      await adminVault.proposePool('Fluid', alice.address);
-      await adminVault.addPool('Fluid', alice.address);
+      await adminVault.proposePool('FluidV1', alice.address);
+      await adminVault.addPool('FluidV1', alice.address);
       const tx = await adminVault.connect(owner).setFeeTimestamp(alice.address);
 
       const receipt = await tx.wait();
@@ -952,7 +952,7 @@ describe('AdminVault', function () {
     let signer: SignerWithAddress;
     let loggerAddress: string;
     let fUSDC: IFluidLending;
-    let fluidSupplyContract: FluidSupply;
+    let fluidSupplyContract: FluidV1Supply;
     let fluidSupplyAddress: string;
     before(async () => {
       [signer] = await ethers.getSigners();
@@ -966,17 +966,17 @@ describe('AdminVault', function () {
       // Fetch the USDC token
       USDC = await getUSDC();
 
-      // Initialize FluidSupply and FluidWithdraw actions
+      // Initialize FluidV1Supply and FluidV1Withdraw actions
       fluidSupplyContract = await deploy(
-        'FluidSupply',
+        'FluidV1Supply',
         signer,
         await adminVault.getAddress(),
         loggerAddress
       );
       fluidSupplyAddress = await fluidSupplyContract.getAddress();
       fUSDC = await ethers.getContractAt('IFluidLending', tokenConfig.FLUID_V1_USDC.address);
-      await adminVault.proposePool('Fluid', await fUSDC.getAddress());
-      await adminVault.addPool('Fluid', await fUSDC.getAddress());
+      await adminVault.proposePool('FluidV1', await fUSDC.getAddress());
+      await adminVault.addPool('FluidV1', await fUSDC.getAddress());
     });
     it('should calculate fee correctly for a given period', async function () {
       const token = 'USDC';
@@ -990,14 +990,14 @@ describe('AdminVault', function () {
       const feeRecipientfUSDCBalanceBefore = await fUSDC.balanceOf(feeRecipient);
 
       const supplyTx = await executeAction({
-        type: 'FluidSupply',
+        type: 'FluidV1Supply',
         amount,
       });
 
       const fUSDCBalanceAfterSupply = await fUSDC.balanceOf(safeAddr);
 
       const protocolId = BigInt(
-        ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Fluid']))
+        ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['FluidV1']))
       );
       const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
         safeAddr,
@@ -1009,7 +1009,7 @@ describe('AdminVault', function () {
       await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
       const withdrawTx = await executeAction({
-        type: 'FluidSupply',
+        type: 'FluidV1Supply',
         poolAddress: tokenConfig.FLUID_V1_USDC.address,
         feeBasis: 10,
         amount: '0',

@@ -29,16 +29,16 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
     sendToken: await utils.deploy('SendToken', deployer, adminVaultAddress, loggerAddress),
 
     // Protocol contracts
-    fluidSupply: await utils.deploy('FluidSupply', deployer, adminVaultAddress, loggerAddress),
-    fluidWithdraw: await utils.deploy('FluidWithdraw', deployer, adminVaultAddress, loggerAddress),
+    fluidSupply: await utils.deploy('FluidV1Supply', deployer, adminVaultAddress, loggerAddress),
+    fluidWithdraw: await utils.deploy('FluidV1Withdraw', deployer, adminVaultAddress, loggerAddress),
 
     aaveV2Supply: await utils.deploy('AaveV2Supply', deployer, adminVaultAddress, loggerAddress, constants.AAVE_V2_POOL),
     aaveV2Withdraw: await utils.deploy('AaveV2Withdraw', deployer, adminVaultAddress, loggerAddress, constants.AAVE_V2_POOL),
     aaveV3Supply: await utils.deploy('AaveV3Supply', deployer, adminVaultAddress, loggerAddress, constants.AAVE_V3_POOL),
     aaveV3Withdraw: await utils.deploy('AaveV3Withdraw', deployer, adminVaultAddress, loggerAddress, constants.AAVE_V3_POOL),
 
-    acrossSupply: await utils.deploy('AcrossSupply', deployer, adminVaultAddress, loggerAddress, constants.ACROSS_HUB),
-    acrossWithdraw: await utils.deploy('AcrossWithdraw', deployer, adminVaultAddress, loggerAddress, constants.ACROSS_HUB),
+    acrossSupply: await utils.deploy('AcrossV3Supply', deployer, adminVaultAddress, loggerAddress, constants.ACROSS_HUB),
+    acrossWithdraw: await utils.deploy('AcrossV3Withdraw', deployer, adminVaultAddress, loggerAddress, constants.ACROSS_HUB),
 
     clearpoolSupply: await utils.deploy('ClearpoolSupply', deployer, adminVaultAddress, loggerAddress),
     clearpoolWithdraw: await utils.deploy('ClearpoolWithdraw', deployer, adminVaultAddress, loggerAddress),
@@ -63,6 +63,19 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
 
     vesperSupply: await utils.deploy('VesperSupply', deployer, adminVaultAddress, loggerAddress),
     vesperWithdraw: await utils.deploy('VesperWithdraw', deployer, adminVaultAddress, loggerAddress),
+
+    clearpoolV1Supply: await utils.deploy(
+      'ClearpoolV1Supply',
+      deployer,
+      adminVaultAddress,
+      loggerAddress
+    ),
+    clearpoolV1Withdraw: await utils.deploy(
+      'ClearpoolV1Withdraw',
+      deployer,
+      adminVaultAddress,
+      loggerAddress
+    ),
   };
 
   for (const [name, contract] of Object.entries(contracts)) {
@@ -112,13 +125,13 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
   await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(aaveV3WithdrawAddress), aaveV3WithdrawAddress);
   await baseSetup.adminVault.connect(deployer).addAction(getBytes4(aaveV3WithdrawAddress), aaveV3WithdrawAddress);
 
-  const acrossSupplyAddress = await contracts.acrossSupply.getAddress();
-  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(acrossSupplyAddress), acrossSupplyAddress);
-  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(acrossSupplyAddress), acrossSupplyAddress);
+  const acrossV3SupplyAddress = await contracts.acrossSupply.getAddress();
+  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(acrossV3SupplyAddress), acrossV3SupplyAddress);
+  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(acrossV3SupplyAddress), acrossV3SupplyAddress);
 
-  const acrossWithdrawAddress = await contracts.acrossWithdraw.getAddress();
-  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(acrossWithdrawAddress), acrossWithdrawAddress);
-  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(acrossWithdrawAddress), acrossWithdrawAddress);
+  const acrossV3WithdrawAddress = await contracts.acrossWithdraw.getAddress();
+  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(acrossV3WithdrawAddress), acrossV3WithdrawAddress);
+  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(acrossV3WithdrawAddress), acrossV3WithdrawAddress);
 
   const clearpoolSupplyAddress = await contracts.clearpoolSupply.getAddress();
   await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(clearpoolSupplyAddress), clearpoolSupplyAddress);
@@ -184,16 +197,32 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
   await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(vesperWithdrawAddress), vesperWithdrawAddress);
   await baseSetup.adminVault.connect(deployer).addAction(getBytes4(vesperWithdrawAddress), vesperWithdrawAddress);
 
+  const clearpoolV1SupplyAddress = await contracts.clearpoolV1Supply.getAddress();
+  await baseSetup.adminVault
+    .connect(deployer)
+    .proposeAction(getBytes4(clearpoolV1SupplyAddress), clearpoolV1SupplyAddress);
+  await baseSetup.adminVault
+    .connect(deployer)
+    .addAction(getBytes4(clearpoolV1SupplyAddress), clearpoolV1SupplyAddress);
+
+  const clearpoolV1WithdrawAddress = await contracts.clearpoolV1Withdraw.getAddress();
+  await baseSetup.adminVault
+    .connect(deployer)
+    .proposeAction(getBytes4(clearpoolV1WithdrawAddress), clearpoolV1WithdrawAddress);
+  await baseSetup.adminVault
+    .connect(deployer)
+    .addAction(getBytes4(clearpoolV1WithdrawAddress), clearpoolV1WithdrawAddress);
+
   console.log('Adding pools to admin vault');
   const FLUID_USDC_ADDRESS = constants.tokenConfig.FLUID_V1_USDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Fluid', FLUID_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Fluid', FLUID_USDC_ADDRESS);
-  console.log(`Fluid USDC pool added. PoolId: ${getBytes4(FLUID_USDC_ADDRESS)}`);
+  await baseSetup.adminVault.connect(deployer).proposePool('FluidV1', FLUID_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('FluidV1', FLUID_USDC_ADDRESS);
+  console.log(`FluidV1 USDC pool added. PoolId: ${getBytes4(FLUID_USDC_ADDRESS)}`);
 
   const FLUID_USDT_ADDRESS = constants.tokenConfig.FLUID_V1_USDT.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Fluid', FLUID_USDT_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Fluid', FLUID_USDT_ADDRESS);
-  console.log(`Fluid USDT pool added. PoolId: ${getBytes4(FLUID_USDT_ADDRESS)}`);
+  await baseSetup.adminVault.connect(deployer).proposePool('FluidV1', FLUID_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('FluidV1', FLUID_USDT_ADDRESS);
+  console.log(`FluidV1 USDT pool added. PoolId: ${getBytes4(FLUID_USDT_ADDRESS)}`);
 
   const AAVE_V2_USDC_ADDRESS = constants.tokenConfig.AAVE_V2_aUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('AaveV2', AAVE_V2_USDC_ADDRESS);
@@ -226,29 +255,39 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
   console.log(`AaveV3 DAI pool added. PoolId: ${getBytes4(AAVE_V3_DAI_ADDRESS)}`);
 
   const ACROSS_USDC_ADDRESS = constants.tokenConfig.USDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Across', ACROSS_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Across', ACROSS_USDC_ADDRESS);
-  console.log(`Across USDC pool added. PoolId: ${getBytes4(ACROSS_USDC_ADDRESS)}`);
+  await baseSetup.adminVault.connect(deployer).proposePool('AcrossV3', ACROSS_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('AcrossV3', ACROSS_USDC_ADDRESS);
+  console.log(`AcrossV3 USDC pool added. PoolId: ${getBytes4(ACROSS_USDC_ADDRESS)}`);
 
   const ACROSS_USDT_ADDRESS = constants.tokenConfig.USDT.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Across', ACROSS_USDT_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Across', ACROSS_USDT_ADDRESS);
-  console.log(`Across USDT pool added. PoolId: ${getBytes4(ACROSS_USDT_ADDRESS)}`);
+  await baseSetup.adminVault.connect(deployer).proposePool('AcrossV3', ACROSS_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('AcrossV3', ACROSS_USDT_ADDRESS);
+  console.log(`AcrossV3 USDT pool added. PoolId: ${getBytes4(ACROSS_USDT_ADDRESS)}`);
 
   const ACROSS_DAI_ADDRESS = constants.tokenConfig.DAI.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Across', ACROSS_DAI_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Across', ACROSS_DAI_ADDRESS);
-  console.log(`Across DAI pool added. PoolId: ${getBytes4(ACROSS_DAI_ADDRESS)}`);
+  await baseSetup.adminVault.connect(deployer).proposePool('AcrossV3', ACROSS_DAI_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('AcrossV3', ACROSS_DAI_ADDRESS);
+  console.log(`AcrossV3 DAI pool added. PoolId: ${getBytes4(ACROSS_DAI_ADDRESS)}`);
 
   const CLEARPOOL_ALPHANONCE_USDC_ADDRESS = constants.tokenConfig.CLEARPOOL_V1_ALP_USDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Clearpool', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Clearpool', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
-  console.log(`Clearpool Alphanonce USDC pool added. PoolId: ${getBytes4(CLEARPOOL_ALPHANONCE_USDC_ADDRESS)}`);
+  await baseSetup.adminVault
+    .connect(deployer)
+    .proposePool('ClearpoolV1', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
+  await baseSetup.adminVault
+    .connect(deployer)
+    .addPool('ClearpoolV1', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
+  console.log(
+    `Clearpool V1 Alphanonce USDC pool added. PoolId: ${getBytes4(CLEARPOOL_ALPHANONCE_USDC_ADDRESS)}`
+  );
 
   const CLEARPOOL_AUROS_USDC_ADDRESS = constants.tokenConfig.CLEARPOOL_V1_AUR_USDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Clearpool', CLEARPOOL_AUROS_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Clearpool', CLEARPOOL_AUROS_USDC_ADDRESS);
-  console.log(`Clearpool Auros USDC pool added. PoolId: ${getBytes4(CLEARPOOL_AUROS_USDC_ADDRESS)}`);
+  await baseSetup.adminVault
+    .connect(deployer)
+    .proposePool('ClearpoolV1', CLEARPOOL_AUROS_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('ClearpoolV1', CLEARPOOL_AUROS_USDC_ADDRESS);
+  console.log(
+    `Clearpool V1 Auros USDC pool added. PoolId: ${getBytes4(CLEARPOOL_AUROS_USDC_ADDRESS)}`
+  );
 
   const MORPHO_FX_USDC_ADDRESS = constants.tokenConfig.MORPHO_V1_fxUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_FX_USDC_ADDRESS);

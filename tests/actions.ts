@@ -51,29 +51,29 @@ interface ERC4626WithdrawArgs extends BaseActionArgs {
 type WithdrawArgs =
   | (ERC4626WithdrawArgs & {
       type:
-        | 'FluidWithdraw'
+        | 'FluidV1Withdraw'
         | 'ClearpoolWithdraw'
-        | 'SparkWithdraw'
-        | 'AcrossWithdraw'
-        | 'MorphoWithdraw'
-        | 'YearnWithdrawV3'
-        | 'GearboxPassiveWithdraw';
+        | 'SparkV1Withdraw'
+        | 'AcrossV3Withdraw'
+        | 'MorphoV1Withdraw'
+        | 'YearnV3Withdraw'
+        | 'GearboxPassiveV3Withdraw';
     })
-  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnWithdraw' | 'VesperWithdraw' });
+  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnV2Withdraw' | 'VesperV1Withdraw' });
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
   type:
-    | 'FluidSupply'
-    | 'YearnSupply'
+    | 'FluidV1Supply'
+    | 'YearnV2Supply'
     | 'ClearpoolSupply'
-    | 'SparkSupply'
-    | 'AcrossSupply'
-    | 'MorphoSupply'
-    | 'VesperSupply'
+    | 'SparkV1Supply'
+    | 'AcrossV3Supply'
+    | 'MorphoV1Supply'
+    | 'VesperV1Supply'
     | 'NotionalV3Supply'
-    | 'YearnSupplyV3'
-    | 'GearboxPassiveSupply';
+    | 'YearnV3Supply'
+    | 'GearboxPassiveV3Supply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -130,23 +130,23 @@ export interface AaveV2Args extends BaseActionArgs {
 }
 
 interface StrikeArgs extends BaseActionArgs {
-  type: 'StrikeSupply' | 'StrikeWithdraw';
+  type: 'StrikeV1Supply' | 'StrikeV1Withdraw';
   assetId: string;
   amount: string | BigInt;
   feeBasis?: number;
 }
 
-export interface UwULendArgs extends BaseActionArgs {
-  type: 'UwULendSupply' | 'UwULendWithdraw';
+export interface UwULendV1Args extends BaseActionArgs {
+  type: 'UwULendV1Supply' | 'UwULendV1Withdraw';
   assetId: string;
   amount: string | BigInt;
   feeBasis?: number;
 }
 
-export interface BendDaoArgs extends BaseActionArgs {
-  type: 'BendDaoSupply' | 'BendDaoWithdraw';
-  assetId: string;
-  amount: string | BigInt;
+export interface BendDaoV1Args extends BaseActionArgs {
+  type: 'BendDaoV1Supply' | 'BendDaoV1Withdraw';
+  assetId?: string;
+  amount?: string | BigInt;
   feeBasis?: number;
 }
 
@@ -155,25 +155,34 @@ interface UpgradeArgs extends BaseActionArgs {
   data: string;
 }
 
+export interface ClearpoolV1Args extends BaseActionArgs {
+  poolAddress: string;
+  amount: string | BigInt;
+  feeBasis?: number;
+  minSharesReceived?: string | BigInt;
+  maxSharesBurned?: string | BigInt;
+}
+
 // Union type for all action args
 export type ActionArgs =
+  | (ClearpoolV1Args & { type: 'ClearpoolV1Supply' | 'ClearpoolV1Withdraw' })
+  | (AaveV2Args & { type: 'AaveV2Supply' | 'AaveV2Withdraw' })
+  | (AaveV3Args & { type: 'AaveV3Supply' | 'AaveV3Withdraw' })
+  | (BendDaoV1Args & { type: 'BendDaoV1Supply' | 'BendDaoV1Withdraw' })
   | SupplyArgs
   | WithdrawArgs
   | SwapArgs
   | ParaswapSwapArgs
   | TokenTransferArgs
   | BuyCoverArgs
-  | AaveV3Args
-  | AaveV2Args
   | StrikeArgs
-  | UwULendArgs
-  | BendDaoArgs
+  | UwULendV1Args
   | UpgradeArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
-  FluidSupply: {
-    type: 'FluidSupply',
+  FluidV1Supply: {
+    type: 'FluidV1Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -187,8 +196,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     },
     sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
   },
-  FluidWithdraw: {
-    type: 'FluidWithdraw',
+  FluidV1Withdraw: {
+    type: 'FluidV1Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -202,8 +211,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     },
     sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
-  YearnSupply: {
-    type: 'YearnSupply',
+  YearnV2Supply: {
+    type: 'YearnV2Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -216,8 +225,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  YearnWithdraw: {
-    type: 'YearnWithdraw',
+  YearnV2Withdraw: {
+    type: 'YearnV2Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -230,8 +239,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
     },
   },
-  VesperSupply: {
-    type: 'VesperSupply',
+  VesperV1Supply: {
+    type: 'VesperV1Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -244,8 +253,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  VesperWithdraw: {
-    type: 'VesperWithdraw',
+  VesperV1Withdraw: {
+    type: 'VesperV1Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -370,8 +379,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  StrikeWithdraw: {
-    type: 'StrikeWithdraw',
+  StrikeV1Withdraw: {
+    type: 'StrikeV1Withdraw',
     assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
     amount: '0',
     feeBasis: 0,
@@ -382,8 +391,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  StrikeSupply: {
-    type: 'StrikeSupply',
+  StrikeV1Supply: {
+    type: 'StrikeV1Supply',
     assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
     amount: '0',
     feeBasis: 0,
@@ -394,8 +403,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  ClearpoolSupply: {
-    type: 'ClearpoolSupply',
+  ClearpoolV1Supply: {
+    type: 'ClearpoolV1Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -408,8 +417,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  ClearpoolWithdraw: {
-    type: 'ClearpoolWithdraw',
+  ClearpoolV1Withdraw: {
+    type: 'ClearpoolV1Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -422,8 +431,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
   },
-  UwULendWithdraw: {
-    type: 'UwULendWithdraw',
+  UwULendV1Withdraw: {
+    type: 'UwULendV1Withdraw',
     assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
     amount: '0',
     feeBasis: 0,
@@ -434,8 +443,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  UwULendSupply: {
-    type: 'UwULendSupply',
+  UwULendV1Supply: {
+    type: 'UwULendV1Supply',
     assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
     amount: '0',
     feeBasis: 0,
@@ -446,8 +455,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  BendDaoSupply: {
-    type: 'BendDaoSupply',
+  BendDaoV1Supply: {
+    type: 'BendDaoV1Supply',
     assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
     amount: '0',
     feeBasis: 0,
@@ -458,8 +467,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  BendDaoWithdraw: {
-    type: 'BendDaoWithdraw',
+  BendDaoV1Withdraw: {
+    type: 'BendDaoV1Withdraw',
     assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
     amount: '0',
     feeBasis: 0,
@@ -470,8 +479,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  SparkSupply: {
-    type: 'SparkSupply',
+  SparkV1Supply: {
+    type: 'SparkV1Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -484,8 +493,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  SparkWithdraw: {
-    type: 'SparkWithdraw',
+  SparkV1Withdraw: {
+    type: 'SparkV1Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -498,8 +507,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
   },
-  AcrossSupply: {
-    type: 'AcrossSupply',
+  AcrossV3Supply: {
+    type: 'AcrossV3Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -512,8 +521,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  AcrossWithdraw: {
-    type: 'AcrossWithdraw',
+  AcrossV3Withdraw: {
+    type: 'AcrossV3Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -526,8 +535,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
   },
-  MorphoSupply: {
-    type: 'MorphoSupply',
+  MorphoV1Supply: {
+    type: 'MorphoV1Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -541,8 +550,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     },
     sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
   },
-  MorphoWithdraw: {
-    type: 'MorphoWithdraw',
+  MorphoV1Withdraw: {
+    type: 'MorphoV1Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -556,8 +565,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
     },
     sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
-  YearnSupplyV3: {
-    type: 'YearnSupplyV3',
+  YearnV3Supply: {
+    type: 'YearnV3Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -570,8 +579,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  YearnWithdrawV3: {
-    type: 'YearnWithdrawV3',
+  YearnV3Withdraw: {
+    type: 'YearnV3Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -612,8 +621,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
     },
   },
-  GearboxPassiveSupply: {
-    type: 'GearboxPassiveSupply',
+  GearboxPassiveV3Supply: {
+    type: 'GearboxPassiveV3Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
@@ -626,8 +635,8 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  GearboxPassiveWithdraw: {
-    type: 'GearboxPassiveWithdraw',
+  GearboxPassiveV3Withdraw: {
+    type: 'GearboxPassiveV3Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,

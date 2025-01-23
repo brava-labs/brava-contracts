@@ -291,18 +291,18 @@ describe('Utils tests', () => {
       await fundAccountWithToken(safeAddr, 'FLUID_V1_USDC', fundAmount);
       await fundAccountWithToken(safeAddr, 'USDC', fundAmount);
 
-      const fluidSupplyContract = await deploy('FluidSupply', signer, await adminVault.getAddress(), loggerAddress);
+      const fluidSupplyContract = await deploy('FluidV1Supply', signer, await adminVault.getAddress(), loggerAddress);
       const fluidSupplyAddress = await fluidSupplyContract.getAddress();
 
-      await adminVault.proposePool('Fluid', tokenConfig.FLUID_V1_USDC.address);
-      await adminVault.addPool('Fluid', tokenConfig.FLUID_V1_USDC.address);
+      await adminVault.proposePool('FluidV1', tokenConfig.FLUID_V1_USDC.address);
+      await adminVault.addPool('FluidV1', tokenConfig.FLUID_V1_USDC.address);
       await adminVault.proposeAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
       await adminVault.addAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
       await adminVault.proposeAction(getBytes4(sendTokenAddress), sendTokenAddress);
       await adminVault.addAction(getBytes4(sendTokenAddress), sendTokenAddress);
 
         const supplyPayload = await encodeAction({
-          type: 'FluidSupply',
+          type: 'FluidV1Supply',
           poolAddress: tokenConfig.FLUID_V1_USDC.address,
           amount: '0',
         });

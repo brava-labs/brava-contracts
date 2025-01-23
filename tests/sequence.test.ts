@@ -2,8 +2,8 @@ import { network } from 'hardhat';
 import {
   AdminVault,
   Curve3PoolSwap,
-  FluidSupply,
-  FluidWithdraw,
+  FluidV1Supply,
+  FluidV1Withdraw,
   SequenceExecutor,
 } from '../typechain-types';
 import { ethers, Signer } from './.';
@@ -16,8 +16,8 @@ describe('Sequence tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let adminVault: AdminVault;
-  let fluidSupplyAction: FluidSupply;
-  let fluidWithdrawAction: FluidWithdraw;
+  let fluidSupplyAction: FluidV1Supply;
+  let fluidWithdrawAction: FluidV1Withdraw;
   let swapAction: Curve3PoolSwap;
   let loggerAddress: string;
   let fluidSupplyAddress: string;
@@ -37,13 +37,13 @@ describe('Sequence tests', () => {
 
     // we need a couple of actions to test with
     fluidSupplyAction = await deploy(
-      'FluidSupply',
+      'FluidV1Supply',
       signer,
       await adminVault.getAddress(),
       loggerAddress
     );
     fluidWithdrawAction = await deploy(
-      'FluidWithdraw',
+      'FluidV1Withdraw',
       signer,
       await adminVault.getAddress(),
       loggerAddress
@@ -65,8 +65,8 @@ describe('Sequence tests', () => {
     await adminVault.addAction(getBytes4(fluidWithdrawAddress), fluidWithdrawAddress);
     await adminVault.addAction(getBytes4(swapActionAddress), swapActionAddress);
     const FLUID_USDC_ADDRESS = tokenConfig.FLUID_V1_USDC.address;
-    await adminVault.proposePool('Fluid', FLUID_USDC_ADDRESS);
-    await adminVault.addPool('Fluid', FLUID_USDC_ADDRESS);
+    await adminVault.proposePool('FluidV1', FLUID_USDC_ADDRESS);
+    await adminVault.addPool('FluidV1', FLUID_USDC_ADDRESS);
   });
   beforeEach(async () => {
     // IMPORTANT: take a new snapshot, they can't be reused!
@@ -85,15 +85,15 @@ describe('Sequence tests', () => {
     await fundAccountWithToken(safeAddr, 'USDC', amount);
     await fundAccountWithToken(safeAddr, 'USDC', amount);
     const payloadSupply = await encodeAction({
-      type: 'FluidSupply',
+      type: 'FluidV1Supply',
       amount,
     });
     const payloadWithdraw = await encodeAction({
-      type: 'FluidWithdraw',
+      type: 'FluidV1Withdraw',
       amount,
     });
     const sequence: SequenceExecutor.SequenceStruct = {
-      name: 'FluidSupplySequence',
+      name: 'FluidV1SupplySequence',
       callData: [payloadSupply, payloadWithdraw],
       actionIds: [getBytes4(fluidSupplyAddress), getBytes4(fluidWithdrawAddress)],
     };
@@ -101,7 +101,7 @@ describe('Sequence tests', () => {
     await tx.wait();
   });
   it('should be able to execute a complex sequence of actions', async () => {
-    // Lets deposit Dai, swap half to USDC and half to USDT, put the USDT into Fluid  and the USDC into Yearn. Also purchase insurance.
+    // Lets deposit Dai, swap half to USDC and half to USDT, put the USDT into FluidV1  and the USDC into Yearn. Also purchase insurance.
 
     const amount = ethers.parseUnits('1000', tokenConfig.DAI.decimals);
     await fundAccountWithToken(safeAddr, 'DAI', amount);
@@ -120,7 +120,7 @@ describe('Sequence tests', () => {
     });
     // TODO: We need some basic conversions before we can give input amounts for subsequent actions.
     // const fluidSupply = await encodeAction({
-    //   type: 'FluidSupply',
+    //   type: 'FluidV1Supply',
     //   amount: BigInt(amount) / 3n,
     // });
     // const yearnSupply = await encodeAction({
