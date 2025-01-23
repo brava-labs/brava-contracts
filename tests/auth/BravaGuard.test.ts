@@ -100,7 +100,7 @@ describe('BravaGuard', () => {
   describe('Transaction Validation', () => {
     it('should allow transactions to sequence executor', async () => {
       const fluidSupplyContract = await deploy(
-        'FluidSupply',
+        'FluidV1Supply',
         deployer,
         await adminVault.getAddress(),
         await logger.getAddress()
@@ -108,20 +108,20 @@ describe('BravaGuard', () => {
       const fluidSupplyAddress = await fluidSupplyContract.getAddress();
       await adminVault.proposeAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
       await adminVault.addAction(getBytes4(fluidSupplyAddress), fluidSupplyAddress);
-      await adminVault.proposePool('Fluid', tokenConfig.fUSDC.address);
-      await adminVault.addPool('Fluid', tokenConfig.fUSDC.address);
+      await adminVault.proposePool('FluidV1', tokenConfig.FLUID_V1_USDC.address);
+      await adminVault.addPool('FluidV1', tokenConfig.FLUID_V1_USDC.address);
 
       const token = 'USDC';
       const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
       await fundAccountWithToken(await safe.getAddress(), token, amount);
 
       const payload = await encodeAction({
-        type: 'FluidSupply',
+        type: 'FluidV1Supply',
         amount,
       });
 
       await executeSequence(await safe.getAddress(), {
-        name: 'FluidSupplySequence',
+        name: 'FluidV1SupplySequence',
         callData: [payload],
         actionIds: [getBytes4(fluidSupplyAddress)],
       }, false);

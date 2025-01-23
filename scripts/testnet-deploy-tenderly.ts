@@ -29,16 +29,16 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
     sendToken: await utils.deploy('SendToken', deployer, adminVaultAddress, loggerAddress),
 
     // Protocol contracts
-    fluidSupply: await utils.deploy('FluidSupply', deployer, adminVaultAddress, loggerAddress),
-    fluidWithdraw: await utils.deploy('FluidWithdraw', deployer, adminVaultAddress, loggerAddress),
+    fluidSupply: await utils.deploy('FluidV1Supply', deployer, adminVaultAddress, loggerAddress),
+    fluidWithdraw: await utils.deploy('FluidV1Withdraw', deployer, adminVaultAddress, loggerAddress),
 
     aaveV2Supply: await utils.deploy('AaveV2Supply', deployer, adminVaultAddress, loggerAddress, constants.AAVE_V2_POOL),
     aaveV2Withdraw: await utils.deploy('AaveV2Withdraw', deployer, adminVaultAddress, loggerAddress, constants.AAVE_V2_POOL),
     aaveV3Supply: await utils.deploy('AaveV3Supply', deployer, adminVaultAddress, loggerAddress, constants.AAVE_V3_POOL),
     aaveV3Withdraw: await utils.deploy('AaveV3Withdraw', deployer, adminVaultAddress, loggerAddress, constants.AAVE_V3_POOL),
 
-    acrossSupply: await utils.deploy('AcrossSupply', deployer, adminVaultAddress, loggerAddress, constants.ACROSS_HUB),
-    acrossWithdraw: await utils.deploy('AcrossWithdraw', deployer, adminVaultAddress, loggerAddress, constants.ACROSS_HUB),
+    acrossSupply: await utils.deploy('AcrossV3Supply', deployer, adminVaultAddress, loggerAddress, constants.ACROSS_HUB),
+    acrossWithdraw: await utils.deploy('AcrossV3Withdraw', deployer, adminVaultAddress, loggerAddress, constants.ACROSS_HUB),
 
     clearpoolSupply: await utils.deploy('ClearpoolSupply', deployer, adminVaultAddress, loggerAddress),
     clearpoolWithdraw: await utils.deploy('ClearpoolWithdraw', deployer, adminVaultAddress, loggerAddress),
@@ -63,6 +63,19 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
 
     vesperSupply: await utils.deploy('VesperSupply', deployer, adminVaultAddress, loggerAddress),
     vesperWithdraw: await utils.deploy('VesperWithdraw', deployer, adminVaultAddress, loggerAddress),
+
+    clearpoolV1Supply: await utils.deploy(
+      'ClearpoolV1Supply',
+      deployer,
+      adminVaultAddress,
+      loggerAddress
+    ),
+    clearpoolV1Withdraw: await utils.deploy(
+      'ClearpoolV1Withdraw',
+      deployer,
+      adminVaultAddress,
+      loggerAddress
+    ),
   };
 
   for (const [name, contract] of Object.entries(contracts)) {
@@ -112,13 +125,13 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
   await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(aaveV3WithdrawAddress), aaveV3WithdrawAddress);
   await baseSetup.adminVault.connect(deployer).addAction(getBytes4(aaveV3WithdrawAddress), aaveV3WithdrawAddress);
 
-  const acrossSupplyAddress = await contracts.acrossSupply.getAddress();
-  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(acrossSupplyAddress), acrossSupplyAddress);
-  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(acrossSupplyAddress), acrossSupplyAddress);
+  const acrossV3SupplyAddress = await contracts.acrossSupply.getAddress();
+  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(acrossV3SupplyAddress), acrossV3SupplyAddress);
+  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(acrossV3SupplyAddress), acrossV3SupplyAddress);
 
-  const acrossWithdrawAddress = await contracts.acrossWithdraw.getAddress();
-  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(acrossWithdrawAddress), acrossWithdrawAddress);
-  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(acrossWithdrawAddress), acrossWithdrawAddress);
+  const acrossV3WithdrawAddress = await contracts.acrossWithdraw.getAddress();
+  await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(acrossV3WithdrawAddress), acrossV3WithdrawAddress);
+  await baseSetup.adminVault.connect(deployer).addAction(getBytes4(acrossV3WithdrawAddress), acrossV3WithdrawAddress);
 
   const clearpoolSupplyAddress = await contracts.clearpoolSupply.getAddress();
   await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(clearpoolSupplyAddress), clearpoolSupplyAddress);
@@ -184,162 +197,213 @@ export async function deployTestnetTenderly(deployer: Signer, testAccounts: Sign
   await baseSetup.adminVault.connect(deployer).proposeAction(getBytes4(vesperWithdrawAddress), vesperWithdrawAddress);
   await baseSetup.adminVault.connect(deployer).addAction(getBytes4(vesperWithdrawAddress), vesperWithdrawAddress);
 
+  const clearpoolV1SupplyAddress = await contracts.clearpoolV1Supply.getAddress();
+  await baseSetup.adminVault
+    .connect(deployer)
+    .proposeAction(getBytes4(clearpoolV1SupplyAddress), clearpoolV1SupplyAddress);
+  await baseSetup.adminVault
+    .connect(deployer)
+    .addAction(getBytes4(clearpoolV1SupplyAddress), clearpoolV1SupplyAddress);
+
+  const clearpoolV1WithdrawAddress = await contracts.clearpoolV1Withdraw.getAddress();
+  await baseSetup.adminVault
+    .connect(deployer)
+    .proposeAction(getBytes4(clearpoolV1WithdrawAddress), clearpoolV1WithdrawAddress);
+  await baseSetup.adminVault
+    .connect(deployer)
+    .addAction(getBytes4(clearpoolV1WithdrawAddress), clearpoolV1WithdrawAddress);
+
   console.log('Adding pools to admin vault');
-  const FLUID_USDC_ADDRESS = constants.tokenConfig.fUSDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Fluid', FLUID_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Fluid', FLUID_USDC_ADDRESS);
-  console.log(`Fluid USDC pool added. PoolId: ${getBytes4(FLUID_USDC_ADDRESS)}`);
+  const FLUID_USDC_ADDRESS = constants.tokenConfig.FLUID_V1_USDC.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('FluidV1', FLUID_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('FluidV1', FLUID_USDC_ADDRESS);
+  console.log(`FluidV1 USDC pool added. PoolId: ${getBytes4(FLUID_USDC_ADDRESS)}`);
 
-  const FLUID_USDT_ADDRESS = constants.tokenConfig.fUSDT.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Fluid', FLUID_USDT_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Fluid', FLUID_USDT_ADDRESS);
-  console.log(`Fluid USDT pool added. PoolId: ${getBytes4(FLUID_USDT_ADDRESS)}`);
+  const FLUID_USDT_ADDRESS = constants.tokenConfig.FLUID_V1_USDT.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('FluidV1', FLUID_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('FluidV1', FLUID_USDT_ADDRESS);
+  console.log(`FluidV1 USDT pool added. PoolId: ${getBytes4(FLUID_USDT_ADDRESS)}`);
 
-  const AAVE_V2_USDC_ADDRESS = constants.tokenConfig.aUSDC_V2.address;
+  const AAVE_V2_USDC_ADDRESS = constants.tokenConfig.AAVE_V2_aUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('AaveV2', AAVE_V2_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('AaveV2', AAVE_V2_USDC_ADDRESS);
   console.log(`AaveV2 USDC pool added. PoolId: ${getBytes4(AAVE_V2_USDC_ADDRESS)}`);
 
-  const AAVE_V2_USDT_ADDRESS = constants.tokenConfig.aUSDT_V2.address;
+  const AAVE_V2_USDT_ADDRESS = constants.tokenConfig.AAVE_V2_aUSDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('AaveV2', AAVE_V2_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('AaveV2', AAVE_V2_USDT_ADDRESS);
   console.log(`AaveV2 USDT pool added. PoolId: ${getBytes4(AAVE_V2_USDT_ADDRESS)}`);
 
-  const AAVE_V2_DAI_ADDRESS = constants.tokenConfig.aDAI_V2.address;
+  const AAVE_V2_DAI_ADDRESS = constants.tokenConfig.AAVE_V2_aDAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('AaveV2', AAVE_V2_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('AaveV2', AAVE_V2_DAI_ADDRESS);
   console.log(`AaveV2 DAI pool added. PoolId: ${getBytes4(AAVE_V2_DAI_ADDRESS)}`);
 
-  const AAVE_V3_USDC_ADDRESS = constants.tokenConfig.aUSDC_V3.address;
+  const AAVE_V3_USDC_ADDRESS = constants.tokenConfig.AAVE_V3_aUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('AaveV3', AAVE_V3_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('AaveV3', AAVE_V3_USDC_ADDRESS);
   console.log(`AaveV3 USDC pool added. PoolId: ${getBytes4(AAVE_V3_USDC_ADDRESS)}`);
 
-  const AAVE_V3_USDT_ADDRESS = constants.tokenConfig.aUSDT_V3.address;
+  const AAVE_V3_USDT_ADDRESS = constants.tokenConfig.AAVE_V3_aUSDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('AaveV3', AAVE_V3_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('AaveV3', AAVE_V3_USDT_ADDRESS);
   console.log(`AaveV3 USDT pool added. PoolId: ${getBytes4(AAVE_V3_USDT_ADDRESS)}`);
 
-  const AAVE_V3_DAI_ADDRESS = constants.tokenConfig.aDAI_V3.address;
+  const AAVE_V3_DAI_ADDRESS = constants.tokenConfig.AAVE_V3_aDAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('AaveV3', AAVE_V3_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('AaveV3', AAVE_V3_DAI_ADDRESS);
   console.log(`AaveV3 DAI pool added. PoolId: ${getBytes4(AAVE_V3_DAI_ADDRESS)}`);
 
   const ACROSS_USDC_ADDRESS = constants.tokenConfig.USDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Across', ACROSS_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Across', ACROSS_USDC_ADDRESS);
-  console.log(`Across USDC pool added. PoolId: ${getBytes4(ACROSS_USDC_ADDRESS)}`);
+  await baseSetup.adminVault.connect(deployer).proposePool('AcrossV3', ACROSS_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('AcrossV3', ACROSS_USDC_ADDRESS);
+  console.log(`AcrossV3 USDC pool added. PoolId: ${getBytes4(ACROSS_USDC_ADDRESS)}`);
 
   const ACROSS_USDT_ADDRESS = constants.tokenConfig.USDT.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Across', ACROSS_USDT_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Across', ACROSS_USDT_ADDRESS);
-  console.log(`Across USDT pool added. PoolId: ${getBytes4(ACROSS_USDT_ADDRESS)}`);
+  await baseSetup.adminVault.connect(deployer).proposePool('AcrossV3', ACROSS_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('AcrossV3', ACROSS_USDT_ADDRESS);
+  console.log(`AcrossV3 USDT pool added. PoolId: ${getBytes4(ACROSS_USDT_ADDRESS)}`);
 
   const ACROSS_DAI_ADDRESS = constants.tokenConfig.DAI.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Across', ACROSS_DAI_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Across', ACROSS_DAI_ADDRESS);
-  console.log(`Across DAI pool added. PoolId: ${getBytes4(ACROSS_DAI_ADDRESS)}`);
+  await baseSetup.adminVault.connect(deployer).proposePool('AcrossV3', ACROSS_DAI_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('AcrossV3', ACROSS_DAI_ADDRESS);
+  console.log(`AcrossV3 DAI pool added. PoolId: ${getBytes4(ACROSS_DAI_ADDRESS)}`);
 
-  const CLEARPOOL_ALPHANONCE_USDC_ADDRESS = constants.tokenConfig.cpALP_USDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Clearpool', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Clearpool', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
-  console.log(`Clearpool Alphanonce USDC pool added. PoolId: ${getBytes4(CLEARPOOL_ALPHANONCE_USDC_ADDRESS)}`);
+  const CLEARPOOL_ALPHANONCE_USDC_ADDRESS = constants.tokenConfig.CLEARPOOL_V1_ALP_USDC.address;
+  await baseSetup.adminVault
+    .connect(deployer)
+    .proposePool('ClearpoolV1', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
+  await baseSetup.adminVault
+    .connect(deployer)
+    .addPool('ClearpoolV1', CLEARPOOL_ALPHANONCE_USDC_ADDRESS);
+  console.log(
+    `Clearpool V1 Alphanonce USDC pool added. PoolId: ${getBytes4(CLEARPOOL_ALPHANONCE_USDC_ADDRESS)}`
+  );
 
-  const CLEARPOOL_AUROS_USDC_ADDRESS = constants.tokenConfig.cpAUR_USDC.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Clearpool', CLEARPOOL_AUROS_USDC_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Clearpool', CLEARPOOL_AUROS_USDC_ADDRESS);
-  console.log(`Clearpool Auros USDC pool added. PoolId: ${getBytes4(CLEARPOOL_AUROS_USDC_ADDRESS)}`);
+  const CLEARPOOL_AUROS_USDC_ADDRESS = constants.tokenConfig.CLEARPOOL_V1_AUR_USDC.address;
+  await baseSetup.adminVault
+    .connect(deployer)
+    .proposePool('ClearpoolV1', CLEARPOOL_AUROS_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('ClearpoolV1', CLEARPOOL_AUROS_USDC_ADDRESS);
+  console.log(
+    `Clearpool V1 Auros USDC pool added. PoolId: ${getBytes4(CLEARPOOL_AUROS_USDC_ADDRESS)}`
+  );
 
-  const MORPHO_FX_USDC_ADDRESS = constants.tokenConfig.morpho_fxUSDC.address;
+  const MORPHO_FX_USDC_ADDRESS = constants.tokenConfig.MORPHO_V1_fxUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_FX_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_FX_USDC_ADDRESS);
   console.log(`Morpho FX USDC pool added. PoolId: ${getBytes4(MORPHO_FX_USDC_ADDRESS)}`);
 
-  const MORPHO_USUAL_USDC_ADDRESS = constants.tokenConfig.morpho_usualUSDC.address;
+  const MORPHO_USUAL_USDC_ADDRESS = constants.tokenConfig.MORPHO_V1_USUALUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_USUAL_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_USUAL_USDC_ADDRESS);
   console.log(`Morpho Usual USDC pool added. PoolId: ${getBytes4(MORPHO_USUAL_USDC_ADDRESS)}`);
 
-  const MORPHO_GAUNTLET_USDC_ADDRESS = constants.tokenConfig.morpho_gauntletUSDC.address;
+  const MORPHO_GAUNTLET_USDC_ADDRESS = constants.tokenConfig.MORPHO_V1_gtUSDCcore.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_GAUNTLET_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_GAUNTLET_USDC_ADDRESS);
   console.log(`Morpho Gauntlet USDC pool added. PoolId: ${getBytes4(MORPHO_GAUNTLET_USDC_ADDRESS)}`);
 
-  const MORPHO_RE7_USDT_ADDRESS = constants.tokenConfig.morpho_blue_re7USDT.address;
+  const MORPHO_RE7_USDT_ADDRESS = constants.tokenConfig.MORPHO_V1_re7USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_RE7_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_RE7_USDT_ADDRESS);
   console.log(`Morpho Re7 USDT pool added. PoolId: ${getBytes4(MORPHO_RE7_USDT_ADDRESS)}`);
 
-  const MORPHO_RE_USDC_ADDRESS = constants.tokenConfig.morpho_blue_reUSDC.address;
+  const MORPHO_RE_USDC_ADDRESS = constants.tokenConfig.MORPHO_V1_reUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_RE_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_RE_USDC_ADDRESS);
   console.log(`Morpho Re USDC pool added. PoolId: ${getBytes4(MORPHO_RE_USDC_ADDRESS)}`);
 
-  const MORPHO_STEAK_USDT_ADDRESS = constants.tokenConfig.morpho_blue_steakUSDT.address;
+  const MORPHO_STEAK_USDT_ADDRESS = constants.tokenConfig.MORPHO_V1_steakUSDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_STEAK_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_STEAK_USDT_ADDRESS);
   console.log(`Morpho Steak USDT pool added. PoolId: ${getBytes4(MORPHO_STEAK_USDT_ADDRESS)}`);
 
-  const MORPHO_BLUE_USDC_ADDRESS = constants.tokenConfig.morpho_blue_gtUSDC.address;
+  const MORPHO_BLUE_USDC_ADDRESS = constants.tokenConfig.MORPHO_V1_gtUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_BLUE_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_BLUE_USDC_ADDRESS);
   console.log(`Morpho Blue USDC pool added. PoolId: ${getBytes4(MORPHO_BLUE_USDC_ADDRESS)}`);
 
-  const MORPHO_BLUE_USDT_ADDRESS = constants.tokenConfig.morpho_blue_gtUSDT.address;
+  const MORPHO_BLUE_USDT_ADDRESS = constants.tokenConfig.MORPHO_V1_gtUSDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_BLUE_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_BLUE_USDT_ADDRESS);
   console.log(`Morpho Blue USDT pool added. PoolId: ${getBytes4(MORPHO_BLUE_USDT_ADDRESS)}`);
 
-  const MORPHO_STEAK_USDC_ADDRESS = constants.tokenConfig.morpho_blue_steakUSDC.address;
+  const MORPHO_STEAK_USDC_ADDRESS = constants.tokenConfig.MORPHO_V1_steakUSDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Morpho', MORPHO_STEAK_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Morpho', MORPHO_STEAK_USDC_ADDRESS);
   console.log(`Morpho Steak USDC pool added. PoolId: ${getBytes4(MORPHO_STEAK_USDC_ADDRESS)}`);
 
-  const SPARK_DAI_ADDRESS = constants.tokenConfig.sDAI.address;
+  const SPARK_DAI_ADDRESS = constants.tokenConfig.SPARK_V1_DAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Spark', SPARK_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Spark', SPARK_DAI_ADDRESS);
   console.log(`Spark DAI pool added. PoolId: ${getBytes4(SPARK_DAI_ADDRESS)}`);
 
-  const STRIKE_SUSDC_ADDRESS = constants.tokenConfig.sUSDC.address;
+  const STRIKE_SUSDC_ADDRESS = constants.tokenConfig.STRIKE_V1_USDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Strike', STRIKE_SUSDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Strike', STRIKE_SUSDC_ADDRESS);
   console.log(`Strike sUSDC pool added. PoolId: ${getBytes4(STRIKE_SUSDC_ADDRESS)}`);
 
-  const STRIKE_SUSDT_ADDRESS = constants.tokenConfig.sUSDT.address;
+  const STRIKE_SUSDT_ADDRESS = constants.tokenConfig.STRIKE_V1_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Strike', STRIKE_SUSDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Strike', STRIKE_SUSDT_ADDRESS);
   console.log(`Strike sUSDT pool added. PoolId: ${getBytes4(STRIKE_SUSDT_ADDRESS)}`);
 
-  const UWU_LEND_USDT_ADDRESS = constants.tokenConfig.uUSDT.address;
+  const UWU_LEND_USDT_ADDRESS = constants.tokenConfig.UWU_V1_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('UwULend', UWU_LEND_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('UwULend', UWU_LEND_USDT_ADDRESS);
   console.log(`UwULend USDT pool added. PoolId: ${getBytes4(UWU_LEND_USDT_ADDRESS)}`);
 
-  const UWU_LEND_DAI_ADDRESS = constants.tokenConfig.uDAI.address;
+  const UWU_LEND_DAI_ADDRESS = constants.tokenConfig.UWU_V1_DAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('UwULend', UWU_LEND_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('UwULend', UWU_LEND_DAI_ADDRESS);
   console.log(`UwULend DAI pool added. PoolId: ${getBytes4(UWU_LEND_DAI_ADDRESS)}`);
 
-  const YEARN_DAI_ADDRESS = constants.tokenConfig.yDAI.address;
+  const YEARN_DAI_ADDRESS = constants.tokenConfig.YEARN_V2_DAI.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_DAI_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_DAI_ADDRESS);
   console.log(`Yearn DAI pool added. PoolId: ${getBytes4(YEARN_DAI_ADDRESS)}`);
-  
-  const YEARN_yvDAI_ADDRESS = constants.tokenConfig.yvDAI.address;
-  await baseSetup.adminVault.connect(deployer).proposePool('Yearn', YEARN_yvDAI_ADDRESS);
-  await baseSetup.adminVault.connect(deployer).addPool('Yearn', YEARN_yvDAI_ADDRESS);
-  console.log(`Yearn yvDAI pool added. PoolId: ${getBytes4(YEARN_yvDAI_ADDRESS)}`);
 
-  const BEND_DAO_V1_USDT_ADDRESS = constants.tokenConfig.bendUSDT.address;
+  const BEND_DAO_V1_USDT_ADDRESS = constants.tokenConfig.BEND_V1_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('BendDaoV1', BEND_DAO_V1_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('BendDaoV1', BEND_DAO_V1_USDT_ADDRESS);
   console.log(`BendDaoV1 USDT pool added. PoolId: ${getBytes4(BEND_DAO_V1_USDT_ADDRESS)}`);
 
-  const VESPER_USDC_ADDRESS = constants.tokenConfig.vaUSDC.address;
+  const VESPER_USDC_ADDRESS = constants.tokenConfig.VESPER_V1_USDC.address;
   await baseSetup.adminVault.connect(deployer).proposePool('Vesper', VESPER_USDC_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('Vesper', VESPER_USDC_ADDRESS);
   console.log(`Vesper USDC pool added. PoolId: ${getBytes4(VESPER_USDC_ADDRESS)}`);
-  
+
+  const YEARN_V3_DAI_ADDRESS = constants.tokenConfig.YEARN_V3_DAI.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('YearnV3', YEARN_V3_DAI_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('YearnV3', YEARN_V3_DAI_ADDRESS);
+  console.log(`YearnV3 DAI pool added. PoolId: ${getBytes4(YEARN_V3_DAI_ADDRESS)}`);
+
+  const YEARN_V3_AJNA_DAI_ADDRESS = constants.tokenConfig.YEARN_V3_AJNA_DAI.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('YearnV3', YEARN_V3_AJNA_DAI_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('YearnV3', YEARN_V3_AJNA_DAI_ADDRESS);
+  console.log(`YearnV3 Ajna DAI pool added. PoolId: ${getBytes4(YEARN_V3_AJNA_DAI_ADDRESS)}`);
+
+  const NOTIONAL_V3_USDC_ADDRESS = constants.tokenConfig.NOTIONAL_V3_USDC.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('NotionalV3', NOTIONAL_V3_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('NotionalV3', NOTIONAL_V3_USDC_ADDRESS);
+  console.log(`NotionalV3 USDC pool added. PoolId: ${getBytes4(NOTIONAL_V3_USDC_ADDRESS)}`);
+
+  const GEARBOX_PASSIVE_V3_USDC_ADDRESS = constants.tokenConfig.GEARBOX_PASSIVE_V3_USDC.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('GearboxPassive', GEARBOX_PASSIVE_V3_USDC_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('GearboxPassive', GEARBOX_PASSIVE_V3_USDC_ADDRESS);
+  console.log(`GearboxPassive V3 USDC pool added. PoolId: ${getBytes4(GEARBOX_PASSIVE_V3_USDC_ADDRESS)}`);
+
+  const GEARBOX_PASSIVE_V3_USDT_ADDRESS = constants.tokenConfig.GEARBOX_PASSIVE_V3_USDT.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('GearboxPassive', GEARBOX_PASSIVE_V3_USDT_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('GearboxPassive', GEARBOX_PASSIVE_V3_USDT_ADDRESS);
+  console.log(`GearboxPassive V3 USDT pool added. PoolId: ${getBytes4(GEARBOX_PASSIVE_V3_USDT_ADDRESS)}`);
+
+  const GEARBOX_PASSIVE_V3_DAI_ADDRESS = constants.tokenConfig.GEARBOX_PASSIVE_V3_DAI.address;
+  await baseSetup.adminVault.connect(deployer).proposePool('GearboxPassive', GEARBOX_PASSIVE_V3_DAI_ADDRESS);
+  await baseSetup.adminVault.connect(deployer).addPool('GearboxPassive', GEARBOX_PASSIVE_V3_DAI_ADDRESS);
+  console.log(`GearboxPassive V3 DAI pool added. PoolId: ${getBytes4(GEARBOX_PASSIVE_V3_DAI_ADDRESS)}`);
+
   console.log('Deployment and account setup completed');
 
   return { baseSetup, ...contracts };

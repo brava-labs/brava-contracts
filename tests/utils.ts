@@ -473,8 +473,8 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
     if (variable === 'tokenAddress') {
       if ('tokenAddress' in mergedArgs) {
         return mergedArgs.tokenAddress;
-      } else if ('token' in mergedArgs) {
-        return tokenConfig[mergedArgs.token].address;
+      } else if ('token' in mergedArgs && mergedArgs.token && mergedArgs.token in tokenConfig) {
+        return tokenConfig[mergedArgs.token as keyof typeof tokenConfig].address;
       } else {
         throw new Error(`Missing required parameter: token for ${args.type}`);
       }

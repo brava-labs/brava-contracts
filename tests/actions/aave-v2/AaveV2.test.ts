@@ -46,17 +46,17 @@ describe('Aave V2 tests', () => {
   }> = [
     {
       token: 'USDC',
-      aToken: tokenConfig.aUSDC_V2.address,
+      aToken: tokenConfig.AAVE_V2_aUSDC.address,
       isIsolated: false,
     },
     {
       token: 'USDT',
-      aToken: tokenConfig.aUSDT_V2.address,
+      aToken: tokenConfig.AAVE_V2_aUSDT.address,
       isIsolated: true,
     },
     {
       token: 'DAI',
-      aToken: tokenConfig.aDAI_V2.address,
+      aToken: tokenConfig.AAVE_V2_aDAI.address,
       isIsolated: false,
     },
   ];
@@ -240,7 +240,7 @@ describe('Aave V2 tests', () => {
 
         const tx = await executeAction({
           type: 'AaveV2Supply',
-          assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+          assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
           amount: amount.toString(),
         });
 
@@ -253,7 +253,7 @@ describe('Aave V2 tests', () => {
         const txLog = logs[0] as BalanceUpdateLog;
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
-        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.aUSDC_V2.address));
+        expect(txLog).to.have.property('poolId', getBytes4(tokenConfig.AAVE_V2_aUSDC.address));
         expect(txLog).to.have.property('balanceBefore', 0n);
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens', 0n);
@@ -270,19 +270,19 @@ describe('Aave V2 tests', () => {
         );
         const lastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.aUSDC_V2.address
+          tokenConfig.AAVE_V2_aUSDC.address
         );
         expect(lastFeeTimestamp).to.equal(0n);
 
         await executeAction({
           type: 'AaveV2Supply',
-          assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+          assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
           amount: '0',
         });
 
         const lastFeeTimestampAfter = await adminVault.lastFeeTimestamp(
           safeAddr,
-          tokenConfig.aUSDC_V2.address
+          tokenConfig.AAVE_V2_aUSDC.address
         );
         expect(lastFeeTimestampAfter).to.not.equal(0n);
       });
@@ -445,7 +445,7 @@ describe('Aave V2 tests', () => {
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'aUSDC_V2';
+        const token = 'AAVE_V2_aUSDC';
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;

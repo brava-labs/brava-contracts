@@ -51,29 +51,29 @@ interface ERC4626WithdrawArgs extends BaseActionArgs {
 type WithdrawArgs =
   | (ERC4626WithdrawArgs & {
       type:
-        | 'FluidWithdraw'
+        | 'FluidV1Withdraw'
         | 'ClearpoolWithdraw'
-        | 'SparkWithdraw'
-        | 'AcrossWithdraw'
-        | 'MorphoWithdraw'
-        | 'YearnWithdrawV3'
-        | 'GearboxPassiveWithdraw';
+        | 'SparkV1Withdraw'
+        | 'AcrossV3Withdraw'
+        | 'MorphoV1Withdraw'
+        | 'YearnV3Withdraw'
+        | 'GearboxPassiveV3Withdraw';
     })
-  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnWithdraw' | 'VesperWithdraw' });
+  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnV2Withdraw' | 'VesperV1Withdraw' });
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
   type:
-    | 'FluidSupply'
-    | 'YearnSupply'
+    | 'FluidV1Supply'
+    | 'YearnV2Supply'
     | 'ClearpoolSupply'
-    | 'SparkSupply'
-    | 'AcrossSupply'
-    | 'MorphoSupply'
-    | 'VesperSupply'
+    | 'SparkV1Supply'
+    | 'AcrossV3Supply'
+    | 'MorphoV1Supply'
+    | 'VesperV1Supply'
     | 'NotionalV3Supply'
-    | 'YearnSupplyV3'
-    | 'GearboxPassiveSupply';
+    | 'YearnV3Supply'
+    | 'GearboxPassiveV3Supply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -130,23 +130,23 @@ export interface AaveV2Args extends BaseActionArgs {
 }
 
 interface StrikeArgs extends BaseActionArgs {
-  type: 'StrikeSupply' | 'StrikeWithdraw';
+  type: 'StrikeV1Supply' | 'StrikeV1Withdraw';
   assetId: string;
   amount: string | BigInt;
   feeBasis?: number;
 }
 
-export interface UwULendArgs extends BaseActionArgs {
-  type: 'UwULendSupply' | 'UwULendWithdraw';
+export interface UwULendV1Args extends BaseActionArgs {
+  type: 'UwULendV1Supply' | 'UwULendV1Withdraw';
   assetId: string;
   amount: string | BigInt;
   feeBasis?: number;
 }
 
-export interface BendDaoArgs extends BaseActionArgs {
-  type: 'BendDaoSupply' | 'BendDaoWithdraw';
-  assetId: string;
-  amount: string | BigInt;
+export interface BendDaoV1Args extends BaseActionArgs {
+  type: 'BendDaoV1Supply' | 'BendDaoV1Withdraw';
+  assetId?: string;
+  amount?: string | BigInt;
   feeBasis?: number;
 }
 
@@ -155,29 +155,38 @@ interface UpgradeArgs extends BaseActionArgs {
   data: string;
 }
 
+export interface ClearpoolV1Args extends BaseActionArgs {
+  poolAddress: string;
+  amount: string | BigInt;
+  feeBasis?: number;
+  minSharesReceived?: string | BigInt;
+  maxSharesBurned?: string | BigInt;
+}
+
 // Union type for all action args
 export type ActionArgs =
+  | (ClearpoolV1Args & { type: 'ClearpoolV1Supply' | 'ClearpoolV1Withdraw' })
+  | (AaveV2Args & { type: 'AaveV2Supply' | 'AaveV2Withdraw' })
+  | (AaveV3Args & { type: 'AaveV3Supply' | 'AaveV3Withdraw' })
+  | (BendDaoV1Args & { type: 'BendDaoV1Supply' | 'BendDaoV1Withdraw' })
   | SupplyArgs
   | WithdrawArgs
   | SwapArgs
   | ParaswapSwapArgs
   | TokenTransferArgs
   | BuyCoverArgs
-  | AaveV3Args
-  | AaveV2Args
   | StrikeArgs
-  | UwULendArgs
-  | BendDaoArgs
+  | UwULendV1Args
   | UpgradeArgs;
 
 /// @dev this is the default values for each action type
 export const actionDefaults: Record<string, ActionArgs> = {
-  FluidSupply: {
-    type: 'FluidSupply',
+  FluidV1Supply: {
+    type: 'FluidV1Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.USDC.pools.fluid, // Default to USDC Fluid pool
+    poolAddress: tokenConfig.FLUID_V1_USDC.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
@@ -187,12 +196,12 @@ export const actionDefaults: Record<string, ActionArgs> = {
     },
     sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
   },
-  FluidWithdraw: {
-    type: 'FluidWithdraw',
+  FluidV1Withdraw: {
+    type: 'FluidV1Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.USDC.pools.fluid, // Default to USDC Fluid pool
+    poolAddress: tokenConfig.FLUID_V1_USDC.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
@@ -200,13 +209,14 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
+    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
-  YearnSupply: {
-    type: 'YearnSupply',
+  YearnV2Supply: {
+    type: 'YearnV2Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.USDC.pools.yearn,
+    poolAddress: tokenConfig.YEARN_V2_USDC.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
@@ -215,12 +225,12 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  YearnWithdraw: {
-    type: 'YearnWithdraw',
+  YearnV2Withdraw: {
+    type: 'YearnV2Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.USDC.pools.yearn,
+    poolAddress: tokenConfig.YEARN_V2_USDC.address,
     feeBasis: 0,
     sharesToBurn: '0',
     minUnderlyingReceived: '0',
@@ -229,12 +239,12 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
     },
   },
-  VesperSupply: {
-    type: 'VesperSupply',
+  VesperV1Supply: {
+    type: 'VesperV1Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.vaUSDC.address,
+    poolAddress: tokenConfig.VESPER_V1_USDC.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
@@ -243,12 +253,12 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  VesperWithdraw: {
-    type: 'VesperWithdraw',
+  VesperV1Withdraw: {
+    type: 'VesperV1Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.vaUSDC.address,
+    poolAddress: tokenConfig.VESPER_V1_USDC.address,
     feeBasis: 0,
     sharesToBurn: '0',
     minUnderlyingReceived: '0',
@@ -323,7 +333,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   AaveV3Supply: {
     useSDK: false,
     type: 'AaveV3Supply',
-    assetId: getBytes4(tokenConfig.aUSDC_V3.address),
+    assetId: getBytes4(tokenConfig.AAVE_V3_aUSDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -335,7 +345,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   AaveV3Withdraw: {
     type: 'AaveV3Withdraw',
-    assetId: getBytes4(tokenConfig.aUSDC_V3.address),
+    assetId: getBytes4(tokenConfig.AAVE_V3_aUSDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -347,7 +357,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   AaveV2Withdraw: {
     type: 'AaveV2Withdraw',
-    assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -359,7 +369,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
   },
   AaveV2Supply: {
     type: 'AaveV2Supply',
-    assetId: getBytes4(tokenConfig.aUSDC_V2.address),
+    assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -369,9 +379,9 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  StrikeWithdraw: {
-    type: 'StrikeWithdraw',
-    assetId: getBytes4(tokenConfig.sUSDC.address),
+  StrikeV1Withdraw: {
+    type: 'StrikeV1Withdraw',
+    assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -381,9 +391,9 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  StrikeSupply: {
-    type: 'StrikeSupply',
-    assetId: getBytes4(tokenConfig.sUSDC.address),
+  StrikeV1Supply: {
+    type: 'StrikeV1Supply',
+    assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
     amount: '0',
     feeBasis: 0,
     encoding: {
@@ -393,160 +403,159 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  ClearpoolSupply: {
+  ClearpoolV1Supply: {
+    type: 'ClearpoolV1Supply',
     useSDK: false,
-    type: 'ClearpoolSupply',
-    poolAddress: tokenConfig.cpALP_USDC.address,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  ClearpoolV1Withdraw: {
+    type: 'ClearpoolV1Withdraw',
+    useSDK: false,
     value: 0,
     safeOperation: 1,
+    poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+  },
+  UwULendV1Withdraw: {
+    type: 'UwULendV1Withdraw',
+    assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  UwULendV1Supply: {
+    type: 'UwULendV1Supply',
+    assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  BendDaoV1Supply: {
+    type: 'BendDaoV1Supply',
+    assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  BendDaoV1Withdraw: {
+    type: 'BendDaoV1Withdraw',
+    assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
+    amount: '0',
+    feeBasis: 0,
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
+    },
+    value: 0,
+    safeOperation: 1,
+  },
+  SparkV1Supply: {
+    type: 'SparkV1Supply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.SPARK_V1_DAI.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  SparkV1Withdraw: {
+    type: 'SparkV1Withdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.SPARK_V1_DAI.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+  },
+  AcrossV3Supply: {
+    type: 'AcrossV3Supply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.ACROSS_V3_lpUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  AcrossV3Withdraw: {
+    type: 'AcrossV3Withdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.ACROSS_V3_lpUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+  },
+  MorphoV1Supply: {
+    type: 'MorphoV1Supply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.MORPHO_V1_fxUSDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
     encoding: {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
     sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
   },
-  ClearpoolWithdraw: {
-    type: 'ClearpoolWithdraw',
-    useSDK: false,
-    poolAddress: tokenConfig.cpALP_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  UwULendWithdraw: {
-    type: 'UwULendWithdraw',
-    assetId: getBytes4(tokenConfig.uUSDT.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  UwULendSupply: {
-    type: 'UwULendSupply',
-    assetId: getBytes4(tokenConfig.uUSDT.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  BendDaoSupply: {
-    type: 'BendDaoSupply',
-    assetId: getBytes4(tokenConfig.bendUSDT.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  BendDaoWithdraw: {
-    type: 'BendDaoWithdraw',
-    assetId: getBytes4(tokenConfig.bendUSDT.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  SparkSupply: {
-    type: 'SparkSupply',
+  MorphoV1Withdraw: {
+    type: 'MorphoV1Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.sDAI.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  SparkWithdraw: {
-    type: 'SparkWithdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.sDAI.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-  },
-  AcrossSupply: {
-    type: 'AcrossSupply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.across_lpUSDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  AcrossWithdraw: {
-    type: 'AcrossWithdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.across_lpUSDC.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-  },
-  MorphoSupply: {
-    type: 'MorphoSupply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.morpho_fxUSDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
-  },
-  MorphoWithdraw: {
-    type: 'MorphoWithdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.morpho_fxUSDC.address,
+    poolAddress: tokenConfig.MORPHO_V1_fxUSDC.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
@@ -556,12 +565,12 @@ export const actionDefaults: Record<string, ActionArgs> = {
     },
     sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
-  YearnSupplyV3: {
-    type: 'YearnSupplyV3',
+  YearnV3Supply: {
+    type: 'YearnV3Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.yearnV3_DAI.address,
+    poolAddress: tokenConfig.YEARN_V3_DAI.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
@@ -570,12 +579,12 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  YearnWithdrawV3: {
-    type: 'YearnWithdrawV3',
+  YearnV3Withdraw: {
+    type: 'YearnV3Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.yearnV3_DAI.address,
+    poolAddress: tokenConfig.YEARN_V3_DAI.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
@@ -589,7 +598,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.pUSDC.address,
+    poolAddress: tokenConfig.NOTIONAL_V3_USDC.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
@@ -603,7 +612,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.pUSDC.address,
+    poolAddress: tokenConfig.NOTIONAL_V3_USDC.address,
     feeBasis: 0,
     sharesToBurn: '0',
     minUnderlyingReceived: '0',
@@ -612,12 +621,12 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
     },
   },
-  GearboxPassiveSupply: {
-    type: 'GearboxPassiveSupply',
+  GearboxPassiveV3Supply: {
+    type: 'GearboxPassiveV3Supply',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.sdUSDCV3.address,
+    poolAddress: tokenConfig.GEARBOX_PASSIVE_V3_USDC.address,
     feeBasis: 0,
     amount: '0',
     minSharesReceived: '0',
@@ -626,12 +635,12 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
   },
-  GearboxPassiveWithdraw: {
-    type: 'GearboxPassiveWithdraw',
+  GearboxPassiveV3Withdraw: {
+    type: 'GearboxPassiveV3Withdraw',
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.sdUSDCV3.address,
+    poolAddress: tokenConfig.GEARBOX_PASSIVE_V3_USDC.address,
     feeBasis: 0,
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),

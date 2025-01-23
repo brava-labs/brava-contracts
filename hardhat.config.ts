@@ -20,12 +20,14 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: 'https://mainnet.gateway.tenderly.co/' + process.env.TENDERLY_API_KEY!,
-        blockNumber: 21615102, // If this is updated, also update the quotes for Nexus Mutual in constants.ts. Or just use latest
+        // blockNumber: 20978000, // If this is updated, also update the quotes for Nexus Mutual in constants.ts. Or just use latest
+        blockNumber: 21629000, // If this is updated, also update the quotes for Nexus Mutual in constants.ts. Or just use latest
         enabled: true,
       },
     },
     localhost: {
       url: 'http://127.0.0.1:8545',
+      chainId: 31337,
     },
   },
   tenderly: {
