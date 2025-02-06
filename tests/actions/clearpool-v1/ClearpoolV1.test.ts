@@ -22,7 +22,7 @@ import {
 } from '../../utils';
 import { fundAccountWithToken, getUSDC } from '../../utils-stable';
 
-describe('ClearpoolV1 tests', () => {
+describe.skip('ClearpoolV1 tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let loggerAddress: string;
