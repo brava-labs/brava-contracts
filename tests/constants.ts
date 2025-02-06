@@ -247,6 +247,16 @@ export const tokenConfig = {
     whale: '0xdb02Da0A36c7b19461fD00DA62D4fF3be884668e',
     decimals: 18,
   },
+  MORPHO_V1_smokehouseUSDC: {
+    address: '0xBEeFFF209270748ddd194831b3fa287a5386f5bC',
+    whale: '0xd3ca6324A976f689711424572f8A505bE9969055',
+    decimals: 18,
+  },
+  MORPHO_V1_gtDAIcore: {
+    address: '0x500331c9fF24D9d11aee6B07734Aa72343EA74a5',
+    whale: '0xE3F605af7FBBb0831C98614fA9C27f970bB3d5ab',
+    decimals: 18,
+  },
   GEARBOX_PASSIVE_V3_USDC: {
     address: '0xda00000035fef4082f78def6a8903bee419fbf8e',
     whale: '0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2',
