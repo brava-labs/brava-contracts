@@ -109,7 +109,7 @@ export const tokenConfig = {
   },
   AAVE_V2_aUSDC: {
     address: '0xBcca60bB61934080951369a648Fb03DF4F96263C',
-    whale: '0xc9E6E51C7dA9FF1198fdC5b3369EfeDA9b19C34c',
+    whale: '0x464C71f6c2F760DdA6093dCB91C24c39e5d6e18c',
     decimals: 6,
   },
   AAVE_V2_aUSDT: {
@@ -124,7 +124,7 @@ export const tokenConfig = {
   },
   AAVE_V3_aUSDC: {
     address: '0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c',
-    whale: '0xA91661efEe567b353D55948C0f051C1A16E503A5',
+    whale: '0x2aAF355c820676C104bd00Ee6c506FA05998dDa2',
     decimals: 6,
   },
   AAVE_V3_aUSDT: {
@@ -245,6 +245,16 @@ export const tokenConfig = {
   MORPHO_V1_gtUSDT: {
     address: '0x8CB3649114051cA5119141a34C200D65dc0Faa73',
     whale: '0xdb02Da0A36c7b19461fD00DA62D4fF3be884668e',
+    decimals: 18,
+  },
+  MORPHO_V1_smokehouseUSDC: {
+    address: '0xBEeFFF209270748ddd194831b3fa287a5386f5bC',
+    whale: '0xd3ca6324A976f689711424572f8A505bE9969055',
+    decimals: 18,
+  },
+  MORPHO_V1_gtDAIcore: {
+    address: '0x500331c9fF24D9d11aee6B07734Aa72343EA74a5',
+    whale: '0xE3F605af7FBBb0831C98614fA9C27f970bB3d5ab',
     decimals: 18,
   },
   GEARBOX_PASSIVE_V3_USDC: {

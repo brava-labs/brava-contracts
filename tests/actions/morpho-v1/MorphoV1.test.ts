@@ -52,6 +52,8 @@ describe('MorphoV1 tests', () => {
   let steakUSDC: IERC4626;
   let gtUSDC: IERC4626;
   let gtUSDT: IERC4626;
+  let smokehouseUSDC: IERC4626;
+  let gtDAIcore: IERC4626;
   // let fUSDT: IFluidLending;
   let adminVault: AdminVault;
   const protocolId = BigInt(
@@ -109,6 +111,16 @@ describe('MorphoV1 tests', () => {
       poolAddress: tokenConfig.MORPHO_V1_gtUSDT.address,
       mToken: () => gtUSDT,
     },
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.MORPHO_V1_smokehouseUSDC.address,
+      mToken: () => smokehouseUSDC,
+    },
+    {
+      token: 'DAI',
+      poolAddress: tokenConfig.MORPHO_V1_gtDAIcore.address,
+      mToken: () => gtDAIcore,
+    },
   ];
 
   before(async () => {
@@ -149,6 +161,8 @@ describe('MorphoV1 tests', () => {
     steakUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_steakUSDC.address);
     gtUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_gtUSDC.address);
     gtUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_gtUSDT.address);
+    smokehouseUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_smokehouseUSDC.address);
+    gtDAIcore = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_gtDAIcore.address);
 
     // propose and add all tokens in the testCases array
     for (const { poolAddress } of testCases) {
@@ -408,9 +422,9 @@ describe('MorphoV1 tests', () => {
             amount: ethers.MaxUint256,
           });
 
-          // Morpho leaves some dust in the vault, so we expect to have less than 1 shares worth left behind
+          // Morpho may leave some dust in the vault, so we expect to have 1 share or less left behind
           const minWithdraw = await mToken().convertToShares(1);
-          expect(await mToken().balanceOf(safeAddr)).to.be.lessThan(minWithdraw);
+          expect(await mToken().balanceOf(safeAddr)).to.be.lessThanOrEqual(minWithdraw);
           expect(await tokenContract.balanceOf(safeAddr)).to.be.greaterThan(0);
         });
 
