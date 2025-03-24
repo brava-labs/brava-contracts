@@ -22,7 +22,8 @@ import {
 } from '../../utils';
 import { fundAccountWithToken, getDAI, getUSDT } from '../../utils-stable';
 
-describe('UwU Lend tests', () => {
+// Skipping because we aren't going to use UwU Lend
+describe.skip('UwU Lend tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let loggerAddress: string;
