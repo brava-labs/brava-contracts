@@ -268,44 +268,44 @@ export async function getSwapData(
        destToken.toLowerCase() === tokenConfig.USDT.address.toLowerCase() ? 6 : 18)
     : tokenConfig[destToken as keyof typeof tokenConfig].decimals;
 
-  // Check if we're using a forked network
-  const isForked = await isUsingForkedNetwork();
-  log('Network status:', { isForked });
-  
   const exchangeType = dex?.toLowerCase() || 'basic';
 
-  // Try to get from cache first
+  // Always try to get from cache first
   const cachedSwap = getSwapFromCache(
     srcToken, 
     destToken, 
     exchangeType,
     amount.toString()
   );
-  log('Cache status:', { 
+
+  // Check if we're using a forked network - we'll need this to decide whether to fetch live data
+  const isForked = await isUsingForkedNetwork();
+  
+  log('Cache and network status:', { 
     hasCachedSwap: !!cachedSwap, 
+    isForked,
     srcToken, 
     destToken, 
     exchangeType,
     amount: amount.toString()
   });
+
+  // If we have cached data, use it
   if (cachedSwap) {
-    // In forked mode, always use cache if available
-    if (isForked) {
-      return {
-        callData: cachedSwap.callData,
-        destAmount: cachedSwap.destAmount,
-        minDestAmount: cachedSwap.minToAmount,
-        dexProtocol: cachedSwap.dexProtocol,
-        priceRoute: {
-          bestRoute: cachedSwap.priceRoute?.bestRoute,
-          contractMethod: cachedSwap.priceRoute?.contractMethod,
-          tokenTransferProxy: cachedSwap.priceRoute?.tokenTransferProxy
-        }
-      };
-    }
+    return {
+      callData: cachedSwap.callData,
+      destAmount: cachedSwap.destAmount,
+      minDestAmount: cachedSwap.minToAmount,
+      dexProtocol: cachedSwap.dexProtocol,
+      priceRoute: {
+        bestRoute: cachedSwap.priceRoute?.bestRoute,
+        contractMethod: cachedSwap.priceRoute?.contractMethod,
+        tokenTransferProxy: cachedSwap.priceRoute?.tokenTransferProxy
+      }
+    };
   }
-  
-  // If we're in forked mode and no cache is available, throw error
+
+  // If we're in forked mode and have no cache, we can't proceed
   if (isForked) {
     throw new Error(
       `No cached quote found for ${srcToken} to ${destToken} (${exchangeType}). ` +
@@ -313,7 +313,7 @@ export async function getSwapData(
     );
   }
 
-  // If not in forked mode, fetch from API
+  // No cache available and we're in live mode - fetch from API
   const params = {
     srcToken: srcTokenAddress,
     destToken: destTokenAddress,
@@ -328,7 +328,7 @@ export async function getSwapData(
     ...(dex ? { includeDEXS: dex } : {})
   };
 
-  log('Paraswap API request:', {
+  log('No cache found, fetching from Paraswap API:', {
     url: 'https://api.paraswap.io/swap',
     params
   });
@@ -358,33 +358,31 @@ export async function getSwapData(
     // Extract selector from calldata
     const selector = response.data.txParams.data.substring(0, 10);
 
-    // Only save to cache if we're not in forked mode
-    if (!isForked) {
-      const currentBlock = await getCurrentBlockNumber();
-      saveSwapToCache({
-        timestamp: Date.now(),
-        blockNumber: currentBlock,
-        sourceToken: srcToken,
-        destToken: destToken,
-        amount: amount.toString(),
-        minToAmount: minDestAmount,  // Store the minimum amount we'll accept
-        selector,
-        callData: response.data.txParams.data,
-        destAmount: destAmount,      // Store the expected amount before slippage
-        exchangeType,
-        dexProtocol: response.data.priceRoute.bestRoute[0]?.swaps[0]?.swapExchanges[0]?.exchange || 'unknown',
-        priceRoute: {
-          bestRoute: response.data.priceRoute.bestRoute,
-          contractMethod: response.data.priceRoute.contractMethod,
-          tokenTransferProxy: response.data.priceRoute.tokenTransferProxy
-        }
-      });
-    }
+    // Always save new API responses to cache
+    const currentBlock = await getCurrentBlockNumber();
+    saveSwapToCache({
+      timestamp: Date.now(),
+      blockNumber: currentBlock,
+      sourceToken: srcToken,
+      destToken: destToken,
+      amount: amount.toString(),
+      minToAmount: minDestAmount,
+      selector,
+      callData: response.data.txParams.data,
+      destAmount: destAmount,
+      exchangeType,
+      dexProtocol: response.data.priceRoute.bestRoute[0]?.swaps[0]?.swapExchanges[0]?.exchange || 'unknown',
+      priceRoute: {
+        bestRoute: response.data.priceRoute.bestRoute,
+        contractMethod: response.data.priceRoute.contractMethod,
+        tokenTransferProxy: response.data.priceRoute.tokenTransferProxy
+      }
+    });
 
     return {
       callData: response.data.txParams.data,
-      destAmount: destAmount,      // Return expected amount before slippage
-      minDestAmount: minDestAmount, // Return minimum amount we'll accept
+      destAmount: destAmount,
+      minDestAmount: minDestAmount,
       dexProtocol: response.data.priceRoute.bestRoute[0]?.swaps[0]?.swapExchanges[0]?.exchange || 'unknown',
       priceRoute: response.data.priceRoute
     };
