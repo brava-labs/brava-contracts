@@ -1,7 +1,7 @@
 import { ethers, network } from 'hardhat';
 import { expect } from 'chai';
 import { Signer } from 'ethers';
-import { IERC20Metadata, ParaswapSwap } from '../../../typechain-types';
+import { IERC20Metadata, ParaswapSwap, TokenRegistry } from '../../../typechain-types';
 import { tokenConfig } from '../../constants';
 import { actionTypes } from '../../actions';
 import * as utils from '../../utils';
@@ -19,6 +19,7 @@ describe('ParaswapSwap tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let paraswapSwap: ParaswapSwap;
+  let tokenRegistry: TokenRegistry;
   let USDC: IERC20Metadata, USDT: IERC20Metadata, DAI: IERC20Metadata;
   let snapshotId: string;
   let loggerAddress: string;
@@ -39,7 +40,6 @@ describe('ParaswapSwap tests', () => {
   const TOKENS_TO_TEST = ['USDC', 'USDT', 'DAI'] as const;
   type SupportedToken = typeof TOKENS_TO_TEST[number];
 
-
   before(async () => {
     [signer] = await ethers.getSigners();
     const baseSetup = await utils.getBaseSetup();
@@ -51,12 +51,22 @@ describe('ParaswapSwap tests', () => {
     adminVault = await baseSetup.adminVault;
     loggerAddress = await baseSetup.logger.getAddress();
 
+    // Deploy TokenRegistry
+    tokenRegistry = await utils.deploy(
+      'TokenRegistry',
+      signer,
+      await adminVault.getAddress(),
+      loggerAddress
+    );
+
+    // Deploy ParaswapSwap with TokenRegistry
     paraswapSwap = await utils.deploy(
       'ParaswapSwap',
       signer,
       await adminVault.getAddress(),
       loggerAddress,
-      AUGUSTUS_ROUTER
+      AUGUSTUS_ROUTER,
+      await tokenRegistry.getAddress()
     );
 
     ({ USDC, USDT, DAI } = await getStables());
@@ -64,6 +74,22 @@ describe('ParaswapSwap tests', () => {
     const swapAddress = await paraswapSwap.getAddress();
     await adminVault.proposeAction(utils.getBytes4(swapAddress), swapAddress);
     await adminVault.addAction(utils.getBytes4(swapAddress), swapAddress);
+
+    // Grant roles for TokenRegistry
+    const TRANSACTION_PROPOSER_ROLE = ethers.keccak256(
+      ethers.toUtf8Bytes('TRANSACTION_PROPOSER_ROLE')
+    );
+    const TRANSACTION_EXECUTOR_ROLE = ethers.keccak256(
+      ethers.toUtf8Bytes('TRANSACTION_EXECUTOR_ROLE')
+    );
+    await adminVault.grantRole(TRANSACTION_PROPOSER_ROLE, await signer.getAddress());
+    await adminVault.grantRole(TRANSACTION_EXECUTOR_ROLE, await signer.getAddress());
+
+    // Approve test tokens in registry
+    for (const token of TOKENS_TO_TEST) {
+      await tokenRegistry.proposeToken(tokenConfig[token].address);
+      await tokenRegistry.approveToken(tokenConfig[token].address);
+    }
 
     snapshotId = await network.provider.send('evm_snapshot');
   });
@@ -367,6 +393,47 @@ describe('ParaswapSwap tests', () => {
         } else {
           throw error;
         }
+      }
+    });
+
+    it('should revert when destination token is not approved', async () => {
+      const amount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
+      await fundAccountWithToken(safeAddr, 'USDC', amount);
+
+      // PEPE token address on mainnet
+      const PEPE = '0x6982508145454Ce325dDbE47a25d4ec3d2311933';
+
+      try {
+        const { callData } = await getSwapData(
+          tokenConfig.USDC.address,
+          PEPE,  // Use PEPE as destination in swap data
+          amount,
+          safeAddr
+        );
+
+        // Encode params for direct contract call
+        const encodedParams = ethers.AbiCoder.defaultAbiCoder().encode(
+          ['(address,address,uint256,uint256,bytes)'],
+          [[
+            tokenConfig.USDC.address,
+            tokenConfig.DAI.address,  // Use any approved token here, it doesn't matter
+            amount.toString(),
+            '1',
+            callData
+          ]]
+        );
+
+        // Call contract directly to get the specific error
+        await expect(
+          paraswapSwap.executeAction(encodedParams, 0)
+        ).to.be.revertedWith('ParaswapSwap: Destination token not approved');
+      } catch (error: any) {
+        const errorMessage = error?.message || '';
+        if (errorMessage.includes('No liquidity')) {
+          log('Test skipped due to liquidity issues');
+          return;
+        }
+        throw error;
       }
     });
   });
