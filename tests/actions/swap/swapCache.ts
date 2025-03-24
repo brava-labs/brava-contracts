@@ -278,19 +278,15 @@ export async function getSwapData(
     amount.toString()
   );
 
-  // Check if we're using a forked network - we'll need this to decide whether to fetch live data
-  const isForked = await isUsingForkedNetwork();
-  
-  log('Cache and network status:', { 
+  log('Cache status:', { 
     hasCachedSwap: !!cachedSwap, 
-    isForked,
     srcToken, 
     destToken, 
     exchangeType,
     amount: amount.toString()
   });
 
-  // If we have cached data, use it
+  // If we have cached data, use it immediately without checking network status
   if (cachedSwap) {
     return {
       callData: cachedSwap.callData,
@@ -304,6 +300,15 @@ export async function getSwapData(
       }
     };
   }
+
+  // No cache available - now we need to check if we're in forked mode
+  const isForked = await isUsingForkedNetwork();
+  
+  log('Network status for uncached request:', { 
+    isForked,
+    srcToken, 
+    destToken
+  });
 
   // If we're in forked mode and have no cache, we can't proceed
   if (isForked) {
