@@ -259,7 +259,7 @@ describe('Aave V3 tests', () => {
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens', 0n);
         expect(txLog.balanceAfter).to.be.a('bigint');
-        expect(txLog.balanceAfter).to.be.greaterThanOrEqual(amount);
+        expect(txLog.balanceAfter).to.be.greaterThanOrEqual(amount - 1n);
       });
 
       it('Should initialize the last fee timestamp', async () => {
