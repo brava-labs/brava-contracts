@@ -16,6 +16,36 @@ contract ParaswapSwap is ActionBase {
     /// @notice The Paraswap Augustus Router contract
     address public immutable AUGUSTUS_ROUTER;
 
+    /// @notice Function selector for swapExactAmountIn (0xe3ead59e)
+    /// @dev Used in Augustus Router's swapExactAmountIn function:
+    /// function swapExactAmountIn(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, ...)
+    bytes4 public constant SWAP_EXACT_AMOUNT_IN_SELECTOR = 0xe3ead59e;
+    
+    /// @notice Function selector for swapExactAmountInOnUniswapV3 (0x876a02f6)
+    /// @dev Used in Augustus Router's swapOnUniswap function with nested struct:
+    /// function swapExactAmountInOnUniswapV3((address srcToken,address destToken,uint256,uint256,uint256,bytes32,address,bytes), uint256, bytes)
+    bytes4 public constant UNISWAP_V3_SWAP_SELECTOR = 0x876a02f6;
+
+    /// @notice Function selector for swapExactAmountInOnCurveV1 (0x1a01c532)
+    /// @dev Used in Augustus Router's swapExactAmountInOnCurveV1 function:
+    /// function swapExactAmountInOnCurveV1(tuple curveV1Data, uint256 partnerAndFee, bytes permit)
+    bytes4 public constant CURVE_V1_SWAP_SELECTOR = 0x1a01c532;
+
+    /// @notice Function selector for swapExactAmountInOnUniswapV2 (0xe8bb3b6c)
+    /// @dev Used in Augustus Router's swapExactAmountInOnUniswapV2 function:
+    /// function swapExactAmountInOnUniswapV2(tuple uniData, uint256 partnerAndFee, bytes permit)
+    bytes4 public constant UNISWAP_V2_SWAP_SELECTOR = 0xe8bb3b6c;
+
+    /// @notice Function selector for swapExactAmountInOutOnMakerPSM (0x987e7d8e)
+    /// @dev Used in Augustus Router's swapExactAmountInOutOnMakerPSM function:
+    /// function swapExactAmountInOutOnMakerPSM(tuple makerPSMData, bytes permit)
+    bytes4 public constant MAKER_PSM_SWAP_SELECTOR = 0x987e7d8e;
+
+    /// @notice Function selector for swapExactAmountInOnCurveV2 (0xe37ed256)
+    /// @dev Used in Augustus Router's swapExactAmountInOnCurveV2 function:
+    /// function swapExactAmountInOnCurveV2(tuple curveV2Data, uint256 partnerAndFee, bytes permit)
+    bytes4 public constant CURVE_V2_SWAP_SELECTOR = 0xe37ed256;
+
     /// @notice Parameters for the ParaswapSwap action
     /// @param tokenIn Address of token to swap from
     /// @param tokenOut Address of token to swap to
@@ -43,7 +73,70 @@ contract ParaswapSwap is ActionBase {
         Params memory params = _parseInputs(_callData);
         // _strategyId is ignored, as this action is not strategy-specific
         _strategyId;
+
+        // Extract the destination token from swapCallData
+        address extractedDestToken = extractSwapDestination(params.swapCallData);
+        
+        // Validate the extracted destination token against our expectations
+        require(
+            extractedDestToken == params.tokenOut,
+            "ParaswapSwap: Destination token mismatch"
+        );
+        
+        // Execute the swap
         _paraswapSwap(params);
+    }
+
+    /// @notice Extracts the destination token from swap call data
+    /// @param _swapCallData The calldata for the swap
+    /// @return The extracted destination token address
+    function extractSwapDestination(bytes memory _swapCallData) public pure returns (address) {
+        // Make sure we have enough data to extract the selector
+        require(_swapCallData.length >= 4, "ParaswapSwap: Invalid calldata length");
+        
+        // Extract the function selector from the first 4 bytes
+        bytes4 selector = bytes4(_swapCallData[0]) | (bytes4(_swapCallData[1]) >> 8) | 
+                          (bytes4(_swapCallData[2]) >> 16) | (bytes4(_swapCallData[3]) >> 24);
+        
+        // Default position for data extraction
+        uint256 destTokenPosition;
+        
+        // Set position based on function selector
+        if (selector == SWAP_EXACT_AMOUNT_IN_SELECTOR) {
+            // swapExactAmountIn
+            destTokenPosition = 68;
+        } else if (selector == UNISWAP_V3_SWAP_SELECTOR) {
+            // swapExactAmountInOnUniswapV3 
+            destTokenPosition = 132;
+        } else if (selector == CURVE_V1_SWAP_SELECTOR) {
+            // swapExactAmountInOnCurveV1
+            destTokenPosition = 100;
+        } else if (selector == UNISWAP_V2_SWAP_SELECTOR) {
+            // swapExactAmountInOnUniswapV2
+            destTokenPosition = 132;
+        } else if (selector == MAKER_PSM_SWAP_SELECTOR) {
+            // swapExactAmountInOutOnMakerPSM
+            destTokenPosition = 36;
+        } else if (selector == CURVE_V2_SWAP_SELECTOR) {
+            // swapExactAmountInOnCurveV2
+            destTokenPosition = 164;
+        } else {
+            // Unknown selector, revert
+            revert("ParaswapSwap: Unsupported function selector");
+        }
+        
+        // Extract the destination token
+        address destToken;
+        
+        assembly {
+            // The actual data in _swapCallData starts at memory position add(_swapCallData, 32)
+            let dataPtr := add(_swapCallData, 32)
+            
+            // Extract the destination token address at the specified position
+            destToken := and(mload(add(dataPtr, destTokenPosition)), 0xffffffffffffffffffffffffffffffffffffffff)
+        }
+        
+        return destToken;
     }
 
     /// @notice Executes the Paraswap swap
@@ -107,3 +200,5 @@ contract ParaswapSwap is ActionBase {
         return "Paraswap";
     }
 }
+
+
