@@ -54,6 +54,13 @@ describe('MorphoV1 tests', () => {
   let gtUSDT: IERC4626;
   let smokehouseUSDC: IERC4626;
   let gtDAIcore: IERC4626;
+  // New pool variables
+  let coinshiftUSDC: IERC4626;
+  let steakhouseUSDC_RWA: IERC4626;
+  let mountDenaliUSDC: IERC4626;
+  let summitsUSDC: IERC4626;
+  let smokehouseUSDT: IERC4626;
+  let flagshipUSDT: IERC4626;
   // let fUSDT: IFluidLending;
   let adminVault: AdminVault;
   const protocolId = BigInt(
@@ -121,6 +128,37 @@ describe('MorphoV1 tests', () => {
       poolAddress: tokenConfig.MORPHO_V1_gtDAIcore.address,
       mToken: () => gtDAIcore,
     },
+    // New Morpho pools
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.MORPHO_V1_coinshiftUSDC.address,
+      mToken: () => coinshiftUSDC,
+    },
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.MORPHO_V1_steakhouseUSDC_RWA.address,
+      mToken: () => steakhouseUSDC_RWA,
+    },
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.MORPHO_V1_9S_MountDenali_USDC.address,
+      mToken: () => mountDenaliUSDC,
+    },
+    {
+      token: 'USDC',
+      poolAddress: tokenConfig.MORPHO_V1_9Summits_USDC.address,
+      mToken: () => summitsUSDC,
+    },
+    {
+      token: 'USDT',
+      poolAddress: tokenConfig.MORPHO_V1_smokehouseUSDT.address,
+      mToken: () => smokehouseUSDT,
+    },
+    {
+      token: 'USDT',
+      poolAddress: tokenConfig.MORPHO_V1_flagshipUSDT.address, 
+      mToken: () => flagshipUSDT,
+    },
   ];
 
   before(async () => {
@@ -163,6 +201,12 @@ describe('MorphoV1 tests', () => {
     gtUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_gtUSDT.address);
     smokehouseUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_smokehouseUSDC.address);
     gtDAIcore = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_gtDAIcore.address);
+    coinshiftUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_coinshiftUSDC.address);
+    steakhouseUSDC_RWA = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_steakhouseUSDC_RWA.address);
+    mountDenaliUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_9S_MountDenali_USDC.address);
+    summitsUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_9Summits_USDC.address);
+    smokehouseUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_smokehouseUSDT.address);
+    flagshipUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_flagshipUSDT.address);
 
     // propose and add all tokens in the testCases array
     for (const { poolAddress } of testCases) {
