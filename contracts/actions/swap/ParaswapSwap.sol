@@ -93,13 +93,13 @@ contract ParaswapSwap is ActionBase {
         // Verify the destination token is approved in the registry
         require(
             TOKEN_REGISTRY.isApprovedToken(extractedDestToken),
-            "ParaswapSwap: Destination token not approved"
+            Errors.Paraswap__TokenNotApproved(extractedDestToken)
         );
         
         // Validate the extracted destination token against our expectations
         require(
             extractedDestToken == params.tokenOut,
-            "ParaswapSwap: Destination token mismatch"
+            Errors.Paraswap__TokenMismatch(params.tokenOut, extractedDestToken)
         );
         
         // Execute the swap
@@ -111,7 +111,7 @@ contract ParaswapSwap is ActionBase {
     /// @return The extracted destination token address
     function extractSwapDestination(bytes memory _swapCallData) public pure returns (address) {
         // Make sure we have enough data to extract the selector
-        require(_swapCallData.length >= 4, "ParaswapSwap: Invalid calldata length");
+        require(_swapCallData.length >= 4, Errors.Paraswap__InvalidCalldata());
         
         // Extract the function selector from the first 4 bytes
         bytes4 selector = bytes4(_swapCallData[0]) | (bytes4(_swapCallData[1]) >> 8) | 
@@ -141,7 +141,7 @@ contract ParaswapSwap is ActionBase {
             destTokenPosition = 164;
         } else {
             // Unknown selector, revert
-            revert("ParaswapSwap: Unsupported function selector");
+            revert Errors.Paraswap__UnsupportedSelector(selector);
         }
         
         // Extract the destination token
