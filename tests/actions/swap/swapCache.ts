@@ -117,13 +117,13 @@ export function saveSwapToCache(data: CachedSwapData): void {
 /**
  * Get swap data from cache
  */
-export function getSwapFromCache(
+export async function getSwapFromCache(
   sourceToken: string,
   destToken: string,
   exchangeType: string,
   amount?: string,
   selector?: string
-): CachedSwapData | null {
+): Promise<CachedSwapData | null> {
   try {
     if (!fs.existsSync(CACHE_FILE_PATH)) {
       return null;
@@ -138,13 +138,21 @@ export function getSwapFromCache(
     const normalizedExchangeType = exchangeType.toLowerCase();
     const normalizedSelector = selector?.toLowerCase();
 
-    // Get current block number from hardhat config
-    const hardhatConfig = require('../../../hardhat.config');
-    const currentBlockNumber = hardhatConfig.networks?.hardhat?.forking?.blockNumber;
+    // Get current block number from provider
+    const provider = require('hardhat').ethers.provider;
+    const currentBlockNumber = await provider.getBlockNumber();
     const BLOCK_TOLERANCE = 100; // Allow matches within 100 blocks
     
+    log('Cache check details:', {
+      currentBlockNumber,
+      sourceToken: normalizedSourceToken,
+      destToken: normalizedDestToken,
+      exchangeType: normalizedExchangeType,
+      amount
+    });
+
     // First try to find an exact match with all parameters
-    let foundSwap = cache.cachedSwaps.find(swap => {
+    for (const swap of cache.cachedSwaps) {
       const basicMatch = 
         swap.sourceToken.toLowerCase() === normalizedSourceToken && 
         swap.destToken.toLowerCase() === normalizedDestToken &&
@@ -154,81 +162,27 @@ export function getSwapFromCache(
         (!amount || swap.amount === amount) &&
         (!normalizedSelector || swap.selector.toLowerCase() === normalizedSelector);
 
-      // If we have block numbers, check they're within tolerance
-      if (fullMatch && currentBlockNumber && swap.blockNumber) {
-        return Math.abs(currentBlockNumber - swap.blockNumber) <= BLOCK_TOLERANCE;
-      }
-
-      return fullMatch;
-    });
-
-    // If no exact match found, try to find a match with just the tokens and exchange type
-    if (!foundSwap) {
-      foundSwap = cache.cachedSwaps.find(swap => {
-        const basicMatch = 
-          swap.sourceToken.toLowerCase() === normalizedSourceToken && 
-          swap.destToken.toLowerCase() === normalizedDestToken &&
-          swap.exchangeType.toLowerCase() === normalizedExchangeType;
-
-        // If we have block numbers, check they're within tolerance
-        if (basicMatch && currentBlockNumber && swap.blockNumber) {
-          return Math.abs(currentBlockNumber - swap.blockNumber) <= BLOCK_TOLERANCE;
+      // Always check block numbers are within tolerance
+      if (fullMatch && swap.blockNumber) {
+        const isWithinTolerance = Math.abs(currentBlockNumber - swap.blockNumber) <= BLOCK_TOLERANCE;
+        
+        log('Cache match details:', {
+          swapBlockNumber: swap.blockNumber,
+          currentBlock: currentBlockNumber,
+          isWithinTolerance,
+          blockDifference: Math.abs(currentBlockNumber - swap.blockNumber)
+        });
+        
+        if (isWithinTolerance) {
+          return swap;
         }
-
-        return basicMatch;
-      });
+      }
     }
-    
-    return foundSwap || null;
+
+    return null;
   } catch (error) {
     log('Error reading from cache file:', error);
     return null;
-  }
-}
-
-/**
- * Check if we're using a historic fork
- * Returns true if we're using a fork that's considered "historic" (old)
- * Returns false if we're using a recent fork that should fetch fresh data
- */
-export async function isUsingForkedNetwork(): Promise<boolean> {
-  try {
-    const hardhat = await import('hardhat');
-    const provider = hardhat.ethers.provider;
-
-    // Get the latest block from our forked network
-    const latestBlock = await provider.getBlock('latest');
-    if (!latestBlock) {
-      log('Could not get latest block, assuming historic fork');
-      return true;
-    }
-
-    // Get current timestamp
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    
-    // Define what we consider "historic" - configurable via env var, default to 1 hour
-    const HISTORIC_THRESHOLD = process.env.HISTORIC_FORK_THRESHOLD 
-      ? parseInt(process.env.HISTORIC_FORK_THRESHOLD) 
-      : 3600; // 1 second by default to allow using cache even with recent blocks
-
-    const blockAge = currentTimestamp - latestBlock.timestamp;
-    
-    log('Fork age detection:', {
-      networkName: hardhat.network.name,
-      blockNumber: latestBlock.number,
-      blockTimestamp: latestBlock.timestamp,
-      currentTimestamp,
-      blockAge,
-      historicThreshold: HISTORIC_THRESHOLD,
-      isHistoric: blockAge > HISTORIC_THRESHOLD
-    });
-    
-    // If block is older than threshold, consider it historic
-    return blockAge > HISTORIC_THRESHOLD;
-  } catch (error) {
-    log('Error checking network type:', error);
-    // If we can't determine, assume it's historic to be safe
-    return true;
   }
 }
 
@@ -271,7 +225,7 @@ export async function getSwapData(
   const exchangeType = dex?.toLowerCase() || 'basic';
 
   // Always try to get from cache first
-  const cachedSwap = getSwapFromCache(
+  const cachedSwap = await getSwapFromCache(
     srcToken, 
     destToken, 
     exchangeType,
@@ -286,7 +240,7 @@ export async function getSwapData(
     amount: amount.toString()
   });
 
-  // If we have cached data, use it immediately without checking network status
+  // If we have valid cached data (within block tolerance), use it
   if (cachedSwap) {
     return {
       callData: cachedSwap.callData,
@@ -301,24 +255,7 @@ export async function getSwapData(
     };
   }
 
-  // No cache available - now we need to check if we're in forked mode
-  const isForked = await isUsingForkedNetwork();
-  
-  log('Network status for uncached request:', { 
-    isForked,
-    srcToken, 
-    destToken
-  });
-
-  // If we're in forked mode and have no cache, we can't proceed
-  if (isForked) {
-    throw new Error(
-      `No cached quote found for ${srcToken} to ${destToken} (${exchangeType}). ` +
-      `Please run tests against the latest state to cache new quotes.`
-    );
-  }
-
-  // No cache available and we're in live mode - fetch from API
+  // No valid cache available - fetch from API
   const params = {
     srcToken: srcTokenAddress,
     destToken: destTokenAddress,
@@ -337,6 +274,14 @@ export async function getSwapData(
     url: 'https://api.paraswap.io/swap',
     params
   });
+
+  // Log the complete URL that will be called
+  const url = new URL('https://api.paraswap.io/swap');
+  const stringParams = Object.fromEntries(
+    Object.entries(params).map(([key, value]) => [key, String(value)])
+  );
+  url.search = new URLSearchParams(stringParams).toString();
+  log('Complete Paraswap API URL:', url.toString());
 
   try {
     const response = await axios.get('https://api.paraswap.io/swap', {
@@ -402,6 +347,5 @@ export async function getSwapData(
 export default {
   saveSwapToCache,
   getSwapFromCache,
-  isUsingForkedNetwork,
   getCurrentBlockNumber
 }; 

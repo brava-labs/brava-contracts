@@ -156,7 +156,7 @@ describe('ParaswapSwap tests', () => {
         // Call directly to verify the mismatch error
         await expect(
           paraswapSwap.executeAction(encodedParams, 0)
-        ).to.be.revertedWith('ParaswapSwap: Destination token mismatch');
+        ).to.be.revertedWithCustomError(paraswapSwap, "Paraswap__TokenMismatch");
       } catch (error: any) {
         const errorMessage = error?.message || '';
         if (errorMessage.includes('No liquidity')) {
@@ -186,7 +186,7 @@ describe('ParaswapSwap tests', () => {
       
       await expect(
         paraswapSwap.executeAction(encodedParams, 0)
-      ).to.be.revertedWith('ParaswapSwap: Invalid calldata length');
+      ).to.be.revertedWithCustomError(paraswapSwap, "Paraswap__InvalidCalldata");
     });
     
     it('should revert with unsupported function selector', async () => {
@@ -210,7 +210,7 @@ describe('ParaswapSwap tests', () => {
       
       await expect(
         paraswapSwap.executeAction(encodedParams, 0)
-      ).to.be.revertedWith('ParaswapSwap: Unsupported function selector');
+      ).to.be.revertedWithCustomError(paraswapSwap, "Paraswap__UnsupportedSelector");
     });
 
     it('should revert with zero input amount', async () => {
@@ -426,7 +426,7 @@ describe('ParaswapSwap tests', () => {
         // Call contract directly to get the specific error
         await expect(
           paraswapSwap.executeAction(encodedParams, 0)
-        ).to.be.revertedWith('ParaswapSwap: Destination token not approved');
+        ).to.be.revertedWithCustomError(paraswapSwap, "Paraswap__TokenNotApproved");
       } catch (error: any) {
         const errorMessage = error?.message || '';
         if (errorMessage.includes('No liquidity')) {
