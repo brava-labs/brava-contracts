@@ -272,6 +272,36 @@ export const tokenConfig = {
     whale: '0xC853E4DA38d9Bd1d01675355b8c8f3BBC1451973',
     decimals: 18,
   },
+  MORPHO_V1_coinshiftUSDC: {
+    address: '0x7204B7Dbf9412567835633B6F00C3Edc3a8D6330',
+    whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+    decimals: 18,
+  },
+  MORPHO_V1_steakhouseUSDC_RWA: {
+    address: '0x6D4e530B8431a52FFDA4516BA4Aadc0951897F8C',
+    whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+    decimals: 18,
+  },
+  MORPHO_V1_9S_MountDenali_USDC: {
+    address: '0x1E2aAaDcF528b9cC08F43d4fd7db488cE89F5741',
+    whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+    decimals: 18,
+  },
+  MORPHO_V1_9Summits_USDC: {
+    address: '0xD5Ac156319f2491d4ad1Ec4aA5ed0ED48C0fa173',
+    whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+    decimals: 18,
+  },
+  MORPHO_V1_smokehouseUSDT: {
+    address: '0xA0804346780b4c2e3bE118ac957D1DB82F9d7484',
+    whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+    decimals: 18,
+  },
+  MORPHO_V1_flagshipUSDT: {
+    address: '0x2C25f6C25770fFEC5959D34B94Bf898865e5D6b1',
+    whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {
