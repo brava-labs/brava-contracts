@@ -26,6 +26,7 @@ import {
   BuyCoverInputTypes,
   NexusMutualBuyCoverParamTypes,
   NexusMutualPoolAllocationRequestTypes,
+  ParaswapSwapParams,
 } from './params';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
@@ -105,8 +106,24 @@ export async function deploy<T extends BaseContract>(
   ...args: unknown[]
 ): Promise<T> {
   log(`Deploying ${contractName} with args:`, ...args);
-  const feeData = await ethers.provider.getFeeData();
   const factory = await ethers.getContractFactory(contractName, signer);
+  const feeData = await ethers.provider.getFeeData();
+
+  // Special case for Logger contract - use direct deployment
+  if (contractName === 'Logger') {
+    const gasOverrides = {
+      maxFeePerGas: feeData.maxFeePerGas ? (feeData.maxFeePerGas * BigInt(120)) / BigInt(100) : undefined,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? (feeData.maxPriorityFeePerGas * BigInt(120)) / BigInt(100) : undefined,
+    };
+    const contract = await factory.deploy(gasOverrides);
+    await contract.waitForDeployment();
+    const addr = await contract.getAddress();
+    log(`${contractName} deployed at:`, addr);
+    deployedContracts[contractName] = { address: addr, contract: contract as BaseContract };
+    return contract as T;
+  }
+
+  // For all other contracts, use CreateX
   const bytecode = factory.bytecode;
   let initCode = '';
   const contractAbi = factory.interface.formatJson();
@@ -124,27 +141,17 @@ export async function deploy<T extends BaseContract>(
   let contract: T;
   let receipt: TransactionReceipt | null = null;
   try {
-    // By default try and deploy with gasOverrides from the provider
+    // By default try and deploy with gasOverrides from the provider, increased by 20% to account for potential increases
     const gasOverrides = {
-      maxFeePerGas: feeData.maxFeePerGas,
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+      maxFeePerGas: feeData.maxFeePerGas ? (feeData.maxFeePerGas * BigInt(120)) / BigInt(100) : undefined,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? (feeData.maxPriorityFeePerGas * BigInt(120)) / BigInt(100) : undefined,
     };
     const tx = await createXFactory['deployCreate2(bytes32,bytes)'](salt, initCode, gasOverrides);
     receipt = await tx.wait();
   } catch (error) {
-    // If the deployment fails, try and deploy with 0 gas
-    const gasOverrides = {
-      maxFeePerGas: '0',
-      maxPriorityFeePerGas: '0',
-    };
-    try {
-      const tx = await createXFactory['deployCreate2(bytes32,bytes)'](salt, initCode, gasOverrides);
-      receipt = await tx.wait();
-    } catch (error) {
-      // now we really are out of options
-      log(`Error deploying ${contractName} with gas overrides:`, error);
-      throw error;
-    }
+    // Log the error and rethrow - no more fallback to zero gas as that's not valid
+    log(`Error deploying ${contractName}:`, error);
+    throw error;
   }
   const contractCreationEvent = receipt?.logs.find(
     (log: any) => log.eventName === 'ContractCreation'
@@ -177,13 +184,7 @@ type BaseSetup = {
 export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
   const loggerImplementation = await deploy<Logger>('Logger', deploySigner);
-  const loggerProxy = await deploy<Proxy>(
-    'contracts/auth/Proxy.sol:Proxy',
-    deploySigner,
-    await loggerImplementation.getAddress(),
-    '0x'
-  );
-  const logger = await ethers.getContractAt('Logger', await loggerProxy.getAddress());
+  const logger = await ethers.getContractAt('Logger', await loggerImplementation.getAddress());
   const adminVault = await deploy<AdminVault>(
     'AdminVault',
     deploySigner,
@@ -395,6 +396,26 @@ async function prepareNexusMutualCoverPurchase(args: Partial<BuyCoverArgs>): Pro
   };
 }
 
+async function prepareParaswapSwap(args: Partial<ActionArgs>): Promise<{
+  encodedFunctionCall: string;
+}> {
+  const mergedArgs = { ...actionDefaults.ParaswapSwap, ...args } as ActionArgs;
+  const abiCoder = new ethers.AbiCoder();
+  const encodedParamsCombined = abiCoder.encode(
+    [ParaswapSwapParams],
+    [mergedArgs]
+  );
+  const paraswap = getDeployedContract('ParaswapSwap');
+  if (!paraswap) {
+    throw new Error('ParaswapSwap contract not deployed');
+  }
+  const encodedFunctionCall = paraswap.contract.interface.encodeFunctionData('executeAction', [
+    encodedParamsCombined,
+    1,
+  ]);
+  return { encodedFunctionCall };
+}
+
 // Helper function to encode an action
 // This function will use default values for any parameters not specified
 // It will also use the global setup to get the safe address and signer
@@ -411,6 +432,17 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
   // Nexus is special, lets just use their SDK
   if (mergedArgs.type === 'BuyCover') {
     const { encodedFunctionCall } = await prepareNexusMutualCoverPurchase(mergedArgs);
+    return encodedFunctionCall;
+  }
+
+  // Paraswap has bytes that need encoding as a tuple
+  if (mergedArgs.type === 'ParaswapSwap') {
+    if ('tokenIn' in mergedArgs && 'tokenOut' in mergedArgs) {
+      // convert tokens to addresses
+      mergedArgs.tokenInAddress = tokenConfig[mergedArgs.tokenIn as keyof typeof tokenConfig].address;
+      mergedArgs.tokenOutAddress = tokenConfig[mergedArgs.tokenOut as keyof typeof tokenConfig].address;
+    }
+    const { encodedFunctionCall } = await prepareParaswapSwap(mergedArgs);
     return encodedFunctionCall;
   }
 

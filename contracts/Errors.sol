@@ -64,6 +64,10 @@ contract Errors {
     // ParaswapSwap errors
     error Paraswap__SwapFailed();
     error Paraswap__InsufficientOutput(uint256 _amountReceived, uint256 _minToAmount);
+    error Paraswap__TokenNotApproved(address token);
+    error Paraswap__TokenMismatch(address expected, address actual);
+    error Paraswap__InvalidCalldata();
+    error Paraswap__UnsupportedSelector(bytes4 selector);
 
     // SendToken errors
     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);

@@ -19,7 +19,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: 'https://mainnet.gateway.tenderly.co/' + process.env.TENDERLY_API_KEY!,
-        blockNumber: 21629000, // If this is updated, also update the quotes for Nexus Mutual in constants.ts. Or just use latest
+        blockNumber: 22245711, // Using block from when we cached the quotes
         enabled: true,
       },
     },

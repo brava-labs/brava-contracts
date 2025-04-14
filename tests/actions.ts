@@ -2,6 +2,7 @@ import { CoverAsset } from '@nexusmutual/sdk';
 import { ethers } from 'ethers';
 import { tokenConfig } from './constants';
 import { getBytes4 } from './utils';
+import { ParaswapSwapParams } from './params';
 
 export const actionTypes = {
   DEPOSIT_ACTION: 0,
@@ -95,6 +96,8 @@ interface ParaswapSwapArgs extends BaseActionArgs {
   fromAmount: string | BigInt;
   minToAmount: string;
   swapCallData?: string;
+  tokenInAddress?: string;
+  tokenOutAddress?: string;
 }
 
 interface TokenTransferArgs extends BaseActionArgs {
@@ -293,7 +296,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
     swapCallData: '0x',
     encoding: {
       inputParams: ['address', 'address', 'uint256', 'uint256', 'bytes'],
-      encodingVariables: ['tokenIn', 'tokenOut', 'fromAmount', 'minToAmount', 'swapCallData'],
+      encodingVariables: ['tokenInAddress', 'tokenOutAddress', 'fromAmount', 'minToAmount', 'swapCallData'],
     },
   },
   PullToken: {
