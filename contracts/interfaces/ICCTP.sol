@@ -38,6 +38,15 @@ interface IMessageTransmitterV2 {
         bytes calldata message, 
         bytes calldata attestation
     ) external returns (bool success);
+    
+    /// @notice Sends a message to a destination domain
+    function sendMessage(
+        uint32 destinationDomain,
+        bytes32 recipient,
+        bytes32 destinationCaller,
+        uint32 minFinalityThreshold,
+        bytes calldata messageBody
+    ) external;
 }
 
 /// @notice Enum representing CCTP log types
