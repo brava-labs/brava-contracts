@@ -62,6 +62,11 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 6,
   },
+  USDE: {
+    address: '0x4c9EDD5852cd905f086C759E8383e09bff1E68B3',
+    whale: '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497',
+    decimals: 18,
+  },
   DAI: {
     address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
@@ -300,6 +305,26 @@ export const tokenConfig = {
   MORPHO_V1_flagshipUSDT: {
     address: '0x2C25f6C25770fFEC5959D34B94Bf898865e5D6b1',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+    decimals: 18,
+  },
+  EULER_V2_PRIME_USDC: {
+    address: '0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9',
+    whale: '0xCCBd61b6c2fB58Da5bbD8937Ca25164eF29c1cc4',
+    decimals: 6,
+  },
+  EULER_V2_YIELD_USDC: {
+    address: '0xe0a80d35bB6618CBA260120b279d357978c42BCE',
+    whale: '0xD3985b3F8103b67016333A2052f6b6396D60701e',
+    decimals: 6,
+  },
+  EULER_V2_YIELD_USDT: {
+    address: '0x7c280DBDEf569e96c7919251bD2B0edF0734C5A8',
+    whale: '0x1597E4B7Cf6D2877A1D690b6088668Afdb045766',
+    decimals: 6,
+  },
+  EULER_V2_YIELD_USDE: {
+    address: '0x2daCa71Cb58285212Dc05D65Cfd4f59A82BC4cF6',
+    whale: '0xa408f237587D2cBc461058974Ed214F8888806A5',
     decimals: 18,
   },
 };

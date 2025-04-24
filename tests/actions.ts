@@ -58,7 +58,8 @@ type WithdrawArgs =
         | 'AcrossV3Withdraw'
         | 'MorphoV1Withdraw'
         | 'YearnV3Withdraw'
-        | 'GearboxPassiveV3Withdraw';
+        | 'GearboxPassiveV3Withdraw'
+        | 'EulerV2Withdraw';
     })
   | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnV2Withdraw' | 'VesperV1Withdraw' });
 
@@ -74,7 +75,8 @@ interface SupplyArgs extends BaseActionArgs {
     | 'VesperV1Supply'
     | 'NotionalV3Supply'
     | 'YearnV3Supply'
-    | 'GearboxPassiveV3Supply';
+    | 'GearboxPassiveV3Supply'
+    | 'EulerV2Supply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -660,5 +662,35 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes'],
       encodingVariables: ['data']
     }
+  },
+  EulerV2Supply: {
+    type: 'EulerV2Supply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.EULER_V2_PRIME_USDC.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
+  },
+  EulerV2Withdraw: {
+    type: 'EulerV2Withdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.EULER_V2_PRIME_USDC.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
 };
