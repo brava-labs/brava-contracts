@@ -67,6 +67,11 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 18,
   },
+  GHO: {
+    address: '0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f',
+    whale: '0x1a88Df1cFe15Af22B3c4c783D4e6F7F9e0C1885d',
+    decimals: 18,
+  },
   USDS: {
     address: '0xdC035D45d973E3EC169d2276DDab16f1e407384F',
     whale: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD', 
