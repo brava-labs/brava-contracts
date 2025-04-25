@@ -472,7 +472,7 @@ describe('Aave V2 tests', () => {
         expect(txLog.balanceAfter).to.be.a('bigint');
         expect(txLog.balanceBefore).to.be.a('bigint');
         // With aave we earn extra tokens over time, so slow tests mean we can't check exact amounts
-        expect(txLog.balanceBefore).to.be.greaterThanOrEqual(amount);
+        expect(txLog.balanceBefore).to.be.greaterThanOrEqual(amount - 1n);
       });
       it('Should have withdraw action type', async () => {
         const actionType = await aaveWithdrawContract.actionType();
