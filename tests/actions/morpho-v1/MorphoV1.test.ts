@@ -62,6 +62,7 @@ describe('MorphoV1 tests', () => {
   let flagshipUSDT: IERC4626;
   let steakhouserUSD: IERC4626;
   let steakhousePYUSD: IERC4626;
+  let coinshiftUSDL: IERC4626;
   // let fUSDT: IFluidLending;
   let adminVault: AdminVault;
   const protocolId = BigInt(
@@ -170,6 +171,11 @@ describe('MorphoV1 tests', () => {
       poolAddress: tokenConfig.MORPHO_V1_steakhousePYUSD.address,
       mToken: () => steakhousePYUSD,
     },
+    {
+      token: 'wUSDL',
+      poolAddress: tokenConfig.MORPHO_V1_coinshiftUSDL.address,
+      mToken: () => coinshiftUSDL,
+    },
   ];
 
   before(async () => {
@@ -220,6 +226,7 @@ describe('MorphoV1 tests', () => {
     flagshipUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_flagshipUSDT.address);
     steakhouserUSD = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_steakhouserUSD.address);
     steakhousePYUSD = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_steakhousePYUSD.address);
+    coinshiftUSDL = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_coinshiftUSDL.address);
 
     // propose and add all tokens in the testCases array
     for (const { poolAddress } of testCases) {
