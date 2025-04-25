@@ -327,9 +327,19 @@ export const tokenConfig = {
     whale: '0xf0e9f6D9Ba5D1B3f76e0f82F9DCDb9eBEef4b4dA',
     decimals: 18,
   },
+  PYUSD: {
+    address: '0x6c3ea9036406852006290770BEdFcAbA0e23A0e8',
+    whale: '0x688e72142674041f8f6Af4c808a4045cA1D6aC82',
+    decimals: 6,
+  },
   MORPHO_V1_steakhouserUSD: {
     address: '0xBeEf11eCb698f4B5378685C05A210bdF71093521',
     whale: '0x31Eae643b679A84b37E3d0B4Bd4f5dA90fB04a61',
+    decimals: 18,
+  },
+  MORPHO_V1_steakhousePYUSD: {
+    address: '0xbEEF02e5E13584ab96848af90261f0C8Ee04722a',
+    whale: '0x7E4B4DC22111B84594d9b7707A8DCFFd793D477A',
     decimals: 18,
   },
 };
