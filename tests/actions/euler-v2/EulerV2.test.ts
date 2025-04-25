@@ -22,7 +22,7 @@ import {
 } from '../../utils';
 import { fundAccountWithToken, getUSDC, getUSDT, getUSDE } from '../../utils-stable';
 
-describe.only('EulerV2 tests', () => {
+describe('EulerV2 tests', () => {
   let signer: Signer;
   let safeAddr: string;
   let loggerAddress: string;
@@ -39,6 +39,8 @@ describe.only('EulerV2 tests', () => {
   let eYieldUSDC: IEulerV2Lending;
   let eYieldUSDT: IEulerV2Lending;
   let eYieldUSDE: IEulerV2Lending;
+  let eMaxiUSDC: IEulerV2Lending;
+  let eResolvUSDC: IEulerV2Lending;
   let adminVault: AdminVault;
 
   // Run tests for each supported pool
@@ -72,13 +74,25 @@ describe.only('EulerV2 tests', () => {
       poolName: 'Yield USDE',
       underlying: 'USDE',
     },
+    {
+      poolAddress: tokenConfig.EULER_V2_MAXI_USDC.address,
+      eToken: () => eMaxiUSDC,
+      poolName: 'Stablecoin Maxi USDC',
+      underlying: 'USDC',
+    },
+    {
+      poolAddress: tokenConfig.EULER_V2_RESOLV_USDC.address,
+      eToken: () => eResolvUSDC,
+      poolName: 'Resolv USDC',
+      underlying: 'USDC',
+    },
   ];
 
   before(async () => {
     [signer] = await ethers.getSigners();
     const baseSetup = await getBaseSetup(signer);
     if (!baseSetup) {
-      throw new Error('Base setup not deployed');
+      throw new Error('Failed to deploy base setup contracts');
     }
     safeAddr = (await baseSetup.safe.getAddress()) as string;
     loggerAddress = (await baseSetup.logger.getAddress()) as string;
@@ -111,16 +125,22 @@ describe.only('EulerV2 tests', () => {
     eYieldUSDC = await ethers.getContractAt('IEulerV2Lending', tokenConfig.EULER_V2_YIELD_USDC.address);
     eYieldUSDT = await ethers.getContractAt('IEulerV2Lending', tokenConfig.EULER_V2_YIELD_USDT.address);
     eYieldUSDE = await ethers.getContractAt('IEulerV2Lending', tokenConfig.EULER_V2_YIELD_USDE.address);
+    eMaxiUSDC = await ethers.getContractAt('IEulerV2Lending', tokenConfig.EULER_V2_MAXI_USDC.address);
+    eResolvUSDC = await ethers.getContractAt('IEulerV2Lending', tokenConfig.EULER_V2_RESOLV_USDC.address);
 
     // Grant the Euler contracts the POOL_ROLE
     await adminVault.proposePool('EulerV2', tokenConfig.EULER_V2_PRIME_USDC.address);
     await adminVault.proposePool('EulerV2', tokenConfig.EULER_V2_YIELD_USDC.address);
     await adminVault.proposePool('EulerV2', tokenConfig.EULER_V2_YIELD_USDT.address);
     await adminVault.proposePool('EulerV2', tokenConfig.EULER_V2_YIELD_USDE.address);
+    await adminVault.proposePool('EulerV2', tokenConfig.EULER_V2_MAXI_USDC.address);
+    await adminVault.proposePool('EulerV2', tokenConfig.EULER_V2_RESOLV_USDC.address);
     await adminVault.addPool('EulerV2', tokenConfig.EULER_V2_PRIME_USDC.address);
     await adminVault.addPool('EulerV2', tokenConfig.EULER_V2_YIELD_USDC.address);
     await adminVault.addPool('EulerV2', tokenConfig.EULER_V2_YIELD_USDT.address);
     await adminVault.addPool('EulerV2', tokenConfig.EULER_V2_YIELD_USDE.address);
+    await adminVault.addPool('EulerV2', tokenConfig.EULER_V2_MAXI_USDC.address);
+    await adminVault.addPool('EulerV2', tokenConfig.EULER_V2_RESOLV_USDC.address);
   });
 
   beforeEach(async () => {
@@ -198,9 +218,6 @@ describe.only('EulerV2 tests', () => {
           const eTokenBalanceAfterFirstTx = await eToken().balanceOf(safeAddr);
 
           // Time travel 1 year
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Euler']))
-          );
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
             poolAddress
@@ -217,21 +234,118 @@ describe.only('EulerV2 tests', () => {
           });
 
           const firstTxReceipt = await firstTx.wait();
-          if (!firstTxReceipt) throw new Error('First deposit transaction failed');
+          if (!firstTxReceipt) throw new Error('First deposit transaction failed to get receipt');
 
           const secondTxReceipt = await secondTx.wait();
-          if (!secondTxReceipt) throw new Error('Second deposit transaction failed');
+          if (!secondTxReceipt) throw new Error('Second deposit transaction failed to get receipt');
 
-          const feeRecipientTokenBalanceAfter = await tokenContract.balanceOf(feeRecipient);
-          const feeRecipientETokenBalanceAfter = await eToken().balanceOf(feeRecipient);
+          // Calculate expected fee
+          const expectedFee = await calculateExpectedFee(
+            firstTxReceipt,
+            secondTxReceipt,
+            10,
+            eTokenBalanceAfterFirstTx
+          );
+          const expectedFeeRecipientBalance = feeRecipientETokenBalanceBefore + expectedFee;
 
-          expect(feeRecipientETokenBalanceAfter).to.be.greaterThan(feeRecipientETokenBalanceBefore);
+          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(feeRecipientTokenBalanceBefore);
+          expect(await eToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
         });
+      });
+    });
+
+    describe('General tests', () => {
+      it('Should emit the correct log on deposit', async () => {
+        const token = 'USDC';
+        const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        await fundAccountWithToken(safeAddr, token, amount);
+        const strategyId = BigInt(42);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.EULER_V2_PRIME_USDC.address).slice(0, 10);
+
+        const tx = await executeAction({
+          type: 'EulerV2Supply',
+          poolAddress: tokenConfig.EULER_V2_PRIME_USDC.address,
+          amount,
+        });
+
+        const logs = await decodeLoggerLog(tx);
+        log('Logs:', logs);
+
+        // we should expect 1 log, with the correct args
+        expect(logs).to.have.length(1);
+        expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
+
+        // we know it's a BalanceUpdateLog because of the eventName
+        // now we can typecast and check specific properties
+        const txLog = logs[0] as BalanceUpdateLog;
+        expect(txLog).to.have.property('safeAddress', safeAddr);
+        expect(txLog).to.have.property('strategyId', strategyId);
+        expect(txLog).to.have.property('poolId', poolId);
+        expect(txLog).to.have.property('balanceBefore', BigInt(0));
+        expect(txLog).to.have.property('balanceAfter');
+        expect(txLog).to.have.property('feeInTokens');
+        expect(txLog.balanceAfter).to.be.a('bigint');
+        expect(txLog.balanceAfter).to.not.equal(BigInt(0));
+      });
+
+      it('Should initialize last fee timestamp', async () => {
+        const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
+          safeAddr,
+          tokenConfig.EULER_V2_PRIME_USDC.address
+        );
+        expect(initialLastFeeTimestamp).to.equal(BigInt(0));
+
+        await fundAccountWithToken(safeAddr, 'USDC', 1000);
+
+        const tx = await executeAction({
+          type: 'EulerV2Supply',
+          poolAddress: tokenConfig.EULER_V2_PRIME_USDC.address,
+          amount: '1000',
+        });
+
+        const txReceipt = await tx.wait();
+        if (!txReceipt) {
+          throw new Error('Transaction receipt not found');
+        }
+        const block = await ethers.provider.getBlock(txReceipt.blockNumber);
+        if (!block) {
+          throw new Error('Failed to fetch block information for timestamp verification');
+        }
+        const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
+          safeAddr,
+          tokenConfig.EULER_V2_PRIME_USDC.address
+        );
+        expect(finalLastFeeTimestamp).to.equal(BigInt(block.timestamp));
+      });
+
+      it('Should have deposit action type', async () => {
+        const actionType = await eulerSupplyContract.actionType();
+        expect(actionType).to.equal(actionTypes.DEPOSIT_ACTION);
+      });
+
+      it('Should reject invalid token', async () => {
+        await expect(
+          executeAction({
+            type: 'EulerV2Supply',
+            poolAddress: '0x0000000000000000000000000000000000000000',
+          })
+        ).to.be.revertedWith('GS013'); // Invalid target contract address
       });
     });
   });
 
   describe('EulerV2 Withdraw', () => {
+    beforeEach(async () => {
+      // Do empty deposits to initialize the fee timestamps for all pools
+      for (const { poolAddress } of testCases) {
+        await executeAction({
+          type: 'EulerV2Supply',
+          poolAddress,
+          amount: '0',
+        });
+      }
+    });
+
     testCases.forEach(({ poolName, poolAddress, underlying, eToken }) => {
       describe(`Testing ${poolName}`, () => {
         it('Should withdraw', async () => {
@@ -292,26 +406,26 @@ describe.only('EulerV2 tests', () => {
         });
 
         it('Should take fees on withdraw', async () => {
-          // First deposit to have something to withdraw
           const amount = ethers.parseUnits('2000', tokenConfig[underlying].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlying].address);
           await fundAccountWithToken(safeAddr, underlying, amount);
-
-          await executeAction({
-            type: 'EulerV2Supply',
-            poolAddress,
-            amount,
-          });
 
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
           const feeRecipientETokenBalanceBefore = await eToken().balanceOf(feeRecipient);
 
-          // Time travel 1 year to accrue fees
-          const protocolId = BigInt(
-            ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['Euler']))
-          );
+          // Do an initial supply with fees
+          const supplyTx = await executeAction({
+            type: 'EulerV2Supply',
+            poolAddress,
+            amount,
+            feeBasis: 10,
+          });
+
+          const eTokenBalanceAfterSupply = await eToken().balanceOf(safeAddr);
+
+          // Time travel 1 year
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
             safeAddr,
             poolAddress
@@ -320,21 +434,30 @@ describe.only('EulerV2 tests', () => {
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
           // Do a withdraw with fees
-          const withdrawAmount = ethers.parseUnits('1000', tokenConfig[underlying].decimals);
-          const tx = await executeAction({
+          const withdrawTx = await executeAction({
             type: 'EulerV2Withdraw',
             poolAddress,
-            amount: withdrawAmount,
+            amount: '1',
             feeBasis: 10,
           });
 
-          const receipt = await tx.wait();
-          if (!receipt) throw new Error('Withdraw transaction failed');
+          const supplyReceipt = await supplyTx.wait();
+          if (!supplyReceipt) throw new Error('Supply transaction failed to get receipt');
 
-          const feeRecipientTokenBalanceAfter = await tokenContract.balanceOf(feeRecipient);
-          const feeRecipientETokenBalanceAfter = await eToken().balanceOf(feeRecipient);
+          const withdrawReceipt = await withdrawTx.wait();
+          if (!withdrawReceipt) throw new Error('Withdraw transaction failed to get receipt');
 
-          expect(feeRecipientETokenBalanceAfter).to.be.greaterThan(feeRecipientETokenBalanceBefore);
+          // Calculate expected fee
+          const expectedFee = await calculateExpectedFee(
+            supplyReceipt,
+            withdrawReceipt,
+            10,
+            eTokenBalanceAfterSupply
+          );
+          const expectedFeeRecipientBalance = feeRecipientETokenBalanceBefore + expectedFee;
+
+          expect(await tokenContract.balanceOf(feeRecipient)).to.equal(feeRecipientTokenBalanceBefore);
+          expect(await eToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
         });
 
         it('Should revert on withdraw with insufficient balance', async () => {
@@ -345,31 +468,57 @@ describe.only('EulerV2 tests', () => {
               poolAddress,
               amount,
             })
-          ).to.be.reverted;
+          ).to.be.revertedWith('GS013'); // Insufficient balance for withdrawal
+        });
+      });
+    });
+
+    describe('General tests', () => {
+      it('Should emit the correct log on withdraw', async () => {
+        const token = 'EULER_V2_PRIME_USDC';
+        const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        await fundAccountWithToken(safeAddr, token, amount);
+        const strategyId = BigInt(42);
+        const poolId: BytesLike = ethers.keccak256(tokenConfig.EULER_V2_PRIME_USDC.address).slice(0, 10);
+
+        const tx = await executeAction({
+          type: 'EulerV2Withdraw',
+          poolAddress: tokenConfig.EULER_V2_PRIME_USDC.address,
+          amount,
         });
 
-        it('Should revert on withdraw with amount greater than balance', async () => {
-          // First deposit a small amount
-          const depositAmount = ethers.parseUnits('100', tokenConfig[underlying].decimals);
-          const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[underlying].address);
-          await fundAccountWithToken(safeAddr, underlying, depositAmount);
+        const logs = await decodeLoggerLog(tx);
+        log('Logs:', logs);
 
-          await executeAction({
-            type: 'EulerV2Supply',
-            poolAddress,
-            amount: depositAmount,
-          });
+        // we should expect 1 log, with the correct args
+        expect(logs).to.have.length(1);
+        expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
 
-          // Try to withdraw more than deposited
-          const withdrawAmount = ethers.parseUnits('200', tokenConfig[underlying].decimals);
-          await expect(
-            executeAction({
-              type: 'EulerV2Withdraw',
-              poolAddress,
-              amount: withdrawAmount,
-            })
-          ).to.be.reverted;
-        });
+        // we know it's a BalanceUpdateLog because of the eventName
+        // now we can typecast and check specific properties
+        const txLog = logs[0] as BalanceUpdateLog;
+        expect(txLog).to.have.property('safeAddress', safeAddr);
+        expect(txLog).to.have.property('strategyId', strategyId);
+        expect(txLog).to.have.property('poolId', poolId);
+        expect(txLog).to.have.property('balanceBefore', amount);
+        expect(txLog).to.have.property('balanceAfter');
+        expect(txLog).to.have.property('feeInTokens');
+        expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
+        expect(txLog.feeInTokens).to.equal(BigInt(0));
+      });
+
+      it('Should have withdraw action type', async () => {
+        const actionType = await eulerWithdrawContract.actionType();
+        expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
+      });
+
+      it('Should reject invalid token', async () => {
+        await expect(
+          executeAction({
+            type: 'EulerV2Withdraw',
+            poolAddress: '0x0000000000000000000000000000000000000000',
+          })
+        ).to.be.revertedWith('GS013'); // Invalid target contract address
       });
     });
   });

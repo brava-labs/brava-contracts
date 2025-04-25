@@ -327,6 +327,16 @@ export const tokenConfig = {
     whale: '0xa408f237587D2cBc461058974Ed214F8888806A5',
     decimals: 18,
   },
+  EULER_V2_MAXI_USDC: {
+    address: '0xce45EF0414dE3516cAF1BCf937bF7F2Cf67873De',
+    whale: '0x2574d2367c58a037604D79A5a6ddd5E13603Cf13',
+    decimals: 6,
+  },
+  EULER_V2_RESOLV_USDC: {
+    address: '0xcBC9B61177444A793B85442D3a953B90f6170b7D',
+    whale: '0x64C4DC144119c794bb92fdE8C04eA6BD095b7Ba8',
+    decimals: 6,
+  },
 };
 
 export const NEXUS_QUOTES = {

@@ -686,7 +686,7 @@ export const actionDefaults: Record<string, ActionArgs> = {
     poolAddress: tokenConfig.EULER_V2_PRIME_USDC.address,
     feeBasis: 0,
     amount: '0',
-    maxSharesBurned: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
     encoding: {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
