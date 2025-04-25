@@ -22,7 +22,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract } from '../../utils-stable';
 
 describe('YearnV2 tests', () => {
   let signer: Signer;
@@ -82,9 +82,10 @@ describe('YearnV2 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
-    DAI = await getDAI();
+    const tokens = await getTokenContract(['USDC', 'USDT', 'DAI']);
+    USDC = tokens.USDC;
+    USDT = tokens.USDT;
+    DAI = tokens.DAI;
 
     // Initialize YearnV2Supply and YearnV2Withdraw actions
     yearnSupplyContract = await deploy(

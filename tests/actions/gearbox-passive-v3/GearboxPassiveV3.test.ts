@@ -20,7 +20,7 @@ import {
   getBaseSetup,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT, getDAI } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 describe('GearboxPassiveV3 tests', () => {
   let signer: Signer;
@@ -77,9 +77,9 @@ describe('GearboxPassiveV3 tests', () => {
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
     // Fetch the tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
-    DAI = await getDAI();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
+    DAI = await getTokenContract('DAI');
 
     // Initialize GearboxPassiveV3Supply and GearboxPassiveV3Withdraw actions
     gearboxPassiveV3SupplyContract = await deploy(

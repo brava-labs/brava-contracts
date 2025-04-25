@@ -13,7 +13,7 @@ import {
   getBaseSetup,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDS } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract } from '../../utils-stable';
 
 describe('Spark tests', () => {
   let signer: Signer;
@@ -73,8 +73,9 @@ describe('Spark tests', () => {
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
 
-    DAI = await getDAI();
-    USDS = await getUSDS();
+    // Fetch the tokens
+    DAI = await getTokenContract('DAI');
+    USDS = await getTokenContract('USDS');
 
     sparkSupplyContract = await deploy(
       'SparkV1Supply',

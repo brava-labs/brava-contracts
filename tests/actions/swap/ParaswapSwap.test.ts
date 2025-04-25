@@ -6,11 +6,8 @@ import { tokenConfig } from '../../constants';
 import { actionTypes } from '../../actions';
 import * as utils from '../../utils';
 import { log } from '../../utils';
-import { fundAccountWithToken, getStables } from '../../utils-stable';
-import axios from 'axios';
-import { BigNumberish } from 'ethers';
-import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { saveSwapToCache, getSwapFromCache, isUsingForkedNetwork, getCurrentBlockNumber, getSwapData } from './swapCache';
+import { fundAccountWithToken, getTokenContract } from '../../utils-stable';
+import { getSwapData } from './swapCache';
 
 // Define the TokenConfiguration type based on the structure in constants.ts
 type TokenConfiguration = typeof tokenConfig;
@@ -69,7 +66,10 @@ describe('ParaswapSwap tests', () => {
       await tokenRegistry.getAddress()
     );
 
-    ({ USDC, USDT, DAI } = await getStables());
+    const tokens = await getTokenContract(['USDC', 'USDT', 'DAI']);
+    USDC = tokens.USDC as IERC20Metadata;
+    USDT = tokens.USDT as IERC20Metadata;
+    DAI = tokens.DAI as IERC20Metadata;
 
     const swapAddress = await paraswapSwap.getAddress();
     await adminVault.proposeAction(utils.getBytes4(swapAddress), swapAddress);

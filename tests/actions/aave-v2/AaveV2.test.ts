@@ -20,7 +20,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 describe('Aave V2 tests', () => {
   let signer: Signer;
@@ -73,9 +73,9 @@ describe('Aave V2 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
-    DAI = await getDAI();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
+    DAI = await getTokenContract('DAI');
 
     // Initialize AaveSupply and AaveWithdraw actions
     aaveSupplyContract = await deploy(

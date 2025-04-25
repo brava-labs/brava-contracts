@@ -20,7 +20,7 @@ import {
   getBaseSetup,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 describe('FluidV1 tests', () => {
   let signer: Signer;
@@ -72,8 +72,8 @@ describe('FluidV1 tests', () => {
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
     // Fetch the USDC and USDT tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
 
     // Initialize FluidV1Supply and FluidV1Withdraw actions
     fluidSupplyContract = await deploy(

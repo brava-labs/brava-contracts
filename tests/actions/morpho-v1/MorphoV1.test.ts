@@ -20,7 +20,7 @@ import {
   getBaseSetup,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 // Morpho uses the same underlying token for multiple pools, so we need a descriptive name
 const getTokenNameFromAddress = (address: string): string => {
@@ -171,8 +171,8 @@ describe('MorphoV1 tests', () => {
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
     // Fetch the USDC token
-    USDC = await getUSDC();
-    USDT = await getUSDT();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
 
     // Initialize MorphoV1Supply and MorphoV1Withdraw actions
     morphoV1SupplyContract = await deploy(

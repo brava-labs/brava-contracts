@@ -15,7 +15,7 @@ import {
 } from '../../typechain-types';
 import { tokenConfig } from '../constants';
 import { deploy, executeAction, getBaseSetup, getBytes4, log } from '../utils';
-import { fundAccountWithToken, getUSDC } from '../utils-stable';
+import { fundAccountWithToken, getTokenContract } from '../utils-stable';
 
 describe('FeeTakeSafeModule', function () {
   let adminVault: AdminVault;
@@ -63,7 +63,7 @@ describe('FeeTakeSafeModule', function () {
     await adminVault.connect(admin).grantRole(FEE_TAKER_ROLE, alice.address);
 
     // Fetch the USDC token
-    USDC = await getUSDC();
+    USDC = await getTokenContract('USDC');
 
     // Initialize FluidV1Supply action
     fluidSupplyContract = await deploy(

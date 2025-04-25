@@ -9,7 +9,7 @@ import {
   getBytes4,
   decodeLoggerLog,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 import { tokenConfig } from '../../constants';
 import {
   AdminVault,
@@ -82,9 +82,9 @@ describe('YearnV3 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
-    DAI = await getDAI();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
+    DAI = await getTokenContract('DAI');
 
     // Initialize YearnSupply and YearnWithdraw actions
     yearnSupplyContract = await deploy(

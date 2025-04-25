@@ -20,7 +20,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 describe('Strike tests', () => {
   let signer: Signer;
@@ -67,8 +67,8 @@ describe('Strike tests', () => {
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
     // Fetch the USDC and USDT tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
     sUSDC = await ethers.getContractAt('CTokenInterface', tokenConfig.STRIKE_V1_USDC.address);
     sUSDT = await ethers.getContractAt('CTokenInterface', tokenConfig.STRIKE_V1_USDT.address);
 
