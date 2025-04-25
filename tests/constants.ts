@@ -92,6 +92,11 @@ export const tokenConfig = {
     whale: '0x490681095ed277B45377d28cA15Ac41d64583048',
     decimals: 6,
   },
+  FLUID_V1_GHO: {
+    address: '0x6A29A46E21C730DcA1d8b23d637c101cec605C5B',
+    whale: '0xd3DCe716f3eF535C5Ff8d041c1A41C3bd89b97aE',
+    decimals: 18,
+  },
   YEARN_V2_USDC: {
     address: '0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE',
     whale: '0xC4080c19DE69c2362d01B20F071D4046364A0226',
