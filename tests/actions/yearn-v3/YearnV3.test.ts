@@ -41,9 +41,11 @@ describe('YearnV3 tests', () => {
   let yUSDT: IYearnVaultV3;
   let yDAI: IYearnVaultV3;
   let yajnaDAI: IYearnVaultV3;
+  let yUSDS: IYearnVaultV3;
   let adminVault: AdminVault;
   const YEARN_DAI_ADDRESS = tokenConfig.YEARN_V3_DAI.address;
   const AJNA_DAI_ADDRESS = tokenConfig.YEARN_V3_AJNA_DAI.address;
+  const USDS_ADDRESS = tokenConfig.YEARN_V3_USDS.address;
 
   const testCases: Array<{
     token: keyof typeof tokenConfig;
@@ -59,6 +61,11 @@ describe('YearnV3 tests', () => {
       token: 'DAI',
       poolAddress: AJNA_DAI_ADDRESS,
       yToken: () => yajnaDAI,
+    },
+    {
+      token: 'USDS',
+      poolAddress: USDS_ADDRESS,
+      yToken: () => yUSDS,
     },
     // Add more test cases as needed
   ];
@@ -96,6 +103,7 @@ describe('YearnV3 tests', () => {
     yearnWithdrawAddress = await yearnWithdrawContract.getAddress();
     yDAI = await ethers.getContractAt('IYearnVaultV3', YEARN_DAI_ADDRESS);
     yajnaDAI = await ethers.getContractAt('IYearnVaultV3', AJNA_DAI_ADDRESS);
+    yUSDS = await ethers.getContractAt('IYearnVaultV3', USDS_ADDRESS);
 
     // grant the yToken contracts the POOL_ROLE
     for (const { poolAddress } of testCases) {

@@ -67,6 +67,11 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 18,
   },
+  USDS: {
+    address: '0xdC035D45d973E3EC169d2276DDab16f1e407384F',
+    whale: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD', 
+    decimals: 18,
+  },
   WETH: {
     address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
@@ -172,11 +177,6 @@ export const tokenConfig = {
     whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
     decimals: 18,
   },
-  USDS: {
-    address: '0xdC035D45d973E3EC169d2276DDab16f1e407384F',
-    whale: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD',
-    decimals: 18,
-  },
   SPARK_V1_USDS: {
     address: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD',
     whale: '0x2d4d2A025b10C09BDbd794B4FCe4F7ea8C7d7bB4',
@@ -225,6 +225,11 @@ export const tokenConfig = {
   YEARN_V3_AJNA_DAI: {
     address: '0xe24BA27551aBE96Ca401D39761cA2319Ea14e3CB',
     whale: '0x54C6b2b293297e65b1d163C3E8dbc45338bfE443',
+    decimals: 18,
+  },
+  YEARN_V3_USDS: {
+    address: '0x182863131F9a4630fF9E27830d945B1413e347E8',
+    whale: '0xd57aEa3686d623dA2dCEbc87010a4F2F38Ac7B15',
     decimals: 18,
   },
   MORPHO_V1_re7USDT: {
