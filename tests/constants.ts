@@ -322,6 +322,16 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 18,
   },
+  rUSD: {
+    address: '0x09D4214C03D01F49544C0448DBE3A27f768F2b34',
+    whale: '0xf0e9f6D9Ba5D1B3f76e0f82F9DCDb9eBEef4b4dA',
+    decimals: 18,
+  },
+  MORPHO_V1_steakhouserUSD: {
+    address: '0xBeEf11eCb698f4B5378685C05A210bdF71093521',
+    whale: '0x31Eae643b679A84b37E3d0B4Bd4f5dA90fB04a61',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {
