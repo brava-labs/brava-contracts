@@ -4,6 +4,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { formatUnits } from 'ethers';
 import * as constants from './constants';
 import { log } from './utils';
+import { IERC20 } from '../typechain-types';
 
 const hre: HardhatRuntimeEnvironment = require('hardhat');
 
@@ -11,9 +12,11 @@ const hre: HardhatRuntimeEnvironment = require('hardhat');
 const getUSDC = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.USDC.address);
 const getUSDT = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.USDT.address);
 const getDAI = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.DAI.address);
+const getUSDS = () => ethers.getContractAt('IERC20', constants.tokenConfig.USDS.address);
 const getStables = async () => {
-  return { USDC: await getUSDC(), USDT: await getUSDT(), DAI: await getDAI() };
+  return { USDC: await getUSDC(), USDT: await getUSDT(), DAI: await getDAI(), USDS: await getUSDS() };
 };
+
 
 async function fundAccountWithToken(
   recipient: string,
@@ -70,4 +73,4 @@ async function fundAccountWithToken(
   );
 }
 
-export { fundAccountWithToken, getStables, getUSDC, getUSDT, getDAI };
+export { fundAccountWithToken, getStables, getUSDC, getUSDT, getDAI, getUSDS };

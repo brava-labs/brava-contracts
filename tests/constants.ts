@@ -172,6 +172,16 @@ export const tokenConfig = {
     whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
     decimals: 18,
   },
+  USDS: {
+    address: '0xdC035D45d973E3EC169d2276DDab16f1e407384F',
+    whale: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD',
+    decimals: 18,
+  },
+  SPARK_V1_USDS: {
+    address: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD',
+    whale: '0x2d4d2A025b10C09BDbd794B4FCe4F7ea8C7d7bB4',
+    decimals: 18,
+  },
   ACROSS_V3_lpUSDC: {
     address: '0xC9b09405959f63F72725828b5d449488b02be1cA',
     whale: '0x9040e41eF5E8b281535a96D9a48aCb8cfaBD9a48',
