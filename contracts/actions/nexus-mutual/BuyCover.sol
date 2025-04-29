@@ -28,7 +28,7 @@ contract BuyCover is ActionBase {
     }
 
     /// @notice Address of the Nexus Mutual Cover Broker contract
-    ICoverBroker public constant COVER_BROKER = ICoverBroker(0x0000cbD7a26f72Ff222bf5f136901D224b08BE4E);
+    ICoverBroker public constant COVER_BROKER = ICoverBroker(0xCB2B736652D2dBf7d72e4dB880Cf6B7d99507814);
 
     /// @notice Thrown when an invalid asset ID is provided
     error InvalidAssetID();
