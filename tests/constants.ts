@@ -367,6 +367,16 @@ export const tokenConfig = {
     whale: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb',
     decimals: 18,
   },
+  crvUSD: {
+    address: '0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E',
+    whale: '0xA920De414eA4Ab66b97dA1bFE9e6EcA7d4219635',
+    decimals: 18,
+  },
+  CURVE_SAVINGS_scrvUSD: {
+    address: '0x0655977FEb2f289A4aB78af67BAB0d17aAb84367',
+    whale: '0xc522A6606BBA746d7960404F22a3DB936B6F4F50',
+    decimals: 18,
+  },
 };
 
 export const NEXUS_QUOTES = {
