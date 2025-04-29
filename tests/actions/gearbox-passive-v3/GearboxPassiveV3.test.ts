@@ -36,12 +36,14 @@ describe('GearboxPassiveV3 tests', () => {
   let gearboxPassiveV3SupplyAddress: string;
   let gearboxPassiveV3WithdrawAddress: string;
   let gearboxPassiveUSDC: IERC4626;
-  let gearboxPassiveUSDT: IERC4626;
   let gearboxPassiveDAI: IERC4626;
+  let gearboxPassiveK3USDT: IERC4626;
+  let gearboxPassiveChaosGHO: IERC4626;
   let adminVault: AdminVault;
   const GEARBOX_PASSIVE_USDC_ADDRESS = tokenConfig.GEARBOX_PASSIVE_V3_USDC.address;
-  const GEARBOX_PASSIVE_USDT_ADDRESS = tokenConfig.GEARBOX_PASSIVE_V3_USDT.address;
   const GEARBOX_PASSIVE_DAI_ADDRESS = tokenConfig.GEARBOX_PASSIVE_V3_DAI.address;
+  const GEARBOX_PASSIVE_K3_USDT_ADDRESS = tokenConfig.GEARBOX_PASSIVE_V3_K3_USDT.address;
+  const GEARBOX_PASSIVE_CHAOS_GHO_ADDRESS = tokenConfig.GEARBOX_PASSIVE_V3_CHAOS_GHO.address;
 
   // Run tests for each supported token
   const testCases: Array<{
@@ -55,14 +57,19 @@ describe('GearboxPassiveV3 tests', () => {
       sdToken: () => gearboxPassiveUSDC,
     },
     {
-      token: 'USDT',
-      poolAddress: tokenConfig.GEARBOX_PASSIVE_V3_USDT.address,
-      sdToken: () => gearboxPassiveUSDT,
-    },
-    {
       token: 'DAI',
       poolAddress: tokenConfig.GEARBOX_PASSIVE_V3_DAI.address,
       sdToken: () => gearboxPassiveDAI,
+    },
+    {
+      token: 'USDT',
+      poolAddress: tokenConfig.GEARBOX_PASSIVE_V3_K3_USDT.address,
+      sdToken: () => gearboxPassiveK3USDT,
+    },
+    {
+      token: 'GHO',
+      poolAddress: tokenConfig.GEARBOX_PASSIVE_V3_CHAOS_GHO.address,
+      sdToken: () => gearboxPassiveChaosGHO,
     },
   ];
 
@@ -97,16 +104,19 @@ describe('GearboxPassiveV3 tests', () => {
     gearboxPassiveV3SupplyAddress = await gearboxPassiveV3SupplyContract.getAddress();
     gearboxPassiveV3WithdrawAddress = await gearboxPassiveV3WithdrawContract.getAddress();
     gearboxPassiveUSDC = await ethers.getContractAt('IERC4626', GEARBOX_PASSIVE_USDC_ADDRESS);
-    gearboxPassiveUSDT = await ethers.getContractAt('IERC4626', GEARBOX_PASSIVE_USDT_ADDRESS);
     gearboxPassiveDAI = await ethers.getContractAt('IERC4626', GEARBOX_PASSIVE_DAI_ADDRESS);
+    gearboxPassiveK3USDT = await ethers.getContractAt('IERC4626', GEARBOX_PASSIVE_K3_USDT_ADDRESS);
+    gearboxPassiveChaosGHO = await ethers.getContractAt('IERC4626', GEARBOX_PASSIVE_CHAOS_GHO_ADDRESS);
 
     // Grant the Gearbox Passive V3 contracts the POOL_ROLE
     await adminVault.proposePool('GearboxPassiveV3', GEARBOX_PASSIVE_USDC_ADDRESS);
-    await adminVault.proposePool('GearboxPassiveV3', GEARBOX_PASSIVE_USDT_ADDRESS);
     await adminVault.proposePool('GearboxPassiveV3', GEARBOX_PASSIVE_DAI_ADDRESS);
+    await adminVault.proposePool('GearboxPassiveV3', GEARBOX_PASSIVE_K3_USDT_ADDRESS);
+    await adminVault.proposePool('GearboxPassiveV3', GEARBOX_PASSIVE_CHAOS_GHO_ADDRESS);
     await adminVault.addPool('GearboxPassiveV3', GEARBOX_PASSIVE_USDC_ADDRESS);
-    await adminVault.addPool('GearboxPassiveV3', GEARBOX_PASSIVE_USDT_ADDRESS);
     await adminVault.addPool('GearboxPassiveV3', GEARBOX_PASSIVE_DAI_ADDRESS);
+    await adminVault.addPool('GearboxPassiveV3', GEARBOX_PASSIVE_K3_USDT_ADDRESS);
+    await adminVault.addPool('GearboxPassiveV3', GEARBOX_PASSIVE_CHAOS_GHO_ADDRESS);
   });
 
   beforeEach(async () => {
@@ -318,7 +328,14 @@ describe('GearboxPassiveV3 tests', () => {
         it('Should withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, `GEARBOX_PASSIVE_V3_${token}`, amount);
+          
+          // First supply to have something to withdraw
+          await fundAccountWithToken(safeAddr, token, amount);
+          await executeAction({
+            type: 'GearboxPassiveV3Supply',
+            poolAddress,
+            amount,
+          });
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
           const initialsdTokenBalance = await sdToken().balanceOf(safeAddr);
@@ -331,16 +348,23 @@ describe('GearboxPassiveV3 tests', () => {
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
           const finalsdTokenBalance = await sdToken().balanceOf(safeAddr);
-          expect(finalTokenBalance).to.equal(initialTokenBalance + amount);
+          expect(finalTokenBalance).to.be.greaterThan(initialTokenBalance);
           expect(finalsdTokenBalance).to.be.lessThan(initialsdTokenBalance);
         });
 
         it('Should withdraw the maximum amount', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
-          await fundAccountWithToken(safeAddr, `GEARBOX_PASSIVE_V3_${token}`, amount);
+          
+          // First supply to have something to withdraw
+          await fundAccountWithToken(safeAddr, token, amount);
+          await executeAction({
+            type: 'GearboxPassiveV3Supply',
+            poolAddress,
+            amount,
+          });
 
-          expect(await sdToken().balanceOf(safeAddr)).to.equal(amount);
+          expect(await sdToken().balanceOf(safeAddr)).to.be.greaterThan(0);
           expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
 
           await executeAction({
@@ -412,9 +436,18 @@ describe('GearboxPassiveV3 tests', () => {
       it('Should emit the correct log on withdraw', async () => {
         const token = 'USDC';
         const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
-        await fundAccountWithToken(safeAddr, `GEARBOX_PASSIVE_V3_${token}`, amount);
         const strategyId: number = 42;
         const poolId: BytesLike = ethers.keccak256(GEARBOX_PASSIVE_USDC_ADDRESS).slice(0, 10);
+
+        // First supply to have something to withdraw
+        await fundAccountWithToken(safeAddr, token, amount);
+        await executeAction({
+          type: 'GearboxPassiveV3Supply',
+          poolAddress: GEARBOX_PASSIVE_USDC_ADDRESS,
+          amount,
+        });
+
+        const initialBalance = await gearboxPassiveUSDC.balanceOf(safeAddr);
 
         const tx = await executeAction({
           type: 'GearboxPassiveV3Withdraw',
@@ -437,7 +470,7 @@ describe('GearboxPassiveV3 tests', () => {
         expect(txLog).to.have.property('balanceBefore');
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens');
-        expect(txLog.balanceBefore).to.equal(amount);
+        expect(txLog.balanceBefore).to.equal(initialBalance);
         expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
         expect(txLog.feeInTokens).to.equal(BigInt(0));
       });

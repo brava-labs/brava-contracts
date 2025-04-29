@@ -287,14 +287,19 @@ export const tokenConfig = {
     whale: '0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2',
     decimals: 6,
   },
-  GEARBOX_PASSIVE_V3_USDT: {
-    address: '0x05a811275fe9b4de503b3311f51edf6a856d936e',
-    whale: '0x16adAb68bDEcE3089D4f1626Bb5AEDD0d02471aD',
-    decimals: 6,
-  },
   GEARBOX_PASSIVE_V3_DAI: {
     address: '0xe7146f53dbcae9d6fa3555fe502648deb0b2f823',
     whale: '0xC853E4DA38d9Bd1d01675355b8c8f3BBC1451973',
+    decimals: 18,
+  },
+  GEARBOX_PASSIVE_V3_K3_USDT: {
+    address: '0x05A811275fE9b4DE503B3311F51edF6A856D936e',
+    whale: '0x16adAb68bDEcE3089D4f1626Bb5AEDD0d02471aD',
+    decimals: 6,
+  },
+  GEARBOX_PASSIVE_V3_CHAOS_GHO: {
+    address: '0x4d56c9cBa373AD39dF69Eb18F076b7348000AE09',
+    whale: '0xE2037090f896A858E3168B978668F22026AC52e7',
     decimals: 18,
   },
   MORPHO_V1_coinshiftUSDC: {
