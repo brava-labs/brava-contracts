@@ -22,7 +22,7 @@ contract ParaswapSwap is ActionBase {
 
     /// @notice Function selector for swapExactAmountIn (0xe3ead59e)
     /// @dev Used in Augustus Router's swapExactAmountIn function:
-    /// function swapExactAmountIn(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, ...)
+    /// function swapExactAmountIn(address executor, struct swapData, uint256 partnerAndFee, bytes permit, bytes executorData,)
     bytes4 public constant SWAP_EXACT_AMOUNT_IN_SELECTOR = 0xe3ead59e;
     
     /// @notice Function selector for swapExactAmountInOnUniswapV3 (0x876a02f6)

@@ -20,7 +20,7 @@ import {
   getBaseSetup,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT, getUSDE } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract } from '../../utils-stable';
 
 describe('EulerV2 tests', () => {
   let signer: Signer;
@@ -100,9 +100,9 @@ describe('EulerV2 tests', () => {
     adminVault = await baseSetup.adminVault;
     
     // Fetch the tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
-    USDE = await getUSDE();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
+    USDE = await getTokenContract('USDE');
 
     // Initialize EulerV2Supply and EulerV2Withdraw actions
     eulerSupplyContract = await deploy(

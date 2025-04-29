@@ -20,7 +20,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 // Skipping because we aren't going to use UwU Lend
 describe.skip('UwU Lend tests', () => {
@@ -65,8 +65,8 @@ describe.skip('UwU Lend tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDT = await getUSDT();
-    DAI = await getDAI();
+    USDT = await getTokenContract('USDT');
+    DAI = await getTokenContract('DAI');
 
     // Initialize UwULendV1Supply and UwULendV1Withdraw actions
     uwuSupplyContract = await deploy(

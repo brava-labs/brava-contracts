@@ -13,7 +13,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 describe('VesperV1 tests', () => {
   let signer: Signer;
@@ -51,7 +51,7 @@ describe('VesperV1 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDC = await getUSDC();
+    USDC = await getTokenContract('USDC');
 
     // Initialize VesperV1Supply and VesperV1Withdraw actions
     vesperSupplyContract = await deploy(

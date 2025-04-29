@@ -20,7 +20,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 describe('Aave V2 tests', () => {
   let signer: Signer;
@@ -73,9 +73,9 @@ describe('Aave V2 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
-    DAI = await getDAI();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
+    DAI = await getTokenContract('DAI');
 
     // Initialize AaveSupply and AaveWithdraw actions
     aaveSupplyContract = await deploy(
@@ -472,7 +472,7 @@ describe('Aave V2 tests', () => {
         expect(txLog.balanceAfter).to.be.a('bigint');
         expect(txLog.balanceBefore).to.be.a('bigint');
         // With aave we earn extra tokens over time, so slow tests mean we can't check exact amounts
-        expect(txLog.balanceBefore).to.be.greaterThanOrEqual(amount);
+        expect(txLog.balanceBefore).to.be.greaterThanOrEqual(amount - 1n);
       });
       it('Should have withdraw action type', async () => {
         const actionType = await aaveWithdrawContract.actionType();

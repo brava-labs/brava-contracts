@@ -9,7 +9,7 @@ import {
   getBytes4,
   decodeLoggerLog,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 import { tokenConfig } from '../../constants';
 import {
   AdminVault,
@@ -41,9 +41,13 @@ describe('YearnV3 tests', () => {
   let yUSDT: IYearnVaultV3;
   let yDAI: IYearnVaultV3;
   let yajnaDAI: IYearnVaultV3;
+  let yUSDS: IYearnVaultV3;
+  let ySkyUSDS: IYearnVaultV3;
   let adminVault: AdminVault;
   const YEARN_DAI_ADDRESS = tokenConfig.YEARN_V3_DAI.address;
   const AJNA_DAI_ADDRESS = tokenConfig.YEARN_V3_AJNA_DAI.address;
+  const USDS_ADDRESS = tokenConfig.YEARN_V3_USDS.address;
+  const SKY_USDS_ADDRESS = tokenConfig.YEARN_V3_SKY_USDS.address;
 
   const testCases: Array<{
     token: keyof typeof tokenConfig;
@@ -60,6 +64,16 @@ describe('YearnV3 tests', () => {
       poolAddress: AJNA_DAI_ADDRESS,
       yToken: () => yajnaDAI,
     },
+    {
+      token: 'USDS',
+      poolAddress: USDS_ADDRESS,
+      yToken: () => yUSDS,
+    },
+    {
+      token: 'USDS',
+      poolAddress: SKY_USDS_ADDRESS,
+      yToken: () => ySkyUSDS,
+    },
     // Add more test cases as needed
   ];
 
@@ -75,9 +89,9 @@ describe('YearnV3 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
-    DAI = await getDAI();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
+    DAI = await getTokenContract('DAI');
 
     // Initialize YearnSupply and YearnWithdraw actions
     yearnSupplyContract = await deploy(
@@ -96,6 +110,8 @@ describe('YearnV3 tests', () => {
     yearnWithdrawAddress = await yearnWithdrawContract.getAddress();
     yDAI = await ethers.getContractAt('IYearnVaultV3', YEARN_DAI_ADDRESS);
     yajnaDAI = await ethers.getContractAt('IYearnVaultV3', AJNA_DAI_ADDRESS);
+    yUSDS = await ethers.getContractAt('IYearnVaultV3', USDS_ADDRESS);
+    ySkyUSDS = await ethers.getContractAt('IYearnVaultV3', SKY_USDS_ADDRESS);
 
     // grant the yToken contracts the POOL_ROLE
     for (const { poolAddress } of testCases) {

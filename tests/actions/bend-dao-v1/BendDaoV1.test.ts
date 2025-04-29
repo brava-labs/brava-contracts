@@ -19,7 +19,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 describe('BendDAO V1 tests', () => {
   let signer: Signer;
@@ -54,7 +54,7 @@ describe('BendDAO V1 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    USDT = await getUSDT();
+    USDT = await getTokenContract('USDT');
 
     // Initialize BendDaoV1Supply and BendDaoV1Withdraw actions
     bendSupplyContract = await deploy(

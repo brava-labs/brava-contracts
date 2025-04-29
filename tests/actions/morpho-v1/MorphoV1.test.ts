@@ -20,7 +20,7 @@ import {
   getBaseSetup,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 // Morpho uses the same underlying token for multiple pools, so we need a descriptive name
 const getTokenNameFromAddress = (address: string): string => {
@@ -60,6 +60,9 @@ describe('MorphoV1 tests', () => {
   let summitsUSDC: IERC4626;
   let smokehouseUSDT: IERC4626;
   let flagshipUSDT: IERC4626;
+  let steakhouserUSD: IERC4626;
+  let steakhousePYUSD: IERC4626;
+  let coinshiftUSDL: IERC4626;
   // let fUSDT: IFluidLending;
   let adminVault: AdminVault;
   const protocolId = BigInt(
@@ -158,6 +161,21 @@ describe('MorphoV1 tests', () => {
       poolAddress: tokenConfig.MORPHO_V1_flagshipUSDT.address, 
       mToken: () => flagshipUSDT,
     },
+    {
+      token: 'rUSD',
+      poolAddress: tokenConfig.MORPHO_V1_steakhouserUSD.address,
+      mToken: () => steakhouserUSD,
+    },
+    {
+      token: 'PYUSD',
+      poolAddress: tokenConfig.MORPHO_V1_steakhousePYUSD.address,
+      mToken: () => steakhousePYUSD,
+    },
+    {
+      token: 'wUSDL',
+      poolAddress: tokenConfig.MORPHO_V1_coinshiftUSDL.address,
+      mToken: () => coinshiftUSDL,
+    },
   ];
 
   before(async () => {
@@ -171,8 +189,8 @@ describe('MorphoV1 tests', () => {
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
     // Fetch the USDC token
-    USDC = await getUSDC();
-    USDT = await getUSDT();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
 
     // Initialize MorphoV1Supply and MorphoV1Withdraw actions
     morphoV1SupplyContract = await deploy(
@@ -206,6 +224,9 @@ describe('MorphoV1 tests', () => {
     summitsUSDC = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_9Summits_USDC.address);
     smokehouseUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_smokehouseUSDT.address);
     flagshipUSDT = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_flagshipUSDT.address);
+    steakhouserUSD = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_steakhouserUSD.address);
+    steakhousePYUSD = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_steakhousePYUSD.address);
+    coinshiftUSDL = await ethers.getContractAt('IERC4626', tokenConfig.MORPHO_V1_coinshiftUSDL.address);
 
     // propose and add all tokens in the testCases array
     for (const { poolAddress } of testCases) {
