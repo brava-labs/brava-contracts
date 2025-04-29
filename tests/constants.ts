@@ -242,6 +242,11 @@ export const tokenConfig = {
     whale: '0xd57aEa3686d623dA2dCEbc87010a4F2F38Ac7B15',
     decimals: 18,
   },
+  YEARN_V3_SKY_USDS: {
+    address: '0x4cE9c93513DfF543Bc392870d57dF8C04e89Ba0a',
+    whale: '0x182863131F9a4630fF9E27830d945B1413e347E8',
+    decimals: 18,
+  },
   MORPHO_V1_re7USDT: {
     address: '0x95EeF579155cd2C5510F312c8fA39208c3Be01a8',
     whale: '0xFc2a0F6fD177c8BF40d0FaB7e6027d6f290ef11D',
