@@ -1,71 +1,53 @@
-import { BytesLike } from 'ethers';
-import { network } from 'hardhat';
 import { ethers, expect, Signer } from '../..';
-import { actionTypes } from '../../actions';
+import { network } from 'hardhat';
+import {
+  executeAction,
+  calculateExpectedFee,
+  getBaseSetup,
+  deploy,
+  log,
+  getBytes4,
+  decodeLoggerLog,
+} from '../../utils';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 import { tokenConfig } from '../../constants';
 import {
   AdminVault,
+  IERC4626,
   IERC20,
-  IYearnVault,
+  CurveSavingsSupply,
+  CurveSavingsWithdraw,
   Logger,
-  YearnV2Supply,
-  YearnV2Withdraw,
-  ISafe,
 } from '../../../typechain-types';
-import { ACTION_LOG_IDS, BalanceUpdateLog } from '../../logs';
-import {
-  calculateExpectedFee,
-  decodeLoggerLog,
-  deploy,
-  executeAction,
-  getBaseSetup,
-  getBytes4,
-  log,
-} from '../../utils';
-import { fundAccountWithToken, getTokenContract } from '../../utils-stable';
+import { ACTION_LOG_IDS } from '../../logs';
+import { actionTypes } from '../../actions';
+import { BytesLike } from 'ethers';
+import { BalanceUpdateLog } from '../../logs';
 
-describe('YearnV2 tests', () => {
+describe('CurveSavings tests', () => {
   let signer: Signer;
   let safeAddr: string;
-  let safe: ISafe;
   let loggerAddress: string;
   let logger: Logger;
   let snapshotId: string;
-  let USDC: IERC20;
-  let USDT: IERC20;
-  let DAI: IERC20;
-  let yearnSupplyContract: YearnV2Supply;
-  let yearnWithdrawContract: YearnV2Withdraw;
-  let yearnSupplyAddress: string;
-  let yearnWithdrawAddress: string;
-  let yUSDC: IYearnVault;
-  let yUSDT: IYearnVault;
-  let yDAI: IYearnVault;
+  let crvUSD: IERC20;
+  let curveSavingsSupplyContract: CurveSavingsSupply;
+  let curveSavingsWithdrawContract: CurveSavingsWithdraw;
+  let curveSavingsSupplyAddress: string;
+  let curveSavingsWithdrawAddress: string;
+  let scrvUSD: IERC4626;
   let adminVault: AdminVault;
-  const YEARN_USDC_ADDRESS = tokenConfig.YEARN_V2_USDC.address;
-  const YEARN_USDT_ADDRESS = tokenConfig.YEARN_V2_USDT.address;
-  const YEARN_DAI_ADDRESS = tokenConfig.YEARN_V2_DAI.address;
+  const CURVE_SAVINGS_ADDRESS = tokenConfig.CURVE_SAVINGS_scrvUSD.address;
 
-  // Run tests for each supported token
   const testCases: Array<{
     token: keyof typeof tokenConfig;
     poolAddress: string;
-    yToken: () => IYearnVault;
+    vaultToken: () => IERC4626;
   }> = [
     {
-      token: 'USDC',
-      poolAddress: YEARN_USDC_ADDRESS,
-      yToken: () => yUSDC,
-    },
-    {
-      token: 'USDT',
-      poolAddress: YEARN_USDT_ADDRESS,
-      yToken: () => yUSDT,
-    },
-    {
-      token: 'DAI',
-      poolAddress: YEARN_DAI_ADDRESS,
-      yToken: () => yDAI,
+      token: 'crvUSD',
+      poolAddress: CURVE_SAVINGS_ADDRESS,
+      vaultToken: () => scrvUSD,
     },
   ];
 
@@ -75,50 +57,42 @@ describe('YearnV2 tests', () => {
     if (!baseSetup) {
       throw new Error('Base setup not deployed');
     }
-    safe = await baseSetup.safe;
-    safeAddr = (await safe.getAddress()) as string;
+    safeAddr = (await baseSetup.safe.getAddress()) as string;
     loggerAddress = (await baseSetup.logger.getAddress()) as string;
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
 
     // Fetch the tokens
-    const tokens = await getTokenContract(['USDC', 'USDT', 'DAI']);
-    USDC = tokens.USDC;
-    USDT = tokens.USDT;
-    DAI = tokens.DAI;
+    crvUSD = await getTokenContract('crvUSD');
 
-    // Initialize YearnV2Supply and YearnV2Withdraw actions
-    yearnSupplyContract = await deploy(
-      'YearnV2Supply',
+    // Initialize CurveSavingsSupply and CurveSavingsWithdraw actions
+    curveSavingsSupplyContract = await deploy(
+      'CurveSavingsSupply',
       signer,
       await adminVault.getAddress(),
       loggerAddress
     );
-    yearnWithdrawContract = await deploy(
-      'YearnV2Withdraw',
+    curveSavingsWithdrawContract = await deploy(
+      'CurveSavingsWithdraw',
       signer,
       await adminVault.getAddress(),
       loggerAddress
     );
-    yearnSupplyAddress = await yearnSupplyContract.getAddress();
-    yearnWithdrawAddress = await yearnWithdrawContract.getAddress();
-    yUSDC = await ethers.getContractAt('IYearnVault', YEARN_USDC_ADDRESS);
-    yUSDT = await ethers.getContractAt('IYearnVault', YEARN_USDT_ADDRESS);
-    yDAI = await ethers.getContractAt('IYearnVault', YEARN_DAI_ADDRESS);
+    curveSavingsSupplyAddress = await curveSavingsSupplyContract.getAddress();
+    curveSavingsWithdrawAddress = await curveSavingsWithdrawContract.getAddress();
+    scrvUSD = await ethers.getContractAt('IERC4626', CURVE_SAVINGS_ADDRESS);
 
-    // grant the yToken contracts the POOL_ROLE
-    await adminVault.proposePool('YearnV2', YEARN_USDC_ADDRESS);
-    await adminVault.proposePool('YearnV2', YEARN_USDT_ADDRESS);
-    await adminVault.proposePool('YearnV2', YEARN_DAI_ADDRESS);
-    await adminVault.addPool('YearnV2', YEARN_USDC_ADDRESS);
-    await adminVault.addPool('YearnV2', YEARN_USDT_ADDRESS);
-    await adminVault.addPool('YearnV2', YEARN_DAI_ADDRESS);
+    // grant the scrvUSD contract the POOL_ROLE
+    for (const { poolAddress } of testCases) {
+      await adminVault.proposePool('CurveSavings', poolAddress);
+      await adminVault.addPool('CurveSavings', poolAddress);
+    }
 
     // Add supply and withdraw actions
-    await adminVault.proposeAction(getBytes4(yearnSupplyAddress), yearnSupplyAddress);
-    await adminVault.proposeAction(getBytes4(yearnWithdrawAddress), yearnWithdrawAddress);
-    await adminVault.addAction(getBytes4(yearnSupplyAddress), yearnSupplyAddress);
-    await adminVault.addAction(getBytes4(yearnWithdrawAddress), yearnWithdrawAddress);
+    await adminVault.proposeAction(getBytes4(curveSavingsSupplyAddress), curveSavingsSupplyAddress);
+    await adminVault.proposeAction(getBytes4(curveSavingsWithdrawAddress), curveSavingsWithdrawAddress);
+    await adminVault.addAction(getBytes4(curveSavingsSupplyAddress), curveSavingsSupplyAddress);
+    await adminVault.addAction(getBytes4(curveSavingsWithdrawAddress), curveSavingsWithdrawAddress);
   });
 
   beforeEach(async () => {
@@ -131,48 +105,47 @@ describe('YearnV2 tests', () => {
     await network.provider.send('evm_revert', [snapshotId]);
   });
 
-  describe('YearnV2 Supply', () => {
-    testCases.forEach(({ token, poolAddress, yToken }) => {
+  describe('CurveSavings Supply', () => {
+    testCases.forEach(({ token, poolAddress, vaultToken }) => {
       describe(`Testing ${token}`, () => {
-        it('Should deposit', async () => {
-          const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        it('Should supply', async () => {
+          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           await fundAccountWithToken(safeAddr, token, amount);
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const initialYearnV2Balance = await yToken().balanceOf(safeAddr);
+          const initialVaultTokenBalance = await vaultToken().balanceOf(safeAddr);
 
           await executeAction({
-            type: 'YearnV2Supply',
+            type: 'CurveSavingsSupply',
             poolAddress,
             amount,
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const finalyTokenBalance = await yToken().balanceOf(safeAddr);
-
-          expect(finalTokenBalance).to.equal(initialTokenBalance - amount);
-          expect(finalyTokenBalance).to.be.greaterThan(initialYearnV2Balance);
+          const finalVaultTokenBalance = await vaultToken().balanceOf(safeAddr);
+          expect(finalTokenBalance).to.be.eq(BigInt(0));
+          expect(finalVaultTokenBalance).to.be.greaterThan(initialVaultTokenBalance);
         });
 
-        it('Should deposit max', async () => {
-          const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        it('Should supply max', async () => {
+          const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           await fundAccountWithToken(safeAddr, token, amount);
 
           expect(await tokenContract.balanceOf(safeAddr)).to.equal(amount);
 
           await executeAction({
-            type: 'YearnV2Supply',
+            type: 'CurveSavingsSupply',
             poolAddress,
             amount: ethers.MaxUint256,
           });
 
           expect(await tokenContract.balanceOf(safeAddr)).to.equal(0);
-          expect(await yToken().balanceOf(safeAddr)).to.be.greaterThan(0);
+          expect(await vaultToken().balanceOf(safeAddr)).to.be.greaterThan(0);
         });
 
-        it('Should take fees on deposit', async () => {
+        it('Should take fees on supply', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
           await fundAccountWithToken(safeAddr, token, amount);
@@ -180,17 +153,19 @@ describe('YearnV2 tests', () => {
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
-          const feeRecipientyTokenBalanceBefore = await yToken().balanceOf(feeRecipient);
+          const feeRecipientVaultTokenBalanceBefore = await vaultToken().balanceOf(feeRecipient);
 
-          // Do an initial deposit
           const firstTx = await executeAction({
-            type: 'YearnV2Supply',
+            type: 'CurveSavingsSupply',
             poolAddress,
             amount,
             feeBasis: 10,
           });
 
-          const yTokenBalanceAfterFirstTx = await yToken().balanceOf(safeAddr);
+          const firstTxReceipt = await firstTx.wait();
+          if (!firstTxReceipt) throw new Error('Transaction failed');
+
+          const vaultTokenBalanceAfterFirstTx = await vaultToken().balanceOf(safeAddr);
 
           // Time travel 1 year
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
@@ -200,65 +175,50 @@ describe('YearnV2 tests', () => {
           const finalFeeTimestamp = initialFeeTimestamp + BigInt(60 * 60 * 24 * 365);
           await network.provider.send('evm_setNextBlockTimestamp', [finalFeeTimestamp.toString()]);
 
-          // Do another deposit to trigger fees
           const secondTx = await executeAction({
-            type: 'YearnV2Supply',
+            type: 'CurveSavingsSupply',
             poolAddress,
             amount: '0',
             feeBasis: 10,
           });
+          const secondTxReceipt = await secondTx.wait();
+          if (!secondTxReceipt) throw new Error('Transaction failed');
 
-          const firstTxReceipt =
-            (await firstTx.wait()) ??
-            (() => {
-              throw new Error('First deposit transaction failed');
-            })();
-          const secondTxReceipt =
-            (await secondTx.wait()) ??
-            (() => {
-              throw new Error('Second deposit transaction failed');
-            })();
-
-          // Calculate expected fee
           const expectedFee = await calculateExpectedFee(
             firstTxReceipt,
             secondTxReceipt,
             10,
-            yTokenBalanceAfterFirstTx
+            vaultTokenBalanceAfterFirstTx
           );
-          const expectedFeeRecipientBalance = feeRecipientyTokenBalanceBefore + expectedFee;
+          const expectedFeeRecipientBalance = feeRecipientVaultTokenBalanceBefore + expectedFee;
 
-          // Check fees were taken in yTokens, not underlying
           expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
             feeRecipientTokenBalanceBefore
           );
-          expect(await yToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
+          expect(await vaultToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
         });
       });
     });
 
     describe('General tests', () => {
-      it('Should emit the correct log on deposit', async () => {
-        const token = 'USDC';
-        const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+      it('Should emit the correct log on supply', async () => {
+        const token = 'crvUSD';
+        const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(CURVE_SAVINGS_ADDRESS).slice(0, 10);
 
         const tx = await executeAction({
-          type: 'YearnV2Supply',
+          type: 'CurveSavingsSupply',
           amount,
         });
 
         const logs = await decodeLoggerLog(tx);
         log('Logs:', logs);
 
-        // we should expect 1 log, with the correct args
         expect(logs).to.have.length(1);
         expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
 
-        // we know it's a BalanceUpdateLog because of the eventName
-        // now we can typecast and check specific properties
         const txLog = logs[0] as BalanceUpdateLog;
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
@@ -273,53 +233,104 @@ describe('YearnV2 tests', () => {
       it('Should initialize last fee timestamp', async () => {
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          YEARN_USDC_ADDRESS
+          CURVE_SAVINGS_ADDRESS
         );
         expect(initialLastFeeTimestamp).to.equal(0n);
 
         await executeAction({
-          type: 'YearnV2Supply',
-          poolAddress: YEARN_USDC_ADDRESS,
+          type: 'CurveSavingsSupply',
+          poolAddress: CURVE_SAVINGS_ADDRESS,
           amount: '0',
         });
 
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          YEARN_USDC_ADDRESS
+          CURVE_SAVINGS_ADDRESS
         );
         expect(finalLastFeeTimestamp).to.not.equal(0n);
       });
 
-      it('Should have deposit action type', async () => {
-        const actionType = await yearnSupplyContract.actionType();
+      it('Should have supply action type', async () => {
+        const actionType = await curveSavingsSupplyContract.actionType();
         expect(actionType).to.equal(actionTypes.DEPOSIT_ACTION);
       });
 
       it('Should reject invalid token', async () => {
         await expect(
           executeAction({
-            type: 'YearnV2Supply',
+            type: 'CurveSavingsSupply',
             poolAddress: '0x0000000000000000000000000000000000000000',
             amount: '1',
           })
         ).to.be.revertedWith('GS013');
       });
+
+      it('Should not confuse underlying and share tokens', async () => {
+        const pool = await ethers.getContractAt('IERC4626', CURVE_SAVINGS_ADDRESS);
+        
+        // Fund with excess underlying tokens
+        const largeAmount = ethers.parseUnits('1000', tokenConfig.crvUSD.decimals);
+        const smallDepositAmount = ethers.parseUnits('100', tokenConfig.crvUSD.decimals);
+        await fundAccountWithToken(safeAddr, 'crvUSD', largeAmount);
+        
+        const initialUnderlyingBalance = await crvUSD.balanceOf(safeAddr);
+        expect(initialUnderlyingBalance).to.equal(largeAmount);
+
+        // Deposit smaller amount
+        await executeAction({
+          type: 'CurveSavingsSupply',
+          poolAddress: CURVE_SAVINGS_ADDRESS,
+          amount: smallDepositAmount,
+        });
+
+        // Verify we still have 900 tokens
+        const remainingUnderlying = await crvUSD.balanceOf(safeAddr);
+        expect(remainingUnderlying).to.equal(largeAmount - smallDepositAmount);
+
+        // Get share balance - should represent 100 tokens worth
+        const sharesReceived = await pool.balanceOf(safeAddr);
+
+        // Try to withdraw only 10 tokens worth
+        const smallWithdrawAmount = ethers.parseUnits('10', tokenConfig.crvUSD.decimals);
+        await executeAction({
+          type: 'CurveSavingsWithdraw',
+          poolAddress: CURVE_SAVINGS_ADDRESS,
+          amount: smallWithdrawAmount,
+        });
+
+        // Verify balances
+        const finalShares = await pool.balanceOf(safeAddr);
+        const finalUnderlying = await crvUSD.balanceOf(safeAddr);
+        
+        // Should have ~90 worth of shares left (minus any fees/slippage)
+        const expectedSharesBurned = await pool.convertToShares(smallWithdrawAmount);
+        expect(finalShares).to.be.closeTo(
+          sharesReceived - expectedSharesBurned,
+          ethers.parseUnits('1', tokenConfig.crvUSD.decimals)  // Much smaller tolerance since we're using exact conversion
+        );
+        
+        // Should have ~910 tokens (900 + 10 withdrawn)
+        expect(finalUnderlying).to.be.closeTo(
+          remainingUnderlying + smallWithdrawAmount,
+          ethers.parseUnits('0.1', tokenConfig.crvUSD.decimals)
+        );
+      });
     });
   });
 
-  describe('YearnV2 Withdraw', () => {
+  describe('CurveSavings Withdraw', () => {
     beforeEach(async () => {
       // Initialize the fee timestamp for all pools
       for (const { poolAddress } of testCases) {
         await executeAction({
-          type: 'YearnV2Supply',
+          type: 'CurveSavingsSupply',
           poolAddress,
           amount: '0',
         });
       }
     });
 
-    testCases.forEach(({ token, poolAddress, yToken }) => {
+    testCases.forEach(({ token, poolAddress, vaultToken }) => {
       describe(`Testing ${token}`, () => {
         it('Should withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
@@ -328,26 +339,25 @@ describe('YearnV2 tests', () => {
 
           // Supply first
           await executeAction({
-            type: 'YearnV2Supply',
+            type: 'CurveSavingsSupply',
             poolAddress,
             amount,
           });
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const initialYearnV2Balance = await yToken().balanceOf(safeAddr);
+          const initialVaultBalance = await vaultToken().balanceOf(safeAddr);
 
           await executeAction({
-            type: 'YearnV2Withdraw',
+            type: 'CurveSavingsWithdraw',
             poolAddress,
-            sharesToBurn: amount.toString(),
-            minUnderlyingReceived: '0',
+            amount,
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const finalYearnV2Balance = await yToken().balanceOf(safeAddr);
+          const finalVaultBalance = await vaultToken().balanceOf(safeAddr);
 
           expect(finalTokenBalance).to.be.gt(initialTokenBalance);
-          expect(finalYearnV2Balance).to.be.lt(initialYearnV2Balance);
+          expect(finalVaultBalance).to.be.lt(initialVaultBalance);
         });
 
         it('Should withdraw the maximum amount', async () => {
@@ -357,27 +367,26 @@ describe('YearnV2 tests', () => {
 
           // Supply first
           await executeAction({
-            type: 'YearnV2Supply',
+            type: 'CurveSavingsSupply',
             poolAddress,
             amount,
           });
 
           const initialTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const initialYearnV2Balance = await yToken().balanceOf(safeAddr);
-          expect(initialYearnV2Balance).to.be.gt(0);
+          const initialVaultBalance = await vaultToken().balanceOf(safeAddr);
+          expect(initialVaultBalance).to.be.gt(0);
 
           await executeAction({
-            type: 'YearnV2Withdraw',
+            type: 'CurveSavingsWithdraw',
             poolAddress,
-            sharesToBurn: ethers.MaxUint256,
-            minUnderlyingReceived: '0',
+            amount: ethers.MaxUint256,
           });
 
           const finalTokenBalance = await tokenContract.balanceOf(safeAddr);
-          const finalYearnV2Balance = await yToken().balanceOf(safeAddr);
+          const finalVaultBalance = await vaultToken().balanceOf(safeAddr);
 
           expect(finalTokenBalance).to.be.gt(initialTokenBalance);
-          expect(finalYearnV2Balance).to.equal(0);
+          expect(finalVaultBalance).to.equal(0);
         });
 
         it('Should take fees on withdraw', async () => {
@@ -388,17 +397,17 @@ describe('YearnV2 tests', () => {
           const feeConfig = await adminVault.feeConfig();
           const feeRecipient = feeConfig.recipient;
           const feeRecipientTokenBalanceBefore = await tokenContract.balanceOf(feeRecipient);
-          const feeRecipientyTokenBalanceBefore = await yToken().balanceOf(feeRecipient);
+          const feeRecipientVaultTokenBalanceBefore = await vaultToken().balanceOf(feeRecipient);
 
           // Supply first
           const supplyTx = await executeAction({
-            type: 'YearnV2Supply',
+            type: 'CurveSavingsSupply',
             poolAddress,
             amount,
             feeBasis: 10,
           });
 
-          const yTokenBalanceAfterSupply = await yToken().balanceOf(safeAddr);
+          const vaultTokenBalanceAfterSupply = await vaultToken().balanceOf(safeAddr);
 
           // Time travel 1 year
           const initialFeeTimestamp = await adminVault.lastFeeTimestamp(
@@ -410,10 +419,9 @@ describe('YearnV2 tests', () => {
 
           // Withdraw to trigger fees
           const withdrawTx = await executeAction({
-            type: 'YearnV2Withdraw',
+            type: 'CurveSavingsWithdraw',
             poolAddress,
-            sharesToBurn: '1',
-            minUnderlyingReceived: '0',
+            amount: '1',
             feeBasis: 10,
           });
 
@@ -421,52 +429,44 @@ describe('YearnV2 tests', () => {
             (await supplyTx.wait())!,
             (await withdrawTx.wait())!,
             10,
-            yTokenBalanceAfterSupply
+            vaultTokenBalanceAfterSupply
           );
-          const expectedFeeRecipientBalance = feeRecipientyTokenBalanceBefore + expectedFee;
+          const expectedFeeRecipientBalance = feeRecipientVaultTokenBalanceBefore + expectedFee;
 
           expect(await tokenContract.balanceOf(feeRecipient)).to.equal(
             feeRecipientTokenBalanceBefore
           );
-          expect(await yToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
+          expect(await vaultToken().balanceOf(feeRecipient)).to.equal(expectedFeeRecipientBalance);
         });
       });
     });
 
     describe('General tests', () => {
       it('Should emit the correct log on withdraw', async () => {
-        const token = 'USDC';
-        const amount = ethers.parseUnits('2000', tokenConfig[token].decimals);
+        const token = 'crvUSD';
+        const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(YEARN_USDC_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(CURVE_SAVINGS_ADDRESS).slice(0, 10);
 
-        // First supply to have something to withdraw
         await executeAction({
-          type: 'YearnV2Supply',
-          poolAddress: YEARN_USDC_ADDRESS,
+          type: 'CurveSavingsSupply',
           amount,
         });
 
-        const yTokenBalance = await yUSDC.balanceOf(safeAddr);
-        const minUnderlyingReceived = BigInt(0);
+        const initialVaultTokenBalance = await scrvUSD.balanceOf(safeAddr);
 
         const tx = await executeAction({
-          type: 'YearnV2Withdraw',
-          poolAddress: YEARN_USDC_ADDRESS,
-          sharesToBurn: yTokenBalance.toString(),
-          minUnderlyingReceived: minUnderlyingReceived.toString(),
+          type: 'CurveSavingsWithdraw',
+          amount,
         });
 
         const logs = await decodeLoggerLog(tx);
         log('Logs:', logs);
 
-        // we should expect 1 log, with the correct args
         expect(logs).to.have.length(1);
         expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BALANCE_UPDATE));
 
-        // we know it's a BalanceUpdateLog because of the eventName
-        // now we can typecast and check specific properties
         const txLog = logs[0] as BalanceUpdateLog;
         expect(txLog).to.have.property('safeAddress', safeAddr);
         expect(txLog).to.have.property('strategyId', BigInt(strategyId));
@@ -474,72 +474,24 @@ describe('YearnV2 tests', () => {
         expect(txLog).to.have.property('balanceBefore');
         expect(txLog).to.have.property('balanceAfter');
         expect(txLog).to.have.property('feeInTokens');
-        expect(txLog.balanceBefore).to.equal(yTokenBalance);
-        expect(txLog.balanceAfter).to.equal(BigInt(0));
+        expect(txLog.balanceBefore).to.equal(initialVaultTokenBalance);
+        expect(txLog.balanceAfter).to.be.lt(txLog.balanceBefore);
         expect(txLog.feeInTokens).to.equal(BigInt(0));
       });
 
       it('Should have withdraw action type', async () => {
-        const actionType = await yearnWithdrawContract.actionType();
+        const actionType = await curveSavingsWithdrawContract.actionType();
         expect(actionType).to.equal(actionTypes.WITHDRAW_ACTION);
       });
 
       it('Should reject invalid token', async () => {
         await expect(
           executeAction({
-            type: 'YearnV2Withdraw',
+            type: 'CurveSavingsWithdraw',
             poolAddress: '0x0000000000000000000000000000000000000000',
           })
         ).to.be.revertedWith('GS013');
       });
-      it('Should not confuse underlying and share tokens', async () => {
-        expect(await yUSDC.balanceOf(safeAddr)).to.equal(0);
-        expect(await USDC.balanceOf(safeAddr)).to.equal(0);
-
-        // give ourselves 1000 USDC
-        const amount = ethers.parseUnits('1000', tokenConfig.USDC.decimals);
-        await fundAccountWithToken(safeAddr, 'USDC', amount);
-
-        expect(await USDC.balanceOf(safeAddr)).to.equal(amount);
-
-        // deposit 100 USDC
-        const depositAmount = ethers.parseUnits('100', tokenConfig.USDC.decimals);
-        await executeAction({
-          type: 'YearnV2Supply',
-          poolAddress: YEARN_USDC_ADDRESS,
-          amount: depositAmount,
-        });
-
-        // check we still have 900 USDC
-        expect(await USDC.balanceOf(safeAddr)).to.equal(amount - depositAmount);
-
-        // check that we have yUSDC
-        const yTokenBalance = await yUSDC.balanceOf(safeAddr);
-        expect(yTokenBalance).to.be.greaterThan(0);
-
-        // withdraw 10% of shares
-        const sharesToWithdraw = yTokenBalance / BigInt(10);
-        const minUnderlyingReceived = BigInt(0);
-
-        await executeAction({
-          type: 'YearnV2Withdraw',
-          poolAddress: YEARN_USDC_ADDRESS,
-          sharesToBurn: sharesToWithdraw.toString(),
-          minUnderlyingReceived: minUnderlyingReceived.toString(),
-        });
-
-        // Verify balances
-        const finalShares = await yUSDC.balanceOf(safeAddr);
-        const finalUnderlying = await USDC.balanceOf(safeAddr);
-
-        // We expect to have 1000 minus 100 plus 10% of 100
-        const expectedUnderlying = BigInt(amount) - BigInt(depositAmount) + BigInt(depositAmount) / BigInt(10);
-
-        expect(finalShares).to.equal(yTokenBalance - sharesToWithdraw);
-        expect(finalUnderlying).to.be.closeTo(BigInt(expectedUnderlying), BigInt(1000));
-      });
     });
   });
-});
-
-export {};
+}); 

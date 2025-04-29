@@ -58,7 +58,8 @@ type WithdrawArgs =
         | 'AcrossV3Withdraw'
         | 'MorphoV1Withdraw'
         | 'YearnV3Withdraw'
-        | 'GearboxPassiveV3Withdraw';
+        | 'GearboxPassiveV3Withdraw'
+        | 'CurveSavingsWithdraw';
     })
   | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnV2Withdraw' | 'VesperV1Withdraw' });
 
@@ -74,7 +75,8 @@ interface SupplyArgs extends BaseActionArgs {
     | 'VesperV1Supply'
     | 'NotionalV3Supply'
     | 'YearnV3Supply'
-    | 'GearboxPassiveV3Supply';
+    | 'GearboxPassiveV3Supply'
+    | 'CurveSavingsSupply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -660,5 +662,33 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes'],
       encodingVariables: ['data']
     }
+  },
+  CurveSavingsSupply: {
+    type: 'CurveSavingsSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.CURVE_SAVINGS_scrvUSD.address,
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+  },
+  CurveSavingsWithdraw: {
+    type: 'CurveSavingsWithdraw',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: tokenConfig.CURVE_SAVINGS_scrvUSD.address,
+    feeBasis: 0,
+    amount: '0',
+    maxSharesBurned: ethers.MaxUint256.toString(),
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
+    },
   },
 };

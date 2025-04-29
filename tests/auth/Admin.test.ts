@@ -13,7 +13,7 @@ import {
   getRoleBytes,
   log,
 } from '../utils';
-import { fundAccountWithToken, getUSDC } from '../utils-stable';
+import { fundAccountWithToken, getTokenContract } from '../utils-stable';
 
 describe('AdminVault', function () {
   let adminVault: AdminVault;
@@ -38,7 +38,7 @@ describe('AdminVault', function () {
       adminVault = await baseSetup.adminVault;
 
       // Fetch the USDC token
-      USDC = await getUSDC();
+      USDC = await getTokenContract('USDC');
 
       // Take local snapshot before running tests
       log('Taking local snapshot');
@@ -964,7 +964,7 @@ describe('AdminVault', function () {
       adminVault = await baseSetup.adminVault;
       loggerAddress = (await baseSetup.logger.getAddress()) as string;
       // Fetch the USDC token
-      USDC = await getUSDC();
+      USDC = await getTokenContract('USDC');
 
       // Initialize FluidV1Supply and FluidV1Withdraw actions
       fluidSupplyContract = await deploy(

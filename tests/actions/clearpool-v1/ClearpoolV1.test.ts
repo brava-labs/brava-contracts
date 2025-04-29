@@ -20,7 +20,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getUSDC } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
 describe.skip('ClearpoolV1 tests', () => {
   let signer: Signer;
@@ -65,7 +65,7 @@ describe.skip('ClearpoolV1 tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch USDC token
-    USDC = await getUSDC();
+    USDC = await getTokenContract('USDC');
 
     // Initialize ClearpoolV1Supply and ClearpoolV1Withdraw actions
     clearpoolV1SupplyContract = await deploy(

@@ -4,15 +4,58 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { formatUnits } from 'ethers';
 import * as constants from './constants';
 import { log } from './utils';
+import { IERC20, IERC20Metadata } from '../typechain-types';
 
 const hre: HardhatRuntimeEnvironment = require('hardhat');
 
-// Stablecoin contract getters
-const getUSDC = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.USDC.address);
-const getUSDT = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.USDT.address);
-const getDAI = () => ethers.getContractAt('IERC20Metadata', constants.tokenConfig.DAI.address);
-const getStables = async () => {
-  return { USDC: await getUSDC(), USDT: await getUSDT(), DAI: await getDAI() };
+/**
+ * Generic token contract getter for accessing any token from tokenConfig by symbol
+ * 
+ * @param tokenSymbol The symbol of the token to get (e.g., 'USDC', 'USDT', 'DAI', 'USDS')
+ * @returns An IERC20 interface for the token contract
+ */
+async function getTokenContract(tokenSymbol: string): Promise<IERC20>;
+/**
+ * Generic token contract getter for accessing multiple tokens from tokenConfig by symbols
+ * 
+ * @param tokenSymbols Array of token symbols to get (e.g., ['USDC', 'USDT', 'DAI', 'USDS'])
+ * @returns An object with token symbols as keys and IERC20 interfaces as values
+ */
+async function getTokenContract(tokenSymbols: string[]): Promise<Record<string, IERC20>>;
+/**
+ * Implementation of getTokenContract
+ */
+async function getTokenContract(tokenSymbol: string | string[]): Promise<IERC20 | Record<string, IERC20>> {
+  // Handle array of token symbols
+  if (Array.isArray(tokenSymbol)) {
+    const result: Record<string, IERC20> = {};
+    await Promise.all(
+      tokenSymbol.map(async (symbol) => {
+        result[symbol] = await getTokenContractSingle(symbol);
+      })
+    );
+    return result;
+  }
+  
+  // Handle single token symbol
+  return getTokenContractSingle(tokenSymbol);
+}
+
+/**
+ * Internal helper for getting a single token contract
+ */
+const getTokenContractSingle = async (tokenSymbol: string): Promise<IERC20> => {
+  const token = constants.tokenConfig[tokenSymbol as keyof typeof constants.tokenConfig];
+  if (!token) {
+    throw new Error(`Unsupported token: ${tokenSymbol}`);
+  }
+  
+  // Use IERC20Metadata for tokens that support it, fallback to IERC20
+  if (['USDC', 'USDT', 'DAI'].includes(tokenSymbol)) {
+    return ethers.getContractAt('IERC20Metadata', token.address) as unknown as IERC20;
+  } else {
+    return ethers.getContractAt('IERC20', token.address);
+  }
 };
 
 async function fundAccountWithToken(
@@ -70,4 +113,4 @@ async function fundAccountWithToken(
   );
 }
 
-export { fundAccountWithToken, getStables, getUSDC, getUSDT, getDAI };
+export { fundAccountWithToken, getTokenContract };

@@ -20,7 +20,7 @@ import {
   getBytes4,
   log,
 } from '../../utils';
-import { fundAccountWithToken, getDAI, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract } from '../../utils-stable';
 
 describe('Aave V3 tests', () => {
   let signer: Signer;
@@ -72,10 +72,11 @@ describe('Aave V3 tests', () => {
     logger = await ethers.getContractAt('Logger', loggerAddress);
     adminVault = await baseSetup.adminVault;
 
-    // Fetch the tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
-    DAI = await getDAI();
+    // Fetch the tokens - using the enhanced multi-token functionality
+    const tokens = await getTokenContract(['USDC', 'USDT', 'DAI']);
+    USDC = tokens.USDC;
+    USDT = tokens.USDT;
+    DAI = tokens.DAI;
 
     // Initialize AaveSupply and AaveWithdraw actions
     aaveSupplyContract = await deploy(

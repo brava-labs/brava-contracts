@@ -7,7 +7,7 @@ import { CURVE_3POOL_ADDRESS, CURVE_3POOL_INDICES, tokenConfig } from '../../con
 import { ACTION_LOG_IDS, Curve3PoolSwapLog } from '../../logs';
 import { Curve3PoolSwapParams } from '../../params';
 import { decodeLoggerLog, deploy, executeAction, getBaseSetup, getBytes4, log } from '../../utils';
-import { fundAccountWithToken, getStables } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract } from '../../utils-stable';
 
 interface SwapParams {
   fromToken: number;
@@ -78,7 +78,10 @@ describe('Curve3PoolSwap tests', () => {
       await baseSetup.logger.getAddress(),
       CURVE_3POOL_ADDRESS
     );
-    ({ USDC, USDT, DAI } = await getStables());
+    const tokens = await getTokenContract(['USDC', 'USDT', 'DAI']);
+    USDC = tokens.USDC as IERC20Metadata;
+    USDT = tokens.USDT as IERC20Metadata;
+    DAI = tokens.DAI as IERC20Metadata;
 
     const poolAddress = await curve3PoolSwap.getAddress();
 

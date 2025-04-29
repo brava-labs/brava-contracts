@@ -67,6 +67,16 @@ export const tokenConfig = {
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
     decimals: 18,
   },
+  GHO: {
+    address: '0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f',
+    whale: '0x1a88Df1cFe15Af22B3c4c783D4e6F7F9e0C1885d',
+    decimals: 18,
+  },
+  USDS: {
+    address: '0xdC035D45d973E3EC169d2276DDab16f1e407384F',
+    whale: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD', 
+    decimals: 18,
+  },
   WETH: {
     address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
@@ -81,6 +91,11 @@ export const tokenConfig = {
     address: '0x5c20b550819128074fd538edf79791733ccedd18',
     whale: '0x490681095ed277B45377d28cA15Ac41d64583048',
     decimals: 6,
+  },
+  FLUID_V1_GHO: {
+    address: '0x6A29A46E21C730DcA1d8b23d637c101cec605C5B',
+    whale: '0xd3DCe716f3eF535C5Ff8d041c1A41C3bd89b97aE',
+    decimals: 18,
   },
   YEARN_V2_USDC: {
     address: '0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE',
@@ -172,6 +187,11 @@ export const tokenConfig = {
     whale: '0x4aa42145Aa6Ebf72e164C9bBC74fbD3788045016',
     decimals: 18,
   },
+  SPARK_V1_USDS: {
+    address: '0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD',
+    whale: '0x2d4d2A025b10C09BDbd794B4FCe4F7ea8C7d7bB4',
+    decimals: 18,
+  },
   ACROSS_V3_lpUSDC: {
     address: '0xC9b09405959f63F72725828b5d449488b02be1cA',
     whale: '0x9040e41eF5E8b281535a96D9a48aCb8cfaBD9a48',
@@ -215,6 +235,16 @@ export const tokenConfig = {
   YEARN_V3_AJNA_DAI: {
     address: '0xe24BA27551aBE96Ca401D39761cA2319Ea14e3CB',
     whale: '0x54C6b2b293297e65b1d163C3E8dbc45338bfE443',
+    decimals: 18,
+  },
+  YEARN_V3_USDS: {
+    address: '0x182863131F9a4630fF9E27830d945B1413e347E8',
+    whale: '0xd57aEa3686d623dA2dCEbc87010a4F2F38Ac7B15',
+    decimals: 18,
+  },
+  YEARN_V3_SKY_USDS: {
+    address: '0x4cE9c93513DfF543Bc392870d57dF8C04e89Ba0a',
+    whale: '0x182863131F9a4630fF9E27830d945B1413e347E8',
     decimals: 18,
   },
   MORPHO_V1_re7USDT: {
@@ -262,14 +292,19 @@ export const tokenConfig = {
     whale: '0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2',
     decimals: 6,
   },
-  GEARBOX_PASSIVE_V3_USDT: {
-    address: '0x05a811275fe9b4de503b3311f51edf6a856d936e',
-    whale: '0x16adAb68bDEcE3089D4f1626Bb5AEDD0d02471aD',
-    decimals: 6,
-  },
   GEARBOX_PASSIVE_V3_DAI: {
     address: '0xe7146f53dbcae9d6fa3555fe502648deb0b2f823',
     whale: '0xC853E4DA38d9Bd1d01675355b8c8f3BBC1451973',
+    decimals: 18,
+  },
+  GEARBOX_PASSIVE_V3_K3_USDT: {
+    address: '0x05A811275fE9b4DE503B3311F51edF6A856D936e',
+    whale: '0x16adAb68bDEcE3089D4f1626Bb5AEDD0d02471aD',
+    decimals: 6,
+  },
+  GEARBOX_PASSIVE_V3_CHAOS_GHO: {
+    address: '0x4d56c9cBa373AD39dF69Eb18F076b7348000AE09',
+    whale: '0xE2037090f896A858E3168B978668F22026AC52e7',
     decimals: 18,
   },
   MORPHO_V1_coinshiftUSDC: {
@@ -300,6 +335,46 @@ export const tokenConfig = {
   MORPHO_V1_flagshipUSDT: {
     address: '0x2C25f6C25770fFEC5959D34B94Bf898865e5D6b1',
     whale: '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503',
+    decimals: 18,
+  },
+  rUSD: {
+    address: '0x09D4214C03D01F49544C0448DBE3A27f768F2b34',
+    whale: '0xf0e9f6D9Ba5D1B3f76e0f82F9DCDb9eBEef4b4dA',
+    decimals: 18,
+  },
+  PYUSD: {
+    address: '0x6c3ea9036406852006290770BEdFcAbA0e23A0e8',
+    whale: '0x688e72142674041f8f6Af4c808a4045cA1D6aC82',
+    decimals: 6,
+  },
+  MORPHO_V1_steakhouserUSD: {
+    address: '0xBeEf11eCb698f4B5378685C05A210bdF71093521',
+    whale: '0x31Eae643b679A84b37E3d0B4Bd4f5dA90fB04a61',
+    decimals: 18,
+  },
+  MORPHO_V1_steakhousePYUSD: {
+    address: '0xbEEF02e5E13584ab96848af90261f0C8Ee04722a',
+    whale: '0x7E4B4DC22111B84594d9b7707A8DCFFd793D477A',
+    decimals: 18,
+  },
+  wUSDL: {
+    address: '0x7751E2F4b8ae93EF6B79d86419d42FE3295A4559',
+    whale: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb',
+    decimals: 18,
+  },
+  MORPHO_V1_coinshiftUSDL: {
+    address: '0xbEeFc011e94f43b8B7b455eBaB290C7Ab4E216f1',
+    whale: '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb',
+    decimals: 18,
+  },
+  crvUSD: {
+    address: '0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E',
+    whale: '0xA920De414eA4Ab66b97dA1bFE9e6EcA7d4219635',
+    decimals: 18,
+  },
+  CURVE_SAVINGS_scrvUSD: {
+    address: '0x0655977FEb2f289A4aB78af67BAB0d17aAb84367',
+    whale: '0xc522A6606BBA746d7960404F22a3DB936B6F4F50',
     decimals: 18,
   },
 };

@@ -1,7 +1,7 @@
 import { expect, ethers, Signer } from '../..';
 import { AdminVault, Logger, PullToken, SendToken, IERC20Metadata, SequenceExecutor } from '../../../typechain-types';
 import { getBaseSetup, deploy, executeAction, decodeLoggerLog, encodeAction, executeSequence, getBytes4} from '../../utils';
-import { fundAccountWithToken, getUSDC, getUSDT } from '../../utils-stable';
+import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 import { tokenConfig, ETH_ADDRESS } from '../../constants';
 import { ACTION_LOG_IDS } from '../../logs';
 
@@ -31,8 +31,8 @@ describe('Utils tests', () => {
     adminVault = await baseSetup.adminVault;
 
     // Fetch the USDC and USDT tokens
-    USDC = await getUSDC();
-    USDT = await getUSDT();
+    USDC = await getTokenContract('USDC');
+    USDT = await getTokenContract('USDT');
 
     // Initialize PullToken and SendToken actions
     pullTokenContract = await deploy(
