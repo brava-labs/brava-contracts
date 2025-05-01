@@ -344,7 +344,7 @@ export const tokenConfig = {
   },
   EULER_V2_PRIME_USDC: {
     address: '0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9',
-    whale: '0xCCBd61b6c2fB58Da5bbD8937Ca25164eF29c1cc4',
+    whale: '0xcAD001c30E96765aC90307669d578219D4fb1DCe',
     decimals: 6,
   },
   EULER_V2_YIELD_USDC: {
