@@ -17,8 +17,7 @@ struct BuyCoverParams {
 }
 
 struct PoolAllocationRequest {
-    uint40 poolId;
-    bool skip;
+    uint256 poolId;
     uint256 coverAmountInAsset;
 }
 

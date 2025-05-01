@@ -15,7 +15,7 @@ export const ADMIN_ADDRESS = '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503';
 export const CREATE_X_ADDRESS = '0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed';
 
 // Nexus Mutual
-export const NEXUS_MUTUAL_BROKER_ADDRESS = '0x0000cbD7a26f72Ff222bf5f136901D224b08BE4E';
+export const NEXUS_MUTUAL_BROKER_ADDRESS = '0xCB2B736652D2dBf7d72e4dB880Cf6B7d99507814';
 export const NEXUS_MUTUAL_NFT_ADDRESS = '0xcafeaCa76be547F14D0220482667B42D8E7Bc3eb';
 
 // Token Indices for Curve 3Pool
@@ -411,74 +411,5 @@ export const tokenConfig = {
     address: '0x0655977FEb2f289A4aB78af67BAB0d17aAb84367',
     whale: '0xc522A6606BBA746d7960404F22a3DB936B6F4F50',
     decimals: 18,
-  },
-};
-
-export const NEXUS_QUOTES = {
-  [CoverAsset.ETH]: {
-    result: {
-      displayInfo: {
-        premiumInAsset: '3162504478449954',
-        coverAmount: '1000000000000000000',
-        yearlyCostPerc: 0.041,
-        maxCapacity: '209468398709503985923',
-      },
-      buyCoverInput: {
-        buyCoverParams: {
-          coverId: 0,
-          owner: '0x2370eAB2C0B8cd9f949aD324C2e9D56473242a86',
-          productId: 156,
-          coverAsset: 0,
-          amount: '1000000000000000000',
-          period: 2419200,
-          maxPremiumInAsset: '3162502120188520',
-          paymentAsset: 0,
-          commissionRatio: 1500,
-          commissionDestination: '0x586b9b2F8010b284A0197f392156f1A7Eb5e86e9',
-          ipfsData: '',
-        },
-        poolAllocationRequests: [
-          {
-            poolId: '24',
-            coverAmountInAsset: '1000189894583466386',
-            skip: false,
-          },
-        ],
-      },
-    },
-    error: undefined,
-  },
-  [CoverAsset.DAI]: {
-    result: {
-      displayInfo: {
-        premiumInAsset: '6239592777087466',
-        coverAmount: '1000000000000000000',
-        yearlyCostPerc: 0.0675,
-        maxCapacity: '892726566666876078802946',
-      },
-      buyCoverInput: {
-        buyCoverParams: {
-          coverId: 0,
-          owner: '0xBA2fB2266a5fC1CB817E353219d1FC1D35d29C65',
-          productId: 231,
-          coverAsset: 1,
-          amount: '1000000000000000000',
-          period: 2419200,
-          maxPremiumInAsset: '6239592777087466',
-          paymentAsset: 1,
-          commissionRatio: 1500,
-          commissionDestination: '0x586b9b2F8010b284A0197f392156f1A7Eb5e86e9',
-          ipfsData: '',
-        },
-        poolAllocationRequests: [
-          {
-            poolId: '22',
-            coverAmountInAsset: '1201179974740417324',
-            skip: false,
-          },
-        ],
-      },
-    },
-    error: undefined,
   },
 };

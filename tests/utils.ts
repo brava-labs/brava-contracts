@@ -16,7 +16,6 @@ import { ActionArgs, actionDefaults, BuyCoverArgs } from './actions';
 import {
   CREATE_X_ADDRESS,
   CURVE_3POOL_INDICES,
-  NEXUS_QUOTES,
   ROLES,
   SAFE_PROXY_FACTORY_ADDRESS,
   tokenConfig,
@@ -28,6 +27,7 @@ import {
   NexusMutualPoolAllocationRequestTypes,
   ParaswapSwapParams,
 } from './params';
+import { getCoverQuote } from './actions/nexus-mutual/nexusCache';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
@@ -306,61 +306,36 @@ async function prepareNexusMutualCoverPurchase(args: Partial<BuyCoverArgs>): Pro
   const safeAddress = await globalSetup.safe.getAddress();
 
   const { productId, amountToInsure, daysToInsure, coverAsset, coverAddress } = mergedArgs;
-  let response: GetQuoteApiResponse | ErrorApiResponse;
-
+  
   // Use destinationAddress if provided, otherwise fall back to safeAddress
   const coverOwnerAddress = coverAddress || safeAddress;
   log('Cover owner address:', coverOwnerAddress);
 
-  // Check if we're using an old block timestamp, if so use the saved quote
-  const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp;
-  if (blockTimestamp && blockTimestamp < Date.now() / 1000 - 3600) {
-    log('Using saved quote for Nexus Mutual cover purchase');
-    response = NEXUS_QUOTES[coverAsset as keyof typeof NEXUS_QUOTES];
-    response.result!.buyCoverInput.buyCoverParams.owner = coverOwnerAddress;
-  } else {
-    // get the token decimals, if coverAsset is ETH, use 18
-    // If cover asset = 0, use 18
-    // if cover asset = 1, use tokenConfig[DAI].decimals
-    // if cover asset = 6, use tokenConfig[USDC].decimals
-    let decimals = 18;
-    switch (coverAsset) {
-      case CoverAsset.ETH:
-        decimals = 18;
-        break;
-      case CoverAsset.DAI:
-        decimals = tokenConfig.DAI.decimals;
-        break;
-      case CoverAsset.USDC:
-        decimals = tokenConfig.USDC.decimals;
-        break;
-    }
-
-    response = await nexusSdk.getQuoteAndBuyCoverInputs(
-      productId,
-      ethers.parseUnits(amountToInsure, decimals).toString(),
-      daysToInsure,
-      coverAsset,
-      coverOwnerAddress
-    );
+  // Get token decimals based on cover asset
+  let decimals = 18;
+  switch (coverAsset) {
+    case CoverAsset.ETH:
+      decimals = 18;
+      break;
+    case CoverAsset.DAI:
+      decimals = tokenConfig.DAI.decimals;
+      break;
+    case CoverAsset.USDC:
+      decimals = tokenConfig.USDC.decimals;
+      break;
   }
 
-  if (!response.result) {
-    throw new Error(
-      `Failed to prepare Nexus Mutual cover purchase: ${response.error?.message || 'Unknown error'}`
-    );
-  }
+  // Parse the amount to the correct decimals
+  const coverAmount = ethers.parseUnits(amountToInsure, decimals).toString();
 
-  let { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
-
-  /// THE NEXUS SDK SOMETIMES RETURNS A PREMIUM THAT IS TOO LOW
-  /// THIS IS A HACK TO MAKE IT HIGHER JUST FOR OUR TESTS
-  /// This only seems necessary when we aren't using ETH as the cover asset
-  // if (coverAsset !== CoverAsset.ETH) {
-  //   buyCoverParams.maxPremiumInAsset = (
-  //     BigInt(buyCoverParams.maxPremiumInAsset) * BigInt(2)
-  //   ).toString();
-  // }
+  // Get quote from cache or API using our new cache system
+  const { buyCoverParams, poolAllocationRequests } = await getCoverQuote(
+    productId,
+    coverAmount,
+    daysToInsure,
+    coverAsset,
+    coverOwnerAddress
+  );
 
   const abiCoder = new ethers.AbiCoder();
   const buyCoverParamsEncoded = abiCoder.encode([NexusMutualBuyCoverParamTypes], [buyCoverParams]);
