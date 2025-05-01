@@ -67,7 +67,6 @@ describe('BuyCover tests', () => {
   });
 
   it('should buy cover from Nexus Mutual using a stablecoin', async () => {
-    // Currently only DAI works (Nexus Mutual doesn't support USDT and their USDC is broken)
     const fundAmount = 1000; // 1000 DAI
     await fundAccountWithToken(safeAddr, 'USDC', fundAmount);
 
