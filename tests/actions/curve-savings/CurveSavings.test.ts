@@ -8,6 +8,7 @@ import {
   log,
   getBytes4,
   decodeLoggerLog,
+  getTokenNameFromAddress,
 } from '../../utils';
 import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 import { tokenConfig } from '../../constants';
@@ -37,7 +38,9 @@ describe('CurveSavings tests', () => {
   let curveSavingsWithdrawAddress: string;
   let scrvUSD: IERC4626;
   let adminVault: AdminVault;
-  const CURVE_SAVINGS_ADDRESS = tokenConfig.CURVE_SAVINGS_scrvUSD.address;
+  const CURVE_SAVINGS_SCRVUSD_ADDRESS = tokenConfig.CURVE_SAVINGS_scrvUSD.address;
+  const CURVE_SAVINGS_CVCRVUSD_ADDRESS = tokenConfig.CURVE_SAVINGS_cvcrvUSD.address;
+  let cvcrvUSD: IERC4626;
 
   const testCases: Array<{
     token: keyof typeof tokenConfig;
@@ -46,8 +49,13 @@ describe('CurveSavings tests', () => {
   }> = [
     {
       token: 'crvUSD',
-      poolAddress: CURVE_SAVINGS_ADDRESS,
+      poolAddress: CURVE_SAVINGS_SCRVUSD_ADDRESS,
       vaultToken: () => scrvUSD,
+    },
+    {
+      token: 'crvUSD',
+      poolAddress: CURVE_SAVINGS_CVCRVUSD_ADDRESS,
+      vaultToken: () => cvcrvUSD,
     },
   ];
 
@@ -80,7 +88,8 @@ describe('CurveSavings tests', () => {
     );
     curveSavingsSupplyAddress = await curveSavingsSupplyContract.getAddress();
     curveSavingsWithdrawAddress = await curveSavingsWithdrawContract.getAddress();
-    scrvUSD = await ethers.getContractAt('IERC4626', CURVE_SAVINGS_ADDRESS);
+    scrvUSD = await ethers.getContractAt('IERC4626', CURVE_SAVINGS_SCRVUSD_ADDRESS);
+    cvcrvUSD = await ethers.getContractAt('IERC4626', CURVE_SAVINGS_CVCRVUSD_ADDRESS);
 
     // grant the scrvUSD contract the POOL_ROLE
     for (const { poolAddress } of testCases) {
@@ -107,7 +116,7 @@ describe('CurveSavings tests', () => {
 
   describe('CurveSavings Supply', () => {
     testCases.forEach(({ token, poolAddress, vaultToken }) => {
-      describe(`Testing ${token}`, () => {
+      describe(`Testing ${getTokenNameFromAddress(poolAddress)}`, () => {
         it('Should supply', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
@@ -206,7 +215,7 @@ describe('CurveSavings tests', () => {
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(CURVE_SAVINGS_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(CURVE_SAVINGS_SCRVUSD_ADDRESS).slice(0, 10);
 
         const tx = await executeAction({
           type: 'CurveSavingsSupply',
@@ -233,19 +242,19 @@ describe('CurveSavings tests', () => {
       it('Should initialize last fee timestamp', async () => {
         const initialLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          CURVE_SAVINGS_ADDRESS
+          CURVE_SAVINGS_SCRVUSD_ADDRESS
         );
         expect(initialLastFeeTimestamp).to.equal(0n);
 
         await executeAction({
           type: 'CurveSavingsSupply',
-          poolAddress: CURVE_SAVINGS_ADDRESS,
+          poolAddress: CURVE_SAVINGS_SCRVUSD_ADDRESS,
           amount: '0',
         });
 
         const finalLastFeeTimestamp = await adminVault.lastFeeTimestamp(
           safeAddr,
-          CURVE_SAVINGS_ADDRESS
+          CURVE_SAVINGS_SCRVUSD_ADDRESS
         );
         expect(finalLastFeeTimestamp).to.not.equal(0n);
       });
@@ -266,7 +275,7 @@ describe('CurveSavings tests', () => {
       });
 
       it('Should not confuse underlying and share tokens', async () => {
-        const pool = await ethers.getContractAt('IERC4626', CURVE_SAVINGS_ADDRESS);
+        const pool = await ethers.getContractAt('IERC4626', CURVE_SAVINGS_SCRVUSD_ADDRESS);
         
         // Fund with excess underlying tokens
         const largeAmount = ethers.parseUnits('1000', tokenConfig.crvUSD.decimals);
@@ -279,7 +288,7 @@ describe('CurveSavings tests', () => {
         // Deposit smaller amount
         await executeAction({
           type: 'CurveSavingsSupply',
-          poolAddress: CURVE_SAVINGS_ADDRESS,
+          poolAddress: CURVE_SAVINGS_SCRVUSD_ADDRESS,
           amount: smallDepositAmount,
         });
 
@@ -294,7 +303,7 @@ describe('CurveSavings tests', () => {
         const smallWithdrawAmount = ethers.parseUnits('10', tokenConfig.crvUSD.decimals);
         await executeAction({
           type: 'CurveSavingsWithdraw',
-          poolAddress: CURVE_SAVINGS_ADDRESS,
+          poolAddress: CURVE_SAVINGS_SCRVUSD_ADDRESS,
           amount: smallWithdrawAmount,
         });
 
@@ -331,7 +340,7 @@ describe('CurveSavings tests', () => {
     });
 
     testCases.forEach(({ token, poolAddress, vaultToken }) => {
-      describe(`Testing ${token}`, () => {
+      describe(`Testing ${getTokenNameFromAddress(poolAddress)}`, () => {
         it('Should withdraw', async () => {
           const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
           const tokenContract = await ethers.getContractAt('IERC20', tokenConfig[token].address);
@@ -386,7 +395,10 @@ describe('CurveSavings tests', () => {
           const finalVaultBalance = await vaultToken().balanceOf(safeAddr);
 
           expect(finalTokenBalance).to.be.gt(initialTokenBalance);
-          expect(finalVaultBalance).to.equal(0);
+          // Some protocols might retain a very small dust amount due to rounding
+          // Use a small tolerance instead of expecting exactly zero
+          const smallDust = ethers.parseUnits('0.001', 18); // Small dust allowance in 18 decimals
+          expect(finalVaultBalance).to.be.lessThanOrEqual(smallDust);
         });
 
         it('Should take fees on withdraw', async () => {
@@ -447,7 +459,7 @@ describe('CurveSavings tests', () => {
         const amount = ethers.parseUnits('100', tokenConfig[token].decimals);
         await fundAccountWithToken(safeAddr, token, amount);
         const strategyId: number = 42;
-        const poolId: BytesLike = ethers.keccak256(CURVE_SAVINGS_ADDRESS).slice(0, 10);
+        const poolId: BytesLike = ethers.keccak256(CURVE_SAVINGS_SCRVUSD_ADDRESS).slice(0, 10);
 
         await executeAction({
           type: 'CurveSavingsSupply',

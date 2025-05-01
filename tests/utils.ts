@@ -691,3 +691,16 @@ async function executeSequenceDebug(
     { safeTxGas, gasPrice, baseGas }
   );
 }
+
+/**
+ * Gets a descriptive name for a token based on its address by looking it up in the tokenConfig
+ * @param address The token address to look up
+ * @returns The token name from tokenConfig, or the address if not found
+ */
+export function getTokenNameFromAddress(address: string): string {
+  return (
+    Object.entries(tokenConfig).find(
+      ([_, config]) => config.address.toLowerCase() === address.toLowerCase()
+    )?.[0] ?? address
+  );
+}

@@ -412,4 +412,9 @@ export const tokenConfig = {
     whale: '0xc522A6606BBA746d7960404F22a3DB936B6F4F50',
     decimals: 18,
   },
+  CURVE_SAVINGS_cvcrvUSD: {
+    address: '0xCeA18a8752bb7e7817F9AE7565328FE415C0f2cA',
+    whale: '0x49887dF6fE905663CDB46c616BfBfBB50e85a265',
+    decimals: 18,
+  },
 };
