@@ -1,4 +1,4 @@
-import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
+import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
 import * as bravaSdk from 'brava-ts-client';
 import { deploySafe, executeSafeTransaction } from 'brava-ts-client';
 import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
@@ -6,9 +6,7 @@ import { ethers, network, tenderly } from 'hardhat';
 import {
   AdminVault,
   ISafe,
-  ISafeProxyFactory,
   Logger,
-  Proxy,
   SequenceExecutor,
   SequenceExecutorDebug,
 } from '../typechain-types';
@@ -17,7 +15,6 @@ import {
   CREATE_X_ADDRESS,
   CURVE_3POOL_INDICES,
   ROLES,
-  SAFE_PROXY_FACTORY_ADDRESS,
   tokenConfig,
 } from './constants';
 import { BaseLog, LogDefinitions, LOGGER_INTERFACE } from './logs';
@@ -175,7 +172,6 @@ export async function deploy<T extends BaseContract>(
 type BaseSetup = {
   logger: Logger;
   adminVault: AdminVault;
-  safeProxyFactory: ISafeProxyFactory;
   safe: ISafe;
   signer: Signer;
   sequenceExecutor: SequenceExecutor;
@@ -192,25 +188,18 @@ export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
     0,
     await logger.getAddress()
   );
-  const proxy = await deploy<Proxy>(
-    'contracts/auth/Proxy.sol:Proxy',
-    deploySigner,
-    SAFE_PROXY_FACTORY_ADDRESS,
-    '0x'
-  );
-  const safeProxyFactory = await ethers.getContractAt(
-    'ISafeProxyFactory',
-    await proxy.getAddress()
-  );
-  const safeAddress = await deploySafe(deploySigner, await safeProxyFactory.getAddress());
-  const safe = await ethers.getContractAt('ISafe', safeAddress);
+ 
   const sequenceExecutor = await deploy<SequenceExecutor>(
     'SequenceExecutor',
     deploySigner,
     await adminVault.getAddress()
   );
+
+  const safeAddress = await deploySafe(deploySigner);
+  const safe = await ethers.getContractAt('ISafe', safeAddress);
+
   log('Safe deployed at:', safeAddress);
-  return { logger, adminVault, safeProxyFactory, safe, signer: deploySigner, sequenceExecutor };
+  return { logger, adminVault, safe, signer: deploySigner, sequenceExecutor };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
@@ -258,7 +247,6 @@ let globalSetup:
   | {
       logger: Logger;
       adminVault: AdminVault;
-      safeProxyFactory: ISafeProxyFactory;
       safe: ISafe;
       signer: Signer;
     }
@@ -267,7 +255,6 @@ let globalSetup:
 export function setGlobalSetup(params: {
   logger: Logger;
   adminVault: AdminVault;
-  safeProxyFactory: ISafeProxyFactory;
   safe: ISafe;
   signer: Signer;
 }) {
