@@ -5,10 +5,10 @@ export const ParaswapSwapParams =
   'tuple(address tokenInAddress, address tokenOutAddress, uint256 fromAmount, uint256 minToAmount, bytes swapCallData)';
 
 export const NexusMutualBuyCoverParamTypes =
-  'tuple(uint256  coverId, address owner, uint24 productId, uint8 coverAsset, uint96 amount, uint32 period, uint256 maxPremiumInAsset, uint8 paymentAsset, uint24 commissionRatio, address commissionDestination, string ipfsData)';
+  'tuple(uint256  coverId, address owner, uint24 productId, uint8 coverAsset, uint96 amount, uint32 period, uint256 maxPremiumInAsset, uint8 paymentAsset, uint16 commissionRatio, address commissionDestination, string ipfsData)';
 
 export const NexusMutualPoolAllocationRequestTypes =
-  'tuple(uint40 poolId, bool skip, uint256 coverAmountInAsset)';
+  'tuple(uint256 poolId, uint256 coverAmountInAsset)';
 
 export const BuyCoverInputTypes =
   'tuple(address owner, bytes buyCoverParams, bytes[] poolAllocationRequests)';

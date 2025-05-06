@@ -1,4 +1,4 @@
-import nexusSdk, { CoverAsset, ErrorApiResponse, GetQuoteApiResponse } from '@nexusmutual/sdk';
+import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
 import * as bravaSdk from 'brava-ts-client';
 import { deploySafe, executeSafeTransaction } from 'brava-ts-client';
 import { BaseContract, Log, Signer, TransactionReceipt, TransactionResponse } from 'ethers';
@@ -6,9 +6,7 @@ import { ethers, network, tenderly } from 'hardhat';
 import {
   AdminVault,
   ISafe,
-  ISafeProxyFactory,
   Logger,
-  Proxy,
   SequenceExecutor,
   SequenceExecutorDebug,
 } from '../typechain-types';
@@ -16,9 +14,7 @@ import { ActionArgs, actionDefaults, BuyCoverArgs } from './actions';
 import {
   CREATE_X_ADDRESS,
   CURVE_3POOL_INDICES,
-  NEXUS_QUOTES,
   ROLES,
-  SAFE_PROXY_FACTORY_ADDRESS,
   tokenConfig,
 } from './constants';
 import { BaseLog, LogDefinitions, LOGGER_INTERFACE } from './logs';
@@ -28,6 +24,7 @@ import {
   NexusMutualPoolAllocationRequestTypes,
   ParaswapSwapParams,
 } from './params';
+import { getCoverQuote } from './actions/nexus-mutual/nexusCache';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
@@ -175,7 +172,6 @@ export async function deploy<T extends BaseContract>(
 type BaseSetup = {
   logger: Logger;
   adminVault: AdminVault;
-  safeProxyFactory: ISafeProxyFactory;
   safe: ISafe;
   signer: Signer;
   sequenceExecutor: SequenceExecutor;
@@ -192,25 +188,18 @@ export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
     0,
     await logger.getAddress()
   );
-  const proxy = await deploy<Proxy>(
-    'contracts/auth/Proxy.sol:Proxy',
-    deploySigner,
-    SAFE_PROXY_FACTORY_ADDRESS,
-    '0x'
-  );
-  const safeProxyFactory = await ethers.getContractAt(
-    'ISafeProxyFactory',
-    await proxy.getAddress()
-  );
-  const safeAddress = await deploySafe(deploySigner, await safeProxyFactory.getAddress());
-  const safe = await ethers.getContractAt('ISafe', safeAddress);
+ 
   const sequenceExecutor = await deploy<SequenceExecutor>(
     'SequenceExecutor',
     deploySigner,
     await adminVault.getAddress()
   );
+
+  const safeAddress = await deploySafe(deploySigner);
+  const safe = await ethers.getContractAt('ISafe', safeAddress);
+
   log('Safe deployed at:', safeAddress);
-  return { logger, adminVault, safeProxyFactory, safe, signer: deploySigner, sequenceExecutor };
+  return { logger, adminVault, safe, signer: deploySigner, sequenceExecutor };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
@@ -258,7 +247,6 @@ let globalSetup:
   | {
       logger: Logger;
       adminVault: AdminVault;
-      safeProxyFactory: ISafeProxyFactory;
       safe: ISafe;
       signer: Signer;
     }
@@ -267,7 +255,6 @@ let globalSetup:
 export function setGlobalSetup(params: {
   logger: Logger;
   adminVault: AdminVault;
-  safeProxyFactory: ISafeProxyFactory;
   safe: ISafe;
   signer: Signer;
 }) {
@@ -306,61 +293,36 @@ async function prepareNexusMutualCoverPurchase(args: Partial<BuyCoverArgs>): Pro
   const safeAddress = await globalSetup.safe.getAddress();
 
   const { productId, amountToInsure, daysToInsure, coverAsset, coverAddress } = mergedArgs;
-  let response: GetQuoteApiResponse | ErrorApiResponse;
-
+  
   // Use destinationAddress if provided, otherwise fall back to safeAddress
   const coverOwnerAddress = coverAddress || safeAddress;
   log('Cover owner address:', coverOwnerAddress);
 
-  // Check if we're using an old block timestamp, if so use the saved quote
-  const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp;
-  if (blockTimestamp && blockTimestamp < Date.now() / 1000 - 3600) {
-    log('Using saved quote for Nexus Mutual cover purchase');
-    response = NEXUS_QUOTES[coverAsset as keyof typeof NEXUS_QUOTES];
-    response.result!.buyCoverInput.buyCoverParams.owner = coverOwnerAddress;
-  } else {
-    // get the token decimals, if coverAsset is ETH, use 18
-    // If cover asset = 0, use 18
-    // if cover asset = 1, use tokenConfig[DAI].decimals
-    // if cover asset = 6, use tokenConfig[USDC].decimals
-    let decimals = 18;
-    switch (coverAsset) {
-      case CoverAsset.ETH:
-        decimals = 18;
-        break;
-      case CoverAsset.DAI:
-        decimals = tokenConfig.DAI.decimals;
-        break;
-      case CoverAsset.USDC:
-        decimals = tokenConfig.USDC.decimals;
-        break;
-    }
-
-    response = await nexusSdk.getQuoteAndBuyCoverInputs(
-      productId,
-      ethers.parseUnits(amountToInsure, decimals).toString(),
-      daysToInsure,
-      coverAsset,
-      coverOwnerAddress
-    );
+  // Get token decimals based on cover asset
+  let decimals = 18;
+  switch (coverAsset) {
+    case CoverAsset.ETH:
+      decimals = 18;
+      break;
+    case CoverAsset.DAI:
+      decimals = tokenConfig.DAI.decimals;
+      break;
+    case CoverAsset.USDC:
+      decimals = tokenConfig.USDC.decimals;
+      break;
   }
 
-  if (!response.result) {
-    throw new Error(
-      `Failed to prepare Nexus Mutual cover purchase: ${response.error?.message || 'Unknown error'}`
-    );
-  }
+  // Parse the amount to the correct decimals
+  const coverAmount = ethers.parseUnits(amountToInsure, decimals).toString();
 
-  let { buyCoverParams, poolAllocationRequests } = response.result.buyCoverInput;
-
-  /// THE NEXUS SDK SOMETIMES RETURNS A PREMIUM THAT IS TOO LOW
-  /// THIS IS A HACK TO MAKE IT HIGHER JUST FOR OUR TESTS
-  /// This only seems necessary when we aren't using ETH as the cover asset
-  // if (coverAsset !== CoverAsset.ETH) {
-  //   buyCoverParams.maxPremiumInAsset = (
-  //     BigInt(buyCoverParams.maxPremiumInAsset) * BigInt(2)
-  //   ).toString();
-  // }
+  // Get quote from cache or API using our new cache system
+  const { buyCoverParams, poolAllocationRequests } = await getCoverQuote(
+    productId,
+    coverAmount,
+    daysToInsure,
+    coverAsset,
+    coverOwnerAddress
+  );
 
   const abiCoder = new ethers.AbiCoder();
   const buyCoverParamsEncoded = abiCoder.encode([NexusMutualBuyCoverParamTypes], [buyCoverParams]);
@@ -714,5 +676,18 @@ async function executeSequenceDebug(
     1,
     signer,
     { safeTxGas, gasPrice, baseGas }
+  );
+}
+
+/**
+ * Gets a descriptive name for a token based on its address by looking it up in the tokenConfig
+ * @param address The token address to look up
+ * @returns The token name from tokenConfig, or the address if not found
+ */
+export function getTokenNameFromAddress(address: string): string {
+  return (
+    Object.entries(tokenConfig).find(
+      ([_, config]) => config.address.toLowerCase() === address.toLowerCase()
+    )?.[0] ?? address
   );
 }

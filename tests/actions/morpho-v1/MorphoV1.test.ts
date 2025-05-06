@@ -19,17 +19,10 @@ import {
   executeAction,
   getBaseSetup,
   log,
+  getTokenNameFromAddress,
 } from '../../utils';
 import { fundAccountWithToken, getTokenContract} from '../../utils-stable';
 
-// Morpho uses the same underlying token for multiple pools, so we need a descriptive name
-const getTokenNameFromAddress = (address: string): string => {
-  return (
-    Object.entries(tokenConfig).find(
-      ([_, config]) => config.address.toLowerCase() === address.toLowerCase()
-    )?.[0] ?? address
-  );
-};
 
 describe('MorphoV1 tests', () => {
   let signer: Signer;
