@@ -19,6 +19,8 @@ export const ACTION_LOG_IDS = {
   SEND_TOKEN: 4,
   PULL_TOKEN: 5,
   PARASWAP_SWAP: 6,
+  UPGRADE_ACTION: 7,
+  WITHDRAWAL_REQUEST: 8,
   // Add more log IDs as needed
 };
 
@@ -68,6 +70,13 @@ export interface ParaswapSwapLog extends BaseLog {
   fromAmount: bigint;
   minToAmount: bigint;
   amountReceived: bigint;
+}
+
+export interface WithdrawalRequestLog extends BaseLog {
+  actionAddress: string;
+  poolAddress: string;
+  sharesToBurn: bigint;
+  requestId: bigint;
 }
 
 type LogDecoder<T extends BaseLog> = (baseLog: BaseLog, decodedBytes: any[]) => T;
@@ -137,6 +146,16 @@ export const LogDefinitions: { [key: number]: LogDefinition<any> } = {
       fromAmount: decodedBytes[2],
       minToAmount: decodedBytes[3],
       amountReceived: decodedBytes[4],
+    }),
+  },
+  [ACTION_LOG_IDS.WITHDRAWAL_REQUEST]: {
+    types: ['address', 'address', 'uint256', 'uint128'],
+    decode: (baseLog, decodedBytes): WithdrawalRequestLog => ({
+      ...baseLog,
+      actionAddress: decodedBytes[0].toString(),
+      poolAddress: decodedBytes[1].toString(),
+      sharesToBurn: decodedBytes[2],
+      requestId: decodedBytes[3],
     }),
   },
 };

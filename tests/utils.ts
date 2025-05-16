@@ -691,3 +691,96 @@ export function getTokenNameFromAddress(address: string): string {
     )?.[0] ?? address
   );
 }
+
+/**
+ * Approve KYC for Maple lenders by impersonating the admin and calling setLenderBitmaps.
+ * @param addressesToApprove Array of addresses to approve as KYC'd lenders
+ */
+export async function approveMapleKYC(addressesToApprove: string[]) {
+  const MAPLE_KYC_CONTRACT = '0xBe10aDcE8B6E3E02Db384E7FaDA5395DD113D8b3';
+  const ADMIN_ADDRESS = '0x54b130c704919320E17F4F1Ffa4832A91AB29Dca';
+  const allBitsSet = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+
+  // Impersonate the admin
+  await network.provider.request({
+    method: 'hardhat_impersonateAccount',
+    params: [ADMIN_ADDRESS],
+  });
+  const adminSigner = await ethers.getSigner(ADMIN_ADDRESS);
+
+  // Create the interface for the function
+  const iface = new ethers.Interface([
+    'function setLenderBitmaps(address[] lenders_,uint256[] bitmaps_)'
+  ]);
+
+  // Encode the function call data
+  const data = iface.encodeFunctionData('setLenderBitmaps', [
+    addressesToApprove,
+    addressesToApprove.map(() => allBitsSet)
+  ]);
+
+  // Send the transaction
+  await adminSigner.sendTransaction({
+    to: MAPLE_KYC_CONTRACT,
+    data: data,
+  });
+
+  // Stop impersonating
+  await network.provider.request({
+    method: 'hardhat_stopImpersonatingAccount',
+    params: [ADMIN_ADDRESS],
+  });
+}
+
+/**
+ * Process a Maple withdrawal by impersonating the poolDelegate and calling processRedemptions.
+ * @param poolAddress The address of the Maple pool
+ * @param sharesToProcess The number of shares to process
+ */
+export async function processMapleWithdrawal(poolAddress: string, sharesToProcess: bigint) {
+  // Get the pool contract
+  const pool = await ethers.getContractAt('IMaplePool', poolAddress);
+  // Get the pool manager address
+  const poolManagerAddress = await pool.manager();
+  // Get the pool manager contract
+  const poolManager = await ethers.getContractAt('IMaplePoolManager', poolManagerAddress);
+  // Get the poolDelegate address
+  const poolDelegate = await poolManager.poolDelegate();
+  // Get the withdrawal manager address
+  const withdrawalManagerAddress = await poolManager.withdrawalManager();
+  // Get the withdrawal manager contract
+  const withdrawalManager = await ethers.getContractAt('IMapleWithdrawalManagerQueue', withdrawalManagerAddress);
+
+  // Impersonate the poolDelegate
+  await network.provider.request({
+    method: 'hardhat_impersonateAccount',
+    params: [poolDelegate],
+  });
+  const delegateSigner = await ethers.getSigner(poolDelegate);
+
+  // Get the queue state
+  let [nextRequestId, lastRequestId] = await withdrawalManager.queue();
+  nextRequestId = BigInt(nextRequestId);
+  lastRequestId = BigInt(lastRequestId);
+
+  // Process the queue
+  while (nextRequestId <= lastRequestId) {
+    const [owner, shares] = await withdrawalManager.requests(nextRequestId);
+    if (shares > 0n) {
+      try {
+        await withdrawalManager.connect(delegateSigner).processRedemptions(shares);
+      } catch (err) {
+        break;
+      }
+    }
+    [nextRequestId, lastRequestId] = await withdrawalManager.queue();
+    nextRequestId = BigInt(nextRequestId);
+    lastRequestId = BigInt(lastRequestId);
+  }
+
+  // Stop impersonating
+  await network.provider.request({
+    method: 'hardhat_stopImpersonatingAccount',
+    params: [poolDelegate],
+  });
+}

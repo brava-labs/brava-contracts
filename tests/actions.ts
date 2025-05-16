@@ -62,7 +62,7 @@ type WithdrawArgs =
         | 'EulerV2Withdraw'
         | 'CurveSavingsWithdraw';
     })
-  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnV2Withdraw' | 'VesperV1Withdraw' });
+  | (ShareBasedWithdrawArgs & { type: 'MapleWithdrawQueue' | 'NotionalV3Withdraw' | 'YearnV2Withdraw' | 'VesperV1Withdraw' });
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
@@ -78,7 +78,8 @@ interface SupplyArgs extends BaseActionArgs {
     | 'YearnV3Supply'
     | 'GearboxPassiveV3Supply'
     | 'EulerV2Supply'
-    | 'CurveSavingsSupply';
+    | 'CurveSavingsSupply'
+    | 'MapleSupply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -722,5 +723,35 @@ export const actionDefaults: Record<string, ActionArgs> = {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
+  },
+  MapleSupply: {
+    type: 'MapleSupply',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: '', // to be set in test
+    feeBasis: 0,
+    amount: '0',
+    minSharesReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
+    },
+    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
+  },
+  MapleWithdrawQueue: {
+    type: 'MapleWithdrawQueue',
+    useSDK: false,
+    value: 0,
+    safeOperation: 1,
+    poolAddress: '', // to be set in test
+    feeBasis: 0,
+    sharesToBurn: '0',
+    minUnderlyingReceived: '0',
+    encoding: {
+      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
+      encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
+    },
+    sdkArgs: ['poolAddress', 'sharesToBurn', 'minUnderlyingReceived', 'feeBasis'],
   },
 };

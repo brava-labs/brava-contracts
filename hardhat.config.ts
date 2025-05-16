@@ -20,7 +20,6 @@ const config: HardhatUserConfig = {
       forking: {
         url: 'https://mainnet.gateway.tenderly.co/' + process.env.TENDERLY_API_KEY!,
         blockNumber: 22388026, // Using block from when we cached the quotes
-        enabled: true,
       },
     },
     localhost: {

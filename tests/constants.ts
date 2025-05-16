@@ -417,4 +417,19 @@ export const tokenConfig = {
     whale: '0x49887dF6fE905663CDB46c616BfBfBB50e85a265',
     decimals: 18,
   },
+  MAPLE_V1_HY_USDC: {
+    address: '0x6174A27160f4D7885Db4FFeD1C0b5fbD66c87F3a',
+    whale: '0xb7848eeAAd5D44C50D0b7bf8e7d0F8afB892fB44',
+    decimals: 6,
+  },
+  MAPLE_V1_BC_USDC: {
+    address: '0xc1dD3F011290F212227170F0D02F511EBF57E433',
+    whale: '0xBF46E399f2D3E5E46A1f0db16Ad65b8b6a8dFe25',
+    decimals: 6,
+  },
+  MAPLE_V1_HY_SEC_USDC: {
+    address: '0xC39a5A616F0ad1Ff45077FA2dE3f79ab8eb8b8B9',
+    whale: '0x09cD06b1738D9a4568044bA33b60bfdbB9cd7C16',
+    decimals: 6,
+  },
 };

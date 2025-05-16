@@ -49,7 +49,8 @@ abstract contract ActionBase {
         SEND_TOKEN,
         PULL_TOKEN,
         PARASWAP_SWAP,
-        UPGRADE_ACTION
+        UPGRADE_ACTION,
+        WITHDRAWAL_REQUEST
     }
 
     /// @notice Initializes the ActionBase contract
