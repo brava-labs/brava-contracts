@@ -18,9 +18,10 @@ contract MapleWithdrawQueue is ShareBasedWithdraw {
      * @dev Maple's requestRedeem submits a withdrawal request to their queue system.
      *      The withdrawal is not immediate and will be processed by Maple's pool delegate later.
      *      Maple requires each request to be processed before submitting new ones.
-     *      Attempting multiple requests without processing will be rejected by the Safe's guard.
+     *      Attempting multiple requests without processing will be rejected.
      * @param _vaultAddress The address of the Maple pool
      * @param _sharesToBurn The number of shares to withdraw
+     * @dev _minUnderlyingReceived is not used in this action due to the async nature of the withdrawal
      */
     function _executeWithdraw(
         address _vaultAddress,
@@ -33,14 +34,14 @@ contract MapleWithdrawQueue is ShareBasedWithdraw {
         address withdrawalManager = IMaplePoolManager(pool.manager()).withdrawalManager();
         
         // Get the next request ID which will be our request ID once submitted
-        (uint128 requestId, ) = IMapleWithdrawalManager(withdrawalManager).queue();
+        (uint256 requestId, ) = IMapleWithdrawalManager(withdrawalManager).queue();
         
         // Submit a withdrawal request for the specified number of shares
         pool.requestRedeem(_sharesToBurn, address(this));
         
         LOGGER.logActionEvent(
             LogType.WITHDRAWAL_REQUEST,
-            abi.encode(address(this), _vaultAddress, _sharesToBurn, requestId)
+            abi.encode(_vaultAddress, _sharesToBurn, requestId)
         );
     }
 

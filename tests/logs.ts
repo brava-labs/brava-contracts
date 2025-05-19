@@ -73,7 +73,6 @@ export interface ParaswapSwapLog extends BaseLog {
 }
 
 export interface WithdrawalRequestLog extends BaseLog {
-  actionAddress: string;
   poolAddress: string;
   sharesToBurn: bigint;
   requestId: bigint;
@@ -149,13 +148,12 @@ export const LogDefinitions: { [key: number]: LogDefinition<any> } = {
     }),
   },
   [ACTION_LOG_IDS.WITHDRAWAL_REQUEST]: {
-    types: ['address', 'address', 'uint256', 'uint128'],
+    types: ['address', 'uint256', 'uint256'],
     decode: (baseLog, decodedBytes): WithdrawalRequestLog => ({
       ...baseLog,
-      actionAddress: decodedBytes[0].toString(),
-      poolAddress: decodedBytes[1].toString(),
-      sharesToBurn: decodedBytes[2],
-      requestId: decodedBytes[3],
+      poolAddress: decodedBytes[0].toString(),
+      sharesToBurn: decodedBytes[1],
+      requestId: decodedBytes[2],
     }),
   },
 };

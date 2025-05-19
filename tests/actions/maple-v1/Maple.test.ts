@@ -249,8 +249,8 @@ describe('Maple protocol actions', () => {
             expect(withdrawalRequestLog.sharesToBurn).to.equal(withdrawAmount);
             expect(withdrawalRequestLog.poolAddress.toLowerCase()).to.equal(poolConfig.address.toLowerCase());
             // Don't check the exact action address, different test environments may have different addresses
-            expect(withdrawalRequestLog.actionAddress).to.be.a('string');
-            expect(withdrawalRequestLog.actionAddress).to.match(/^0x[a-fA-F0-9]{40}$/);
+            expect(withdrawalRequestLog.requestId).to.be.a('bigint');
+            expect(withdrawalRequestLog.requestId).to.be.gt(0);
           }
         });
       });
