@@ -13,7 +13,6 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   }
   console.log(`Admin Vault deployed at: ${await baseSetup.adminVault.getAddress()}`);
   console.log(`Logger deployed at: ${await baseSetup.logger.getAddress()}`);
-  console.log(`Safe Proxy Factory deployed at: ${await baseSetup.safeProxyFactory.getAddress()}`);
   console.log('Base setup deployed');
 
   // Deploy additional contracts
@@ -544,7 +543,7 @@ export async function deployAndFundTestnet(deployer: Signer, testAccounts: Signe
   await baseSetup.adminVault.connect(deployer).addPool('GearboxPassiveV3', GEARBOX_PASSIVE_V3_USDC_ADDRESS);
   console.log(`GearboxPassiveV3 USDC pool added. PoolId: ${getBytes4(GEARBOX_PASSIVE_V3_USDC_ADDRESS)}`);
 
-  const GEARBOX_PASSIVE_V3_USDT_ADDRESS = constants.tokenConfig.GEARBOX_PASSIVE_V3_USDT.address;
+  const GEARBOX_PASSIVE_V3_USDT_ADDRESS = constants.tokenConfig.GEARBOX_PASSIVE_V3_K3_USDT.address;
   await baseSetup.adminVault.connect(deployer).proposePool('GearboxPassiveV3', GEARBOX_PASSIVE_V3_USDT_ADDRESS);
   await baseSetup.adminVault.connect(deployer).addPool('GearboxPassiveV3', GEARBOX_PASSIVE_V3_USDT_ADDRESS);
   console.log(`GearboxPassiveV3 USDT pool added. PoolId: ${getBytes4(GEARBOX_PASSIVE_V3_USDT_ADDRESS)}`);
