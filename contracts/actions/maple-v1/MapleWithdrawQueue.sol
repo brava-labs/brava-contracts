@@ -5,9 +5,6 @@ import {ShareBasedWithdraw} from "../common/ShareBasedWithdraw.sol";
 import {IMaplePool} from "../../interfaces/maple/IMaplePool.sol";
 import {IMaplePoolManager} from "../../interfaces/maple/IMaplePoolManager.sol";
 import {IMapleWithdrawalManager} from "../../interfaces/maple/IMapleWithdrawalManager.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
 
 /// @title MapleWithdrawQueue - Withdraws tokens from Maple Finance pools
 /// @notice This contract handles the withdrawal process from Maple Finance pools
@@ -42,7 +39,7 @@ contract MapleWithdrawQueue is ShareBasedWithdraw {
         pool.requestRedeem(_sharesToBurn, address(this));
         
         LOGGER.logActionEvent(
-            ActionBase.LogType.WITHDRAWAL_REQUEST,
+            LogType.WITHDRAWAL_REQUEST,
             abi.encode(address(this), _vaultAddress, _sharesToBurn, requestId)
         );
     }
