@@ -241,7 +241,7 @@ describe('Maple protocol actions', () => {
           
           // Verify that a WITHDRAWAL_REQUEST log was emitted
           const logs = await decodeLoggerLog(tx);
-          const withdrawalRequestLog = logs.find(l => l.eventId === BigInt(ACTION_LOG_IDS.WITHDRAWAL_REQUEST as number)) as WithdrawalRequestLog | undefined;
+          const withdrawalRequestLog = logs.find(l => l.eventId === BigInt(ACTION_LOG_IDS.WITHDRAWAL_REQUEST)) as WithdrawalRequestLog | undefined;
           expect(withdrawalRequestLog).to.exist;
           
           // Verify the log contains the correct data
@@ -289,7 +289,7 @@ describe('Maple protocol actions', () => {
         
         // Check logs
         const logs = await decodeLoggerLog(tx);
-        const withdrawalRequestLog = logs.find(l => l.eventId === BigInt(ACTION_LOG_IDS.WITHDRAWAL_REQUEST as number)) as WithdrawalRequestLog | undefined;
+        const withdrawalRequestLog = logs.find(l => l.eventId === BigInt(ACTION_LOG_IDS.WITHDRAWAL_REQUEST)) as WithdrawalRequestLog | undefined;
         expect(withdrawalRequestLog).to.exist;
         if (withdrawalRequestLog) {
           // Just check that we have a reasonable request ID, not a specific value
@@ -339,7 +339,7 @@ describe('Maple protocol actions', () => {
         
         // Verify that a WITHDRAWAL_REQUEST log was emitted
         const logs = await decodeLoggerLog(tx);
-        const withdrawalRequestLog = logs.find(l => l.eventId === BigInt(ACTION_LOG_IDS.WITHDRAWAL_REQUEST as number)) as WithdrawalRequestLog | undefined;
+        const withdrawalRequestLog = logs.find(l => l.eventId === BigInt(ACTION_LOG_IDS.WITHDRAWAL_REQUEST)) as WithdrawalRequestLog | undefined;
         expect(withdrawalRequestLog).to.exist;
         
         // Process the withdrawal

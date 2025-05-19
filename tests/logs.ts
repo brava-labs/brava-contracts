@@ -25,7 +25,7 @@ export const ACTION_LOG_IDS = {
 };
 
 export interface BaseLog {
-  eventId: number;
+  eventId: bigint;
   safeAddress: string;
 }
 
