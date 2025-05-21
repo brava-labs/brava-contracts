@@ -21,6 +21,7 @@ export const ACTION_LOG_IDS = {
   PARASWAP_SWAP: 6,
   UPGRADE_ACTION: 7,
   WITHDRAWAL_REQUEST: 8,
+  BUY_COVER_WITH_PREMIUM: 9,
   // Add more log IDs as needed
 };
 
@@ -41,6 +42,14 @@ export interface BuyCoverLog extends BaseLog {
   strategyId: number;
   period: string;
   amount: string;
+  coverId: string;
+}
+
+export interface BuyCoverWithPremiumLog extends BaseLog {
+  strategyId: number;
+  period: string;
+  amount: string;
+  premiumPaid: string;
   coverId: string;
 }
 
@@ -105,6 +114,17 @@ export const LogDefinitions: { [key: number]: LogDefinition<any> } = {
       period: decodedBytes[1].toString(),
       amount: decodedBytes[2].toString(),
       coverId: decodedBytes[3].toString(),
+    }),
+  },
+  [ACTION_LOG_IDS.BUY_COVER_WITH_PREMIUM]: {
+    types: ['uint16', 'uint32', 'uint256', 'uint256', 'uint256'],
+    decode: (baseLog, decodedBytes): BuyCoverWithPremiumLog => ({
+      ...baseLog,
+      strategyId: decodedBytes[0],
+      period: decodedBytes[1].toString(),
+      amount: decodedBytes[2].toString(),
+      premiumPaid: decodedBytes[3].toString(),
+      coverId: decodedBytes[4].toString(),
     }),
   },
   [ACTION_LOG_IDS.CURVE_3POOL_SWAP]: {

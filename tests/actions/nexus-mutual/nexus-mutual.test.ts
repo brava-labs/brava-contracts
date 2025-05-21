@@ -181,12 +181,13 @@ describe('BuyCover tests', () => {
     log('Logs:', logs);
 
     expect(logs).to.have.length(1);
-    expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BUY_COVER));
+    expect(logs[0]).to.have.property('eventId', BigInt(ACTION_LOG_IDS.BUY_COVER_WITH_PREMIUM));
     expect(logs[0]).to.have.property('strategyId', BigInt(1));
     expect(logs[0]).to.have.property('period', (28 * 24 * 60 * 60).toString());
     
     // For USDC with 6 decimals, should be 1e6 (1000000) for 1.0 USDC
     expect(logs[0]).to.have.property('amount', ethers.parseUnits('1.0', 6).toString());
+    expect(logs[0]).to.have.property('premiumPaid');
     expect(logs[0]).to.have.property('coverId');
   });
 

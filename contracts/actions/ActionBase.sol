@@ -50,7 +50,8 @@ abstract contract ActionBase {
         PULL_TOKEN,
         PARASWAP_SWAP,
         UPGRADE_ACTION,
-        WITHDRAWAL_REQUEST
+        WITHDRAWAL_REQUEST,
+        BUY_COVER_WITH_PREMIUM
     }
 
     /// @notice Initializes the ActionBase contract
