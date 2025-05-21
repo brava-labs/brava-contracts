@@ -19,17 +19,24 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: 'https://mainnet.gateway.tenderly.co/' + process.env.TENDERLY_API_KEY!,
-        blockNumber: 22245711, // Using block from when we cached the quotes
-        enabled: true,
+        blockNumber: 22388026, // Using block from when we cached the quotes
       },
     },
     localhost: {
       url: 'http://127.0.0.1:8545',
     },
+    mainnet: {
+      url: process.env.MAINNET_RPC_URL || 'https://eth.llamarpc.com',
+      chainId: 1,
+      ledgerAccounts: [process.env.LEDGER_ACCOUNT!],
+    },
   },
   tenderly: {
     project: process.env.TENDERLY_PROJECT!,
     username: process.env.TENDERLY_USERNAME!,
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY!,
   },
 };
 

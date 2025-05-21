@@ -15,7 +15,7 @@ export const ADMIN_ADDRESS = '0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503';
 export const CREATE_X_ADDRESS = '0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed';
 
 // Nexus Mutual
-export const NEXUS_MUTUAL_BROKER_ADDRESS = '0x0000cbD7a26f72Ff222bf5f136901D224b08BE4E';
+export const NEXUS_MUTUAL_BROKER_ADDRESS = '0xCB2B736652D2dBf7d72e4dB880Cf6B7d99507814';
 export const NEXUS_MUTUAL_NFT_ADDRESS = '0xcafeaCa76be547F14D0220482667B42D8E7Bc3eb';
 
 // Token Indices for Curve 3Pool
@@ -344,7 +344,7 @@ export const tokenConfig = {
   },
   EULER_V2_PRIME_USDC: {
     address: '0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9',
-    whale: '0xCCBd61b6c2fB58Da5bbD8937Ca25164eF29c1cc4',
+    whale: '0xcAD001c30E96765aC90307669d578219D4fb1DCe',
     decimals: 6,
   },
   EULER_V2_YIELD_USDC: {
@@ -412,73 +412,24 @@ export const tokenConfig = {
     whale: '0xc522A6606BBA746d7960404F22a3DB936B6F4F50',
     decimals: 18,
   },
-};
-
-export const NEXUS_QUOTES = {
-  [CoverAsset.ETH]: {
-    result: {
-      displayInfo: {
-        premiumInAsset: '3162504478449954',
-        coverAmount: '1000000000000000000',
-        yearlyCostPerc: 0.041,
-        maxCapacity: '209468398709503985923',
-      },
-      buyCoverInput: {
-        buyCoverParams: {
-          coverId: 0,
-          owner: '0x2370eAB2C0B8cd9f949aD324C2e9D56473242a86',
-          productId: 156,
-          coverAsset: 0,
-          amount: '1000000000000000000',
-          period: 2419200,
-          maxPremiumInAsset: '3162502120188520',
-          paymentAsset: 0,
-          commissionRatio: 1500,
-          commissionDestination: '0x586b9b2F8010b284A0197f392156f1A7Eb5e86e9',
-          ipfsData: '',
-        },
-        poolAllocationRequests: [
-          {
-            poolId: '24',
-            coverAmountInAsset: '1000189894583466386',
-            skip: false,
-          },
-        ],
-      },
-    },
-    error: undefined,
+  CURVE_SAVINGS_cvcrvUSD: {
+    address: '0xCeA18a8752bb7e7817F9AE7565328FE415C0f2cA',
+    whale: '0x49887dF6fE905663CDB46c616BfBfBB50e85a265',
+    decimals: 18,
   },
-  [CoverAsset.DAI]: {
-    result: {
-      displayInfo: {
-        premiumInAsset: '6239592777087466',
-        coverAmount: '1000000000000000000',
-        yearlyCostPerc: 0.0675,
-        maxCapacity: '892726566666876078802946',
-      },
-      buyCoverInput: {
-        buyCoverParams: {
-          coverId: 0,
-          owner: '0xBA2fB2266a5fC1CB817E353219d1FC1D35d29C65',
-          productId: 231,
-          coverAsset: 1,
-          amount: '1000000000000000000',
-          period: 2419200,
-          maxPremiumInAsset: '6239592777087466',
-          paymentAsset: 1,
-          commissionRatio: 1500,
-          commissionDestination: '0x586b9b2F8010b284A0197f392156f1A7Eb5e86e9',
-          ipfsData: '',
-        },
-        poolAllocationRequests: [
-          {
-            poolId: '22',
-            coverAmountInAsset: '1201179974740417324',
-            skip: false,
-          },
-        ],
-      },
-    },
-    error: undefined,
+  MAPLE_V1_HY_USDC: {
+    address: '0x6174A27160f4D7885Db4FFeD1C0b5fbD66c87F3a',
+    whale: '0xb7848eeAAd5D44C50D0b7bf8e7d0F8afB892fB44',
+    decimals: 6,
+  },
+  MAPLE_V1_BC_USDC: {
+    address: '0xc1dD3F011290F212227170F0D02F511EBF57E433',
+    whale: '0xBF46E399f2D3E5E46A1f0db16Ad65b8b6a8dFe25',
+    decimals: 6,
+  },
+  MAPLE_V1_HY_SEC_USDC: {
+    address: '0xC39a5A616F0ad1Ff45077FA2dE3f79ab8eb8b8B9',
+    whale: '0x09cD06b1738D9a4568044bA33b60bfdbB9cd7C16',
+    decimals: 6,
   },
 };

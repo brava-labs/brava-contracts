@@ -62,7 +62,7 @@ type WithdrawArgs =
         | 'EulerV2Withdraw'
         | 'CurveSavingsWithdraw';
     })
-  | (ShareBasedWithdrawArgs & { type: 'NotionalV3Withdraw' | 'YearnV2Withdraw' | 'VesperV1Withdraw' });
+  | (ShareBasedWithdrawArgs & { type: 'MapleWithdrawQueue' | 'NotionalV3Withdraw' | 'YearnV2Withdraw' | 'VesperV1Withdraw' });
 
 // Specific interfaces for each action type
 interface SupplyArgs extends BaseActionArgs {
@@ -78,7 +78,8 @@ interface SupplyArgs extends BaseActionArgs {
     | 'YearnV3Supply'
     | 'GearboxPassiveV3Supply'
     | 'EulerV2Supply'
-    | 'CurveSavingsSupply';
+    | 'CurveSavingsSupply'
+    | 'MapleSupply';
   poolAddress?: string;
   feeBasis?: number;
   amount?: string | BigInt;
@@ -186,59 +187,81 @@ export type ActionArgs =
   | UwULendV1Args
   | UpgradeArgs;
 
-/// @dev this is the default values for each action type
-export const actionDefaults: Record<string, ActionArgs> = {
-  FluidV1Supply: {
-    type: 'FluidV1Supply',
+// Default pool addresses for test cases
+const defaultPools: Record<string, string> = {
+  // ERC4626 style protocols (using poolAddress)
+  FluidV1Supply: tokenConfig.FLUID_V1_USDC.address,
+  FluidV1Withdraw: tokenConfig.FLUID_V1_USDC.address,
+  YearnV2Supply: tokenConfig.YEARN_V2_USDC.address,
+  YearnV2Withdraw: tokenConfig.YEARN_V2_USDC.address,
+  VesperV1Supply: tokenConfig.VESPER_V1_USDC.address,
+  VesperV1Withdraw: tokenConfig.VESPER_V1_USDC.address,
+  ClearpoolV1Supply: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
+  ClearpoolV1Withdraw: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
+  SparkV1Supply: tokenConfig.SPARK_V1_DAI.address,
+  SparkV1Withdraw: tokenConfig.SPARK_V1_DAI.address,
+  AcrossV3Supply: tokenConfig.ACROSS_V3_lpUSDC.address,
+  AcrossV3Withdraw: tokenConfig.ACROSS_V3_lpUSDC.address,
+  MorphoV1Supply: tokenConfig.MORPHO_V1_fxUSDC.address,
+  MorphoV1Withdraw: tokenConfig.MORPHO_V1_fxUSDC.address,
+  YearnV3Supply: tokenConfig.YEARN_V3_DAI.address,
+  YearnV3Withdraw: tokenConfig.YEARN_V3_DAI.address,
+  NotionalV3Supply: tokenConfig.NOTIONAL_V3_USDC.address,
+  NotionalV3Withdraw: tokenConfig.NOTIONAL_V3_USDC.address,
+  GearboxPassiveV3Supply: tokenConfig.GEARBOX_PASSIVE_V3_USDC.address,
+  GearboxPassiveV3Withdraw: tokenConfig.GEARBOX_PASSIVE_V3_USDC.address,
+  EulerV2Supply: tokenConfig.EULER_V2_PRIME_USDC.address,
+  EulerV2Withdraw: tokenConfig.EULER_V2_PRIME_USDC.address,
+  CurveSavingsSupply: tokenConfig.CURVE_SAVINGS_scrvUSD.address,
+  CurveSavingsWithdraw: tokenConfig.CURVE_SAVINGS_scrvUSD.address,
+  MapleSupply: '', // To be set in test
+  MapleWithdrawQueue: '', // To be set in test
+  
+  // Asset-based protocols (using assetId)
+  AaveV3Supply: getBytes4(tokenConfig.AAVE_V3_aUSDC.address),
+  AaveV3Withdraw: getBytes4(tokenConfig.AAVE_V3_aUSDC.address),
+  AaveV2Supply: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
+  AaveV2Withdraw: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
+  StrikeV1Supply: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
+  StrikeV1Withdraw: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
+  UwULendV1Supply: getBytes4(tokenConfig.UWU_V1_USDT.address),
+  UwULendV1Withdraw: getBytes4(tokenConfig.UWU_V1_USDT.address),
+  BendDaoV1Supply: getBytes4(tokenConfig.BEND_V1_USDT.address),
+  BendDaoV1Withdraw: getBytes4(tokenConfig.BEND_V1_USDT.address),
+};
+
+// Base configurations for different action types
+const baseDefaults = {
+  // Common defaults for all actions
+  common: {
     useSDK: false,
     value: 0,
     safeOperation: 1,
-    poolAddress: tokenConfig.FLUID_V1_USDC.address,
     feeBasis: 0,
+  },
+  
+  // Supply/Deposit action base config
+  supply: {
     amount: '0',
     minSharesReceived: '0',
     encoding: {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
     },
-    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
   },
-  FluidV1Withdraw: {
-    type: 'FluidV1Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.FLUID_V1_USDC.address,
-    feeBasis: 0,
+  
+  // ERC4626 style withdraw base config
+  withdrawERC4626: {
     amount: '0',
     maxSharesBurned: ethers.MaxUint256.toString(),
     encoding: {
       inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
       encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
     },
-    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
   },
-  YearnV2Supply: {
-    type: 'YearnV2Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.YEARN_V2_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  YearnV2Withdraw: {
-    type: 'YearnV2Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.YEARN_V2_USDC.address,
-    feeBasis: 0,
+  
+  // Share-based withdraw base config
+  withdrawShareBased: {
     sharesToBurn: '0',
     minUnderlyingReceived: '0',
     encoding: {
@@ -246,37 +269,33 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
     },
   },
-  VesperV1Supply: {
-    type: 'VesperV1Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.VESPER_V1_USDC.address,
-    feeBasis: 0,
+  
+  // Asset-based action config (for Aave-like protocols)
+  assetAction: {
     amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  VesperV1Withdraw: {
-    type: 'VesperV1Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.VESPER_V1_USDC.address,
     feeBasis: 0,
-    sharesToBurn: '0',
-    minUnderlyingReceived: '0',
     encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
+      inputParams: ['bytes4', 'uint16', 'uint256'],
+      encodingVariables: ['assetId', 'feeBasis', 'amount'],
     },
   },
+  
+  // Token transfer base config
+  transfer: {
+    amount: '0',
+  },
+  
+  // Swap base config
+  swap: {
+    tokenIn: 'USDC',
+    tokenOut: 'USDT',
+  },
+};
+
+// Special cases that don't follow the standard protocol pattern
+const specialCases = {
   Curve3PoolSwap: {
     type: 'Curve3PoolSwap',
-    useSDK: false,
     tokenIn: 'USDC',
     tokenOut: 'USDT',
     amount: '0',
@@ -337,325 +356,6 @@ export const actionDefaults: Record<string, ActionArgs> = {
     value: 0,
     safeOperation: 1,
   },
-  AaveV3Supply: {
-    useSDK: false,
-    type: 'AaveV3Supply',
-    assetId: getBytes4(tokenConfig.AAVE_V3_aUSDC.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  AaveV3Withdraw: {
-    type: 'AaveV3Withdraw',
-    assetId: getBytes4(tokenConfig.AAVE_V3_aUSDC.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  AaveV2Withdraw: {
-    type: 'AaveV2Withdraw',
-    assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  AaveV2Supply: {
-    type: 'AaveV2Supply',
-    assetId: getBytes4(tokenConfig.AAVE_V2_aUSDC.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  StrikeV1Withdraw: {
-    type: 'StrikeV1Withdraw',
-    assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  StrikeV1Supply: {
-    type: 'StrikeV1Supply',
-    assetId: getBytes4(tokenConfig.STRIKE_V1_USDC.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  ClearpoolV1Supply: {
-    type: 'ClearpoolV1Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  ClearpoolV1Withdraw: {
-    type: 'ClearpoolV1Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.CLEARPOOL_V1_ALP_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-  },
-  UwULendV1Withdraw: {
-    type: 'UwULendV1Withdraw',
-    assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  UwULendV1Supply: {
-    type: 'UwULendV1Supply',
-    assetId: getBytes4(tokenConfig.UWU_V1_USDT.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  BendDaoV1Supply: {
-    type: 'BendDaoV1Supply',
-    assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  BendDaoV1Withdraw: {
-    type: 'BendDaoV1Withdraw',
-    assetId: getBytes4(tokenConfig.BEND_V1_USDT.address),
-    amount: '0',
-    feeBasis: 0,
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256'],
-      encodingVariables: ['assetId', 'feeBasis', 'amount'],
-    },
-    value: 0,
-    safeOperation: 1,
-  },
-  SparkV1Supply: {
-    type: 'SparkV1Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.SPARK_V1_DAI.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  SparkV1Withdraw: {
-    type: 'SparkV1Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.SPARK_V1_DAI.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-  },
-  AcrossV3Supply: {
-    type: 'AcrossV3Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.ACROSS_V3_lpUSDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  AcrossV3Withdraw: {
-    type: 'AcrossV3Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.ACROSS_V3_lpUSDC.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-  },
-  MorphoV1Supply: {
-    type: 'MorphoV1Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.MORPHO_V1_fxUSDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
-  },
-  MorphoV1Withdraw: {
-    type: 'MorphoV1Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.MORPHO_V1_fxUSDC.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
-  },
-  YearnV3Supply: {
-    type: 'YearnV3Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.YEARN_V3_DAI.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  YearnV3Withdraw: {
-    type: 'YearnV3Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.YEARN_V3_DAI.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-  },
-  NotionalV3Supply: {
-    type: 'NotionalV3Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.NOTIONAL_V3_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  NotionalV3Withdraw: {
-    type: 'NotionalV3Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.NOTIONAL_V3_USDC.address,
-    feeBasis: 0,
-    sharesToBurn: '0',
-    minUnderlyingReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'sharesToBurn', 'minUnderlyingReceived'],
-    },
-  },
-  GearboxPassiveV3Supply: {
-    type: 'GearboxPassiveV3Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.GEARBOX_PASSIVE_V3_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  GearboxPassiveV3Withdraw: {
-    type: 'GearboxPassiveV3Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.GEARBOX_PASSIVE_V3_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-  },
   UpgradeAction: {
     type: 'UpgradeAction',
     useSDK: false,
@@ -665,62 +365,113 @@ export const actionDefaults: Record<string, ActionArgs> = {
       encodingVariables: ['data']
     }
   },
-  EulerV2Supply: {
-    type: 'EulerV2Supply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.EULER_V2_PRIME_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-    sdkArgs: ['poolAddress', 'amount', 'minSharesReceived', 'feeBasis'],
-  },
-  EulerV2Withdraw: {
-    type: 'EulerV2Withdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.EULER_V2_PRIME_USDC.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-    sdkArgs: ['poolAddress', 'amount', 'maxSharesBurned', 'feeBasis'],
-  },
-  CurveSavingsSupply: {
-    type: 'CurveSavingsSupply',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.CURVE_SAVINGS_scrvUSD.address,
-    feeBasis: 0,
-    amount: '0',
-    minSharesReceived: '0',
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'minSharesReceived'],
-    },
-  },
-  CurveSavingsWithdraw: {
-    type: 'CurveSavingsWithdraw',
-    useSDK: false,
-    value: 0,
-    safeOperation: 1,
-    poolAddress: tokenConfig.CURVE_SAVINGS_scrvUSD.address,
-    feeBasis: 0,
-    amount: '0',
-    maxSharesBurned: ethers.MaxUint256.toString(),
-    encoding: {
-      inputParams: ['bytes4', 'uint16', 'uint256', 'uint256'],
-      encodingVariables: ['poolId', 'feeBasis', 'amount', 'maxSharesBurned'],
-    },
-  },
 };
+
+// Action type categorization for building standard defaults
+const actionCategories = {
+  // Standard ERC4626 supply actions
+  supply: [
+    'FluidV1Supply', 'YearnV2Supply', 'VesperV1Supply', 'ClearpoolV1Supply', 
+    'SparkV1Supply', 'AcrossV3Supply', 'MorphoV1Supply', 'YearnV3Supply', 
+    'NotionalV3Supply', 'GearboxPassiveV3Supply', 'EulerV2Supply', 
+    'CurveSavingsSupply', 'MapleSupply'
+  ],
+  
+  // ERC4626-style withdraw actions
+  withdrawERC4626: [
+    'FluidV1Withdraw', 'ClearpoolV1Withdraw', 'SparkV1Withdraw', 'AcrossV3Withdraw',
+    'MorphoV1Withdraw', 'YearnV3Withdraw', 'GearboxPassiveV3Withdraw', 
+    'EulerV2Withdraw', 'CurveSavingsWithdraw'
+  ],
+  
+  // Share-based withdraw actions
+  withdrawShareBased: [
+    'MapleWithdrawQueue', 'NotionalV3Withdraw', 'YearnV2Withdraw', 'VesperV1Withdraw'
+  ],
+  
+  // Asset-based actions (for protocols like Aave that use assetId)
+  assetAction: [
+    'AaveV3Supply', 'AaveV3Withdraw', 'AaveV2Supply', 'AaveV2Withdraw',
+    'StrikeV1Supply', 'StrikeV1Withdraw', 'UwULendV1Supply', 'UwULendV1Withdraw',
+    'BendDaoV1Supply', 'BendDaoV1Withdraw'
+  ]
+};
+
+// Function to create the full actionDefaults object
+function buildActionDefaults() {
+  const actionDefaults: Record<string, ActionArgs> = {};
+
+  // Build supply-type actions
+  actionCategories.supply.forEach(actionType => {
+    const defaultConfig: any = {
+      type: actionType,
+      ...baseDefaults.common,
+      ...baseDefaults.supply
+    };
+    
+    // Add default pool address if available
+    if (defaultPools[actionType]) {
+      defaultConfig.poolAddress = defaultPools[actionType];
+    }
+    
+    actionDefaults[actionType] = defaultConfig as ActionArgs;
+  });
+
+  // Build ERC4626-style withdraw actions
+  actionCategories.withdrawERC4626.forEach(actionType => {
+    const defaultConfig: any = {
+      type: actionType,
+      ...baseDefaults.common,
+      ...baseDefaults.withdrawERC4626
+    };
+    
+    // Add default pool address if available
+    if (defaultPools[actionType]) {
+      defaultConfig.poolAddress = defaultPools[actionType];
+    }
+    
+    actionDefaults[actionType] = defaultConfig as ActionArgs;
+  });
+
+  // Build share-based withdraw actions
+  actionCategories.withdrawShareBased.forEach(actionType => {
+    const defaultConfig: any = {
+      type: actionType,
+      ...baseDefaults.common,
+      ...baseDefaults.withdrawShareBased
+    };
+    
+    // Add default pool address if available
+    if (defaultPools[actionType]) {
+      defaultConfig.poolAddress = defaultPools[actionType];
+    }
+    
+    actionDefaults[actionType] = defaultConfig as ActionArgs;
+  });
+
+  // Build asset-based actions
+  actionCategories.assetAction.forEach(actionType => {
+    const defaultConfig: any = {
+      type: actionType,
+      ...baseDefaults.common,
+      ...baseDefaults.assetAction
+    };
+    
+    // Add default assetId if available
+    if (defaultPools[actionType]) {
+      defaultConfig.assetId = defaultPools[actionType];
+    }
+    
+    actionDefaults[actionType] = defaultConfig as ActionArgs;
+  });
+
+  // Add special cases
+  Object.entries(specialCases).forEach(([key, config]) => {
+    actionDefaults[key] = config as ActionArgs;
+  });
+
+  return actionDefaults;
+}
+
+/// @dev this is the default values for each action type
+export const actionDefaults = buildActionDefaults();

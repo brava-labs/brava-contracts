@@ -19,11 +19,14 @@ export const ACTION_LOG_IDS = {
   SEND_TOKEN: 4,
   PULL_TOKEN: 5,
   PARASWAP_SWAP: 6,
+  UPGRADE_ACTION: 7,
+  WITHDRAWAL_REQUEST: 8,
+  BUY_COVER_WITH_PREMIUM: 9,
   // Add more log IDs as needed
 };
 
 export interface BaseLog {
-  eventId: number;
+  eventId: bigint;
   safeAddress: string;
 }
 
@@ -39,6 +42,14 @@ export interface BuyCoverLog extends BaseLog {
   strategyId: number;
   period: string;
   amount: string;
+  coverId: string;
+}
+
+export interface BuyCoverWithPremiumLog extends BaseLog {
+  strategyId: number;
+  period: string;
+  amount: string;
+  premiumPaid: string;
   coverId: string;
 }
 
@@ -70,6 +81,12 @@ export interface ParaswapSwapLog extends BaseLog {
   amountReceived: bigint;
 }
 
+export interface WithdrawalRequestLog extends BaseLog {
+  poolAddress: string;
+  sharesToBurn: bigint;
+  requestId: bigint;
+}
+
 type LogDecoder<T extends BaseLog> = (baseLog: BaseLog, decodedBytes: any[]) => T;
 
 interface LogDefinition<T extends BaseLog> {
@@ -97,6 +114,17 @@ export const LogDefinitions: { [key: number]: LogDefinition<any> } = {
       period: decodedBytes[1].toString(),
       amount: decodedBytes[2].toString(),
       coverId: decodedBytes[3].toString(),
+    }),
+  },
+  [ACTION_LOG_IDS.BUY_COVER_WITH_PREMIUM]: {
+    types: ['uint16', 'uint32', 'uint256', 'uint256', 'uint256'],
+    decode: (baseLog, decodedBytes): BuyCoverWithPremiumLog => ({
+      ...baseLog,
+      strategyId: decodedBytes[0],
+      period: decodedBytes[1].toString(),
+      amount: decodedBytes[2].toString(),
+      premiumPaid: decodedBytes[3].toString(),
+      coverId: decodedBytes[4].toString(),
     }),
   },
   [ACTION_LOG_IDS.CURVE_3POOL_SWAP]: {
@@ -137,6 +165,15 @@ export const LogDefinitions: { [key: number]: LogDefinition<any> } = {
       fromAmount: decodedBytes[2],
       minToAmount: decodedBytes[3],
       amountReceived: decodedBytes[4],
+    }),
+  },
+  [ACTION_LOG_IDS.WITHDRAWAL_REQUEST]: {
+    types: ['address', 'uint256', 'uint256'],
+    decode: (baseLog, decodedBytes): WithdrawalRequestLog => ({
+      ...baseLog,
+      poolAddress: decodedBytes[0].toString(),
+      sharesToBurn: decodedBytes[1],
+      requestId: decodedBytes[2],
     }),
   },
 };

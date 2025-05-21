@@ -28,7 +28,7 @@ contract BuyCover is ActionBase {
     }
 
     /// @notice Address of the Nexus Mutual Cover Broker contract
-    ICoverBroker public constant COVER_BROKER = ICoverBroker(0x0000cbD7a26f72Ff222bf5f136901D224b08BE4E);
+    ICoverBroker public constant COVER_BROKER = ICoverBroker(0xCB2B736652D2dBf7d72e4dB880Cf6B7d99507814);
 
     /// @notice Thrown when an invalid asset ID is provided
     error InvalidAssetID();
@@ -50,10 +50,10 @@ contract BuyCover is ActionBase {
         );
 
         // Execute action
-        (uint32 period, uint256 amount, uint256 coverId) = _buyCover(inputData);
+        (uint32 period, uint256 amount, uint256 premiumPaid, uint256 coverId) = _buyCover(inputData);
 
         // Log event
-        LOGGER.logActionEvent(LogType.BUY_COVER, _encodeBuyCover(_strategyId, period, amount, coverId));
+        LOGGER.logActionEvent(LogType.BUY_COVER_WITH_PREMIUM, _encodeBuyCover(_strategyId, period, amount, premiumPaid, coverId));
     }
 
     /// @inheritdoc ActionBase
@@ -63,7 +63,7 @@ contract BuyCover is ActionBase {
 
     /// @notice Executes the buy cover action
     /// @param _inputData Struct containing buy cover parameters
-    function _buyCover(Params memory _inputData) private returns (uint32 period, uint256 amount, uint256 coverId) {
+    function _buyCover(Params memory _inputData) private returns (uint32 period, uint256 amount, uint256 premiumPaid, uint256 coverId) {
         BuyCoverParams memory params = abi.decode(_inputData.buyCoverParams, (BuyCoverParams));
 
         PoolAllocationRequest[] memory poolAllocationRequests = new PoolAllocationRequest[](
@@ -74,14 +74,28 @@ contract BuyCover is ActionBase {
         }
 
         if (params.paymentAsset == 0) {
+
+            uint256 balanceBefore = address(this).balance;
+
             coverId = COVER_BROKER.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
+            
+            uint256 balanceAfter = address(this).balance;
+            
+            premiumPaid = balanceBefore - balanceAfter; 
         } else {
+
             IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
+            uint256 balanceBefore = paymentAsset.balanceOf(address(this));
+
             paymentAsset.safeIncreaseAllowance(address(COVER_BROKER), params.maxPremiumInAsset);
             coverId = COVER_BROKER.buyCover(params, poolAllocationRequests);
+
+            uint256 balanceAfter = paymentAsset.balanceOf(address(this));
+            
+            premiumPaid = balanceBefore - balanceAfter;
         }
 
-        return (params.period, params.amount, coverId);
+        return (params.period, params.amount, premiumPaid, coverId);
     }
 
     /// @notice Converts asset ID to token address
@@ -105,15 +119,17 @@ contract BuyCover is ActionBase {
     /// @param _strategyId ID of the strategy
     /// @param _period Cover period
     /// @param _amount Cover amount
+    /// @param _premiumPaid Actual premium paid after refunds
     /// @param _coverId ID of the purchased cover
     /// @return bytes Encoded buy cover information
     function _encodeBuyCover(
         uint16 _strategyId,
         uint32 _period,
         uint256 _amount,
+        uint256 _premiumPaid,
         uint256 _coverId
     ) private pure returns (bytes memory) {
-        return abi.encode(_strategyId, _period, _amount, _coverId);
+        return abi.encode(_strategyId, _period, _amount, _premiumPaid, _coverId);
     }
 
     /// @notice Parses the input data from bytes to Params struct
