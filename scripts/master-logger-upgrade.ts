@@ -31,6 +31,12 @@ const CONFIG = {
     TRANSACTION_REGISTRY: '',
     UPGRADE_ACTION: '', // Changed from UPGRADE_ACTION_NO_LOG to UPGRADE_ACTION
     
+    // New components for Safe integration
+    TOKEN_REGISTRY: '',
+    SEQUENCE_EXECUTOR: '',
+    BRAVA_GUARD: '',
+    FEE_TAKE_SAFE_MODULE: '',
+    
     // Other contracts will be stored as they are deployed
     UTILITY_CONTRACTS: {} as Record<string, string>,
     PROTOCOL_CONTRACTS: {} as Record<string, string>,
@@ -721,6 +727,16 @@ async function deployActionContracts(deployer: any) {
       {
         name: 'Curve3PoolSwap',
         params: [CONFIG.NEW.ADMIN_VAULT, CONFIG.NEW.LOGGER, constants.CURVE_3POOL_ADDRESS]
+      },
+      // ParaswapSwap with Augustus Router address - based on test environment
+      {
+        name: 'ParaswapSwap',
+        params: [
+          CONFIG.NEW.ADMIN_VAULT, 
+          CONFIG.NEW.LOGGER, 
+          '0x6A000F20005980200259B80c5102003040001068', // Augustus Router from tests
+          CONFIG.NEW.TOKEN_REGISTRY
+        ]
       }
     ],
     protocol: [
@@ -2138,6 +2154,110 @@ async function configureAdminVault(deployer: any, contracts: any) {
   };
 }
 
+// STEP 5B: Deploy TokenRegistry for Paraswap
+async function deployTokenRegistry(deployer: any) {
+  console.log('\n\n🪙 STEP 5B: Deploying TokenRegistry for Paraswap');
+  
+  const TokenRegistry = await ethers.getContractFactory('TokenRegistry', deployer);
+  
+  console.log('Deploying TokenRegistry with new Logger...');
+  const tokenRegistry = await TokenRegistry.deploy(
+    CONFIG.NEW.ADMIN_VAULT,
+    CONFIG.NEW.LOGGER
+  );
+  
+  await tokenRegistry.waitForDeployment();
+  const tokenRegistryAddress = await tokenRegistry.getAddress();
+  
+  console.log(`TokenRegistry deployed to: ${tokenRegistryAddress}`);
+  CONFIG.NEW.TOKEN_REGISTRY = tokenRegistryAddress;
+  
+  // Verify the contract
+  await verifyContract('TokenRegistry', tokenRegistryAddress, [
+    CONFIG.NEW.ADMIN_VAULT,
+    CONFIG.NEW.LOGGER
+  ]);
+  
+  return tokenRegistryAddress;
+}
+
+// STEP 5C: Deploy SequenceExecutor
+async function deploySequenceExecutor(deployer: any) {
+  console.log('\n\n🔄 STEP 5C: Deploying SequenceExecutor with new AdminVault');
+  
+  const SequenceExecutor = await ethers.getContractFactory('SequenceExecutor', deployer);
+  
+  console.log('Deploying SequenceExecutor...');
+  const sequenceExecutor = await SequenceExecutor.deploy(
+    CONFIG.NEW.ADMIN_VAULT
+  );
+  
+  await sequenceExecutor.waitForDeployment();
+  const sequenceExecutorAddress = await sequenceExecutor.getAddress();
+  
+  console.log(`SequenceExecutor deployed to: ${sequenceExecutorAddress}`);
+  CONFIG.NEW.SEQUENCE_EXECUTOR = sequenceExecutorAddress;
+  
+  // Verify the contract
+  await verifyContract('SequenceExecutor', sequenceExecutorAddress, [
+    CONFIG.NEW.ADMIN_VAULT
+  ]);
+  
+  return sequenceExecutorAddress;
+}
+
+// STEP 5D: Deploy BravaGuard
+async function deployBravaGuard(deployer: any) {
+  console.log('\n\n🛡️ STEP 5D: Deploying BravaGuard with new SequenceExecutor');
+  
+  const BravaGuard = await ethers.getContractFactory('BravaGuard', deployer);
+  
+  console.log('Deploying BravaGuard...');
+  const bravaGuard = await BravaGuard.deploy(
+    CONFIG.NEW.SEQUENCE_EXECUTOR
+  );
+  
+  await bravaGuard.waitForDeployment();
+  const bravaGuardAddress = await bravaGuard.getAddress();
+  
+  console.log(`BravaGuard deployed to: ${bravaGuardAddress}`);
+  CONFIG.NEW.BRAVA_GUARD = bravaGuardAddress;
+  
+  // Verify the contract
+  await verifyContract('BravaGuard', bravaGuardAddress, [
+    CONFIG.NEW.SEQUENCE_EXECUTOR
+  ]);
+  
+  return bravaGuardAddress;
+}
+
+// STEP 5E: Deploy FeeTakeSafeModule
+async function deployFeeTakeSafeModule(deployer: any) {
+  console.log('\n\n💰 STEP 5E: Deploying FeeTakeSafeModule');
+  
+  const FeeTakeSafeModule = await ethers.getContractFactory('FeeTakeSafeModule', deployer);
+  
+  console.log('Deploying FeeTakeSafeModule...');
+  const feeTakeSafeModule = await FeeTakeSafeModule.deploy(
+    CONFIG.NEW.ADMIN_VAULT,
+    CONFIG.NEW.SEQUENCE_EXECUTOR
+  );
+  
+  await feeTakeSafeModule.waitForDeployment();
+  const feeTakeSafeModuleAddress = await feeTakeSafeModule.getAddress();
+  
+  console.log(`FeeTakeSafeModule deployed to: ${feeTakeSafeModuleAddress}`);
+  CONFIG.NEW.FEE_TAKE_SAFE_MODULE = feeTakeSafeModuleAddress;
+  
+  // Verify the contract
+  await verifyContract('FeeTakeSafeModule', feeTakeSafeModuleAddress, [
+    CONFIG.NEW.ADMIN_VAULT,
+    CONFIG.NEW.SEQUENCE_EXECUTOR
+  ]);
+  
+  return feeTakeSafeModuleAddress;
+}
+
 // Main deployment function
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -2217,6 +2337,26 @@ async function main() {
       protocolCount: Object.keys(actionContracts.protocol).length
     });
     
+    // STEP 5B: Deploy TokenRegistry for Paraswap
+    const tokenRegistryAddress = await deployTokenRegistry(deployer);
+    output.new.tokenRegistry = tokenRegistryAddress;
+    await saveProgressStep('token_registry_deployed', { address: tokenRegistryAddress });
+    
+    // STEP 5C: Deploy SequenceExecutor
+    const sequenceExecutorAddress = await deploySequenceExecutor(deployer);
+    output.new.sequenceExecutor = sequenceExecutorAddress;
+    await saveProgressStep('sequence_executor_deployed', { address: sequenceExecutorAddress });
+    
+    // STEP 5D: Deploy BravaGuard
+    const bravaGuardAddress = await deployBravaGuard(deployer);
+    output.new.bravaGuard = bravaGuardAddress;
+    await saveProgressStep('brava_guard_deployed', { address: bravaGuardAddress });
+    
+    // STEP 5E: Deploy FeeTakeSafeModule
+    const feeTakeSafeModuleAddress = await deployFeeTakeSafeModule(deployer);
+    output.new.feeTakeSafeModule = feeTakeSafeModuleAddress;
+    await saveProgressStep('fee_take_safe_module_deployed', { address: feeTakeSafeModuleAddress });
+    
     // MASTER STEP: Configure AdminVault (replaces steps 7, 7B, and 8)
     if (CONFIG.NETWORK.IS_TESTNET) {
       const configResult = await configureAdminVault(deployer, { 
@@ -2265,10 +2405,16 @@ async function main() {
     console.log(`• AdminVault: ${output.new.adminVault}`);
     console.log(`• Transaction Registry: ${CONFIG.NEW.TRANSACTION_REGISTRY}`);
     
+    console.log(`\n🔄 Safe Integration Components:`);
+    console.log(`• TokenRegistry: ${CONFIG.NEW.TOKEN_REGISTRY}`);
+    console.log(`• SequenceExecutor: ${CONFIG.NEW.SEQUENCE_EXECUTOR}`);
+    console.log(`• BravaGuard: ${CONFIG.NEW.BRAVA_GUARD}`);
+    console.log(`• FeeTakeSafeModule: ${CONFIG.NEW.FEE_TAKE_SAFE_MODULE}`);
+    
     console.log(`\n📦 Contract Deployments:`);
     console.log(`• Utility contracts: ${Object.keys(actionContracts.utility).length}`);
     console.log(`• Protocol contracts: ${Object.keys(actionContracts.protocol).length}`);
-    console.log(`• Total contracts: ${Object.keys(actionContracts.utility).length + Object.keys(actionContracts.protocol).length + 3}`); // +3 for Logger, AdminVault, TransactionRegistry
+    console.log(`• Total contracts: ${Object.keys(actionContracts.utility).length + Object.keys(actionContracts.protocol).length + 7}`); // +7 for Logger, AdminVault, TransactionRegistry, TokenRegistry, SequenceExecutor, BravaGuard, FeeTakeSafeModule
     
     console.log(`\n🔐 Ownership Status:`);
     if (CONFIG.NETWORK.IS_TESTNET) {
