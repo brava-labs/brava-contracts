@@ -11,7 +11,7 @@ const CONFIG = {
   CURRENT: {
     // Core contracts
     ADMIN_VAULT: process.env.CURRENT_ADMIN_VAULT || '0x02219F8B9BB7B9853AA110D687EE82e9835A13fB', // Current AdminVault address
-    LOGGER: process.env.CURRENT_LOGGER || '0x99A055251170411c4505519aaeC57020B6129BB8', // Current Logger address
+    LOGGER: process.env.CURRENT_LOGGER || '0xB4Ae0e64217cFc7244693f9072585C8E80B2280f', // New Logger proxy address
     TRANSACTION_REGISTRY: process.env.CURRENT_TRANSACTION_REGISTRY || '', // Current TransactionRegistry address
     
     // Ownership
@@ -25,11 +25,11 @@ const CONFIG = {
   NEW: {
     // Core contracts
     ADMIN_VAULT: '',
-    LOGGER: '',
-    LOGGER_IMPL: '',
-    LOGGER_ADMIN: '',
+    LOGGER: '0xB4Ae0e64217cFc7244693f9072585C8E80B2280f',
+    LOGGER_IMPL: '0x22A27BFDaB494041E5EbA8759D80748bCAf9a5D2',
+    LOGGER_ADMIN: '0xca63cB852606961698670eAfd6e6Ca2853Df2C5c',
     TRANSACTION_REGISTRY: '',
-    UPGRADE_ACTION_NO_LOG: '',
+    UPGRADE_ACTION: '', // Changed from UPGRADE_ACTION_NO_LOG to UPGRADE_ACTION
     
     // Other contracts will be stored as they are deployed
     UTILITY_CONTRACTS: {} as Record<string, string>,
@@ -433,42 +433,42 @@ async function ensurePrerequisites(deployer: any) {
   return true;
 }
 
-// STEP 1: Deploy UpgradeActionNoLog that doesn't use Logger.logActionEvent
-async function deployUpgradeActionNoLog(deployer: any) {
-  console.log('\n\n🚀 STEP 1: Deploying UpgradeActionNoLog');
+// STEP 1: Deploy UpgradeAction that uses the new Logger
+async function deployUpgradeAction(deployer: any) {
+  console.log('\n\n🚀 STEP 1: Deploying UpgradeAction with new Logger');
   
-  const UpgradeActionNoLog = await ethers.getContractFactory('UpgradeActionNoLog', deployer);
+  const UpgradeAction = await ethers.getContractFactory('UpgradeAction', deployer);
   
-  console.log('Deploying UpgradeActionNoLog...');
-  const upgradeActionNoLog = await UpgradeActionNoLog.deploy(
+  console.log('Deploying UpgradeAction with new Logger...');
+  const upgradeAction = await UpgradeAction.deploy(
     CONFIG.CURRENT.ADMIN_VAULT,
-    CONFIG.CURRENT.LOGGER,
+    CONFIG.NEW.LOGGER, // Use the new Logger
     CONFIG.CURRENT.TRANSACTION_REGISTRY
   );
   
-  await upgradeActionNoLog.waitForDeployment();
-  const upgradeActionNoLogAddress = await upgradeActionNoLog.getAddress();
+  await upgradeAction.waitForDeployment();
+  const upgradeActionAddress = await upgradeAction.getAddress();
   
-  console.log(`UpgradeActionNoLog deployed to: ${upgradeActionNoLogAddress}`);
-  CONFIG.NEW.UPGRADE_ACTION_NO_LOG = upgradeActionNoLogAddress;
+  console.log(`UpgradeAction deployed to: ${upgradeActionAddress}`);
+  CONFIG.NEW.UPGRADE_ACTION = upgradeActionAddress;
   
   // Verify the contract
-  await verifyContract('UpgradeActionNoLog', upgradeActionNoLogAddress, [
+  await verifyContract('UpgradeAction', upgradeActionAddress, [
     CONFIG.CURRENT.ADMIN_VAULT,
-    CONFIG.CURRENT.LOGGER,
+    CONFIG.NEW.LOGGER,
     CONFIG.CURRENT.TRANSACTION_REGISTRY
   ]);
   
-  return upgradeActionNoLogAddress;
+  return upgradeActionAddress;
 }
 
-// STEP 2: Add the new UpgradeActionNoLog to the admin vault
+// STEP 2: Add the new UpgradeAction to the admin vault
 async function addUpgradeActionToAdminVault(deployer: any) {
-  console.log('\n\n🔧 STEP 2: Adding UpgradeActionNoLog to AdminVault');
+  console.log('\n\n🔧 STEP 2: Adding UpgradeAction to both AdminVaults');
   
   if (CONFIG.NETWORK.IS_TESTNET) {
     // For testnet, we need to impersonate the multisig/owner to have sufficient permissions
-    console.log(`Impersonating owner address ${CONFIG.CURRENT.MULTISIG} to add UpgradeActionNoLog...`);
+    console.log(`Impersonating owner address ${CONFIG.CURRENT.MULTISIG} to add UpgradeAction...`);
     
     try {
       // Setup impersonation
@@ -485,17 +485,32 @@ async function addUpgradeActionToAdminVault(deployer: any) {
         });
       }
       
-      // Use the impersonated signer to interact with the AdminVault
-      const adminVault = await ethers.getContractAt('AdminVault', CONFIG.CURRENT.ADMIN_VAULT, impersonatedSigner);
+      // Add to original AdminVault
+      console.log('\n🔧 Adding UpgradeAction to original AdminVault...');
+      const originalAdminVault = await ethers.getContractAt('AdminVault', CONFIG.CURRENT.ADMIN_VAULT, impersonatedSigner);
       
-      console.log('Proposing UpgradeActionNoLog to AdminVault...');
-      const upgradeActionSignature = getBytes4(CONFIG.NEW.UPGRADE_ACTION_NO_LOG);
-      await adminVault.proposeAction(upgradeActionSignature, CONFIG.NEW.UPGRADE_ACTION_NO_LOG);
+      console.log('Proposing UpgradeAction to original AdminVault...');
+      const upgradeActionSignature = getBytes4(CONFIG.NEW.UPGRADE_ACTION);
+      await originalAdminVault.proposeAction(upgradeActionSignature, CONFIG.NEW.UPGRADE_ACTION);
       
-      console.log('Adding UpgradeActionNoLog to AdminVault...');
-      await adminVault.addAction(upgradeActionSignature, CONFIG.NEW.UPGRADE_ACTION_NO_LOG);
+      console.log('Adding UpgradeAction to original AdminVault...');
+      await originalAdminVault.addAction(upgradeActionSignature, CONFIG.NEW.UPGRADE_ACTION);
       
-      console.log('UpgradeActionNoLog added to AdminVault');
+      console.log('✅ UpgradeAction added to original AdminVault');
+      
+      // If we have a new AdminVault, add it there too
+      if (CONFIG.NEW.ADMIN_VAULT) {
+        console.log('\n🔧 Adding UpgradeAction to new AdminVault...');
+        const newAdminVault = await ethers.getContractAt('AdminVault', CONFIG.NEW.ADMIN_VAULT, deployer);
+        
+        console.log('Proposing UpgradeAction to new AdminVault...');
+        await newAdminVault.proposeAction(upgradeActionSignature, CONFIG.NEW.UPGRADE_ACTION);
+        
+        console.log('Adding UpgradeAction to new AdminVault...');
+        await newAdminVault.addAction(upgradeActionSignature, CONFIG.NEW.UPGRADE_ACTION);
+        
+        console.log('✅ UpgradeAction added to new AdminVault');
+      }
       
       // Stop impersonating
       await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
@@ -506,8 +521,8 @@ async function addUpgradeActionToAdminVault(deployer: any) {
       console.log('Impersonation might not be supported on this network.');
       console.log('For production deployment:');
       console.log('1. Call AdminVault.proposeAction with:');
-      console.log(`   - actionSignature: ${getBytes4(CONFIG.NEW.UPGRADE_ACTION_NO_LOG)}`);
-      console.log(`   - actionAddress: ${CONFIG.NEW.UPGRADE_ACTION_NO_LOG}`);
+      console.log(`   - actionSignature: ${getBytes4(CONFIG.NEW.UPGRADE_ACTION)}`);
+      console.log(`   - actionAddress: ${CONFIG.NEW.UPGRADE_ACTION}`);
       console.log('2. After delay, call AdminVault.addAction with the same parameters');
       console.log('Please coordinate with multisig owners to execute these transactions');
       
@@ -522,8 +537,8 @@ async function addUpgradeActionToAdminVault(deployer: any) {
     // For production, we'd need the multisig to perform these actions
     console.log('For production deployment:');
     console.log('1. Call AdminVault.proposeAction with:');
-    console.log(`   - actionSignature: ${getBytes4(CONFIG.NEW.UPGRADE_ACTION_NO_LOG)}`);
-    console.log(`   - actionAddress: ${CONFIG.NEW.UPGRADE_ACTION_NO_LOG}`);
+    console.log(`   - actionSignature: ${getBytes4(CONFIG.NEW.UPGRADE_ACTION)}`);
+    console.log(`   - actionAddress: ${CONFIG.NEW.UPGRADE_ACTION}`);
     console.log('2. After delay, call AdminVault.addAction with the same parameters');
     console.log('Please coordinate with multisig owners to execute these transactions');
   }
@@ -533,10 +548,27 @@ async function addUpgradeActionToAdminVault(deployer: any) {
 async function deployLoggerV2(deployer: any) {
   console.log('\n\n📝 STEP 3: Deploying new Logger V2');
   
-  // Deploy Logger as upgradeable
+  // Check if the Logger is already provided in the config
+  if (CONFIG.NEW.LOGGER && CONFIG.NEW.LOGGER_IMPL && CONFIG.NEW.LOGGER_ADMIN) {
+    console.log('Using pre-deployed Logger:');
+    console.log(`Proxy address: ${CONFIG.NEW.LOGGER}`);
+    console.log(`Implementation address: ${CONFIG.NEW.LOGGER_IMPL}`);
+    console.log(`Admin address: ${CONFIG.NEW.LOGGER_ADMIN}`);
+    
+    // Queue implementation contract for verification
+    queueContractForVerification('Logger (Implementation)', CONFIG.NEW.LOGGER_IMPL, []);
+    
+    return {
+      proxy: CONFIG.NEW.LOGGER,
+      implementation: CONFIG.NEW.LOGGER_IMPL,
+      admin: CONFIG.NEW.LOGGER_ADMIN
+    };
+  }
+  
+  // If not pre-deployed, deploy Logger as upgradeable
+  console.log('Deploying new Logger V2...');
   const Logger = await ethers.getContractFactory('Logger', deployer);
   
-  console.log('Deploying Logger V2...');
   const logger = await upgrades.deployProxy(Logger, [], {
     initializer: 'initialize',
     kind: 'transparent',
@@ -1524,20 +1556,6 @@ async function transferProxyAdminOwnership(deployer: any) {
   } else {
     // For testnet, we can transfer the ownership using OpenZeppelin's helpers
     try {
-      // First, check if we can use the OpenZeppelin upgrades admin functions
-      console.log('Attempting to use OpenZeppelin upgrades admin helpers...');
-      
-      try {
-        // Try to transfer directly using OZ helpers
-        console.log(`Using OpenZeppelin upgrades.admin.transferProxyAdminOwnership to ${CONFIG.CURRENT.MULTISIG}...`);
-        await upgrades.admin.transferProxyAdminOwnership(CONFIG.NEW.LOGGER_ADMIN, CONFIG.CURRENT.MULTISIG);
-        console.log('✅ ProxyAdmin ownership transferred successfully using OZ helpers');
-        return;
-      } catch (ozError: any) {
-        console.log('Could not use OpenZeppelin admin helpers, falling back to manual approach');
-        console.log(`Error was: ${ozError.message}`);
-      }
-      
       // Fallback to manual approach
       const proxyAddress = CONFIG.NEW.LOGGER;
       const adminAddress = CONFIG.NEW.LOGGER_ADMIN;
@@ -1566,6 +1584,12 @@ async function transferProxyAdminOwnership(deployer: any) {
       // Check current owner
       const currentOwner = await proxyAdmin.owner();
       console.log(`Current admin owner: ${currentOwner}`);
+      
+      // Check if already owned by multisig
+      if (currentOwner.toLowerCase() === CONFIG.CURRENT.MULTISIG.toLowerCase()) {
+        console.log(`✅ ProxyAdmin is already owned by the multisig (${CONFIG.CURRENT.MULTISIG})`);
+        return;
+      }
       
       // Verify deployer has ownership
       const deployerAddress = await deployer.getAddress();
@@ -2120,7 +2144,7 @@ async function main() {
   const deployerAddress = await deployer.getAddress();
   console.log(`\n\n🚀 Deploying with account: ${deployerAddress}`);
   
-  // Check if the deployer is connected via MetaMask or another provider
+  // Get provider type and network info
   console.log(`Provider type: ${ethers.provider.constructor.name}`);
   const network = await ethers.provider.getNetwork();
   console.log(`Connected to network: ${network.name} (chainId: ${network.chainId})`);
@@ -2161,15 +2185,15 @@ async function main() {
     output.current = { ...CONFIG.CURRENT };
     await saveDeploymentOutput(output, true);
     
-    // STEP 1: Deploy UpgradeActionNoLog
-    const upgradeActionNoLogAddress = await deployUpgradeActionNoLog(deployer);
-    output.new.upgradeActionNoLog = upgradeActionNoLogAddress;
-    await saveProgressStep('upgrade_action_no_log_deployed', { address: upgradeActionNoLogAddress });
+    // STEP 1: Deploy UpgradeAction (using the new Logger)
+    const upgradeActionAddress = await deployUpgradeAction(deployer);
+    output.new.upgradeAction = upgradeActionAddress;
+    await saveProgressStep('upgrade_action_deployed', { address: upgradeActionAddress });
     
-    // STEP 2: Add UpgradeActionNoLog to existing AdminVault
+    // STEP 2: Add UpgradeAction to AdminVault
     if (CONFIG.NETWORK.IS_TESTNET) {
       await addUpgradeActionToAdminVault(deployer);
-      await saveProgressStep('upgrade_action_added_to_admin_vault', { address: upgradeActionNoLogAddress });
+      await saveProgressStep('upgrade_action_added_to_admin_vault', { address: upgradeActionAddress });
     }
     
     // STEP 3: Deploy Logger V2
@@ -2234,7 +2258,7 @@ async function main() {
     console.log(`Network: ${output.network.name} (chainId: ${output.network.chainId})`);
     console.log(`Deployer: ${output.deployer}`);
     console.log(`\n🔑 Core Contract Addresses:`);
-    console.log(`• UpgradeActionNoLog: ${output.new.upgradeActionNoLog}`);
+    console.log(`• UpgradeAction: ${output.new.upgradeAction}`);
     console.log(`• Logger V2 Proxy: ${output.new.logger.proxy}`);
     console.log(`• Logger Implementation: ${output.new.logger.implementation}`);
     console.log(`• Logger Admin: ${output.new.logger.admin}`);
