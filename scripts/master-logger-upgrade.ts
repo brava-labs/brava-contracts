@@ -55,7 +55,7 @@ const CONFIG = {
   // Verification settings
   VERIFICATION: {
     ETHERSCAN_ENABLED: false, // Whether to verify contracts on Etherscan
-    TENDERLY_ENABLED: true, // Whether to verify contracts on Tenderly
+    TENDERLY_ENABLED: false, // Whether to verify contracts on Tenderly
     RETRY_COUNT: 3, // Number of retries for verification
     DELAY_BETWEEN_RETRIES: 10000, // Delay between retries in milliseconds
     CONTRACTS_TO_VERIFY: [] as {name: string, address: string, constructorArgs: any[]}[] // List of contracts to verify
@@ -2284,6 +2284,93 @@ async function deployTokenRegistry(deployer: any) {
   return tokenRegistryAddress;
 }
 
+// STEP 5B-POPULATE: Populate TokenRegistry with standard tokens
+async function populateTokenRegistry(deployer: any) {
+  console.log('\n\n🪙 STEP 5B-POPULATE: Populating TokenRegistry with standard tokens');
+  
+  // Standard tokens to add
+  const STANDARD_TOKENS = {
+    'USDC': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    'USDT': '0xdAC17F958D2ee523a2206206994597C13D831ec7', 
+    'DAI': '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+    'GHO': '0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f',
+    'USDS': '0xdC035D45d973E3EC169d2276DDab16f1e407384F',
+    'pyUSD': '0x6c3ea9036406852006290770BEdFcAbA0e23A0e8',
+    'crvUSD': '0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E',
+    'wUSDL': '0x7751E2F4b8ae93EF6B79d86419d42FE3295A4559'
+  };
+  
+  if (!CONFIG.NEW.TOKEN_REGISTRY) {
+    throw new Error('TokenRegistry must be deployed before populating');
+  }
+  
+  console.log(`📋 Populating TokenRegistry at ${CONFIG.NEW.TOKEN_REGISTRY} with ${Object.keys(STANDARD_TOKENS).length} tokens...`);
+  
+  const tokenRegistry = await ethers.getContractAt('TokenRegistry', CONFIG.NEW.TOKEN_REGISTRY);
+  
+  // Check which tokens need to be added
+  const tokensToAdd: Array<{ symbol: string; address: string }> = [];
+  
+  for (const [symbol, address] of Object.entries(STANDARD_TOKENS)) {
+    const isApproved = await tokenRegistry.isApprovedToken(address);
+    if (!isApproved) {
+      tokensToAdd.push({ symbol, address });
+    }
+  }
+  
+  if (tokensToAdd.length === 0) {
+    console.log('✅ All tokens are already approved in TokenRegistry');
+    return;
+  }
+  
+  console.log(`📝 Need to add ${tokensToAdd.length} tokens to TokenRegistry`);
+  
+  // For testnet, impersonate multisig. For production, skip this step
+  if (!CONFIG.NETWORK.IS_TESTNET) {
+    console.log('⏩ Production deployment detected. Skipping token population.');
+    console.log('The multisig will need to manually populate the TokenRegistry with these tokens:');
+    for (const token of tokensToAdd) {
+      console.log(`  ${token.symbol}: ${token.address}`);
+    }
+    return;
+  }
+  
+  // Testnet: Use deployer account to populate tokens (deployer still has all roles at this point)
+  console.log(`🔄 Testnet detected. Using deployer account to populate tokens...`);
+  
+  try {
+    // Use deployer account directly (no impersonation needed)
+    const tokenRegistryWithDeployer = tokenRegistry.connect(deployer);
+    
+    // Prepare multicall data
+    const multicallData: string[] = [];
+    
+    for (const token of tokensToAdd) {
+      multicallData.push(
+        tokenRegistry.interface.encodeFunctionData('proposeToken', [token.address]),
+        tokenRegistry.interface.encodeFunctionData('approveToken', [token.address])
+      );
+    }
+    
+    console.log(`🚀 Executing token population multicall with ${multicallData.length} operations...`);
+    const tx = await tokenRegistryWithDeployer.multicall(multicallData);
+    console.log(`Transaction sent: ${tx.hash}`);
+    const receipt = await tx.wait();
+    console.log(`✅ Token population completed: ${tx.hash}`);
+    console.log(`Gas used: ${receipt?.gasUsed || 'unknown'}`);
+    
+    // Verify tokens were added
+    console.log('🔍 Verifying token approval status:');
+    for (const token of tokensToAdd) {
+      const isApproved = await tokenRegistry.isApprovedToken(token.address);
+      console.log(`  ${token.symbol}: ${isApproved ? '✅ APPROVED' : '❌ FAILED'}`);
+    }
+    
+  } catch (error) {
+    console.error(`❌ Failed to populate TokenRegistry: ${error}`);
+  }
+}
+
 // STEP 5C: Deploy SequenceExecutor
 async function deploySequenceExecutor(deployer: any) {
   console.log('\n\n🔄 STEP 5C: Deploying SequenceExecutor with new AdminVault');
@@ -2646,28 +2733,14 @@ async function approveNewUpgradeTransactions(deployer: any) {
   }
   
   // Testnet: Impersonate multisig to approve transactions
-  console.log(`\n🔄 Testnet detected. Impersonating multisig ${CONFIG.CURRENT.MULTISIG} to approve FeeTakeSafeModule transactions...`);
+  console.log(`\n🔄 Testnet detected. Using deployer account to approve FeeTakeSafeModule transactions...`);
   
   try {
-    // Setup impersonation
-    await ethers.provider.send('hardhat_impersonateAccount', [CONFIG.CURRENT.MULTISIG]);
-    const multisigSigner = await ethers.getSigner(CONFIG.CURRENT.MULTISIG);
+    // Use deployer account directly (no impersonation needed)
+    console.log(`✅ Using deployer account for transaction approvals`);
     
-    // Fund the impersonated signer if needed
-    const balance = await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG);
-    if (balance < ethers.parseEther('0.1')) {
-      console.log('Funding multisig account with ETH...');
-      await deployer.sendTransaction({
-        to: CONFIG.CURRENT.MULTISIG,
-        value: ethers.parseEther('1.0')
-      });
-      console.log(`Funded multisig with 1 ETH`);
-    }
-    
-    console.log(`✅ Successfully impersonating multisig with balance: ${ethers.formatEther(await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG))} ETH`);
-    
-    // Connect to NEW TransactionRegistry with multisig signer
-    const transactionRegistry = await ethers.getContractAt('TransactionRegistry', CONFIG.NEW.TRANSACTION_REGISTRY, multisigSigner);
+    // Connect to NEW TransactionRegistry with deployer signer
+    const transactionRegistry = await ethers.getContractAt('TransactionRegistry', CONFIG.NEW.TRANSACTION_REGISTRY, deployer);
     
     // Check if the transactions are already approved
     const isModuleEnableApproved = await transactionRegistry.isApprovedTransaction(moduleEnableTxHash);
@@ -2908,6 +2981,9 @@ async function main() {
     process.stdout.write('.');
     output.new.tokenRegistry = tokenRegistryAddress;
     await saveProgressStep('token_registry_deployed', { address: tokenRegistryAddress });
+    
+    await populateTokenRegistry(deployer);
+    await saveProgressStep('token_registry_populated', { status: 'completed' });
     
     const sequenceExecutorAddress = await deploySequenceExecutor(deployer);
     process.stdout.write('.');
