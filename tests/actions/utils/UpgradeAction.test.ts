@@ -186,10 +186,10 @@ describe('UpgradeAction', () => {
       expect(actualInitialGuardAddress).to.equal(await bravaGuard.getAddress());
 
       // Now remove the guard through the upgrade action
-      const data = safe.interface.encodeFunctionData('setGuard', [ethers.ZeroAddress]);
+      const data = safe.interface.encodeFunctionData('setGuard', ['0x60dBc1735ad834dD8206F1089E24b3B21BD10604']);
 
       // Calculate and approve transaction hash
-      const txHash = ethers.keccak256(ethers.solidityPacked(['bytes'], [data]));
+      const txHash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [data]));
 
       // Propose and approve the transaction through TransactionRegistry
       await transactionRegistry.proposeTransaction(txHash);
@@ -215,7 +215,7 @@ describe('UpgradeAction', () => {
         guardSlot
       );
       const actualGuardAddress = ethers.getAddress('0x' + finalGuardAddress.slice(-40));
-      expect(actualGuardAddress).to.equal(ethers.ZeroAddress);
+      expect(actualGuardAddress).to.equal('0x60dBc1735ad834dD8206F1089E24b3B21BD10604');
     });
 
     it('should execute approved transaction to set new FallbackHandler', async () => {
@@ -226,7 +226,7 @@ describe('UpgradeAction', () => {
       const data = safe.interface.encodeFunctionData('setFallbackHandler', [newFallbackHandler]);
 
       // Calculate and approve transaction hash
-      const txHash = ethers.keccak256(ethers.solidityPacked(['bytes'], [data]));
+      const txHash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [data]));
 
       // Propose and approve the transaction through TransactionRegistry
       await transactionRegistry.proposeTransaction(txHash);

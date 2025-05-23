@@ -14,7 +14,7 @@ const config: HardhatUserConfig = {
   networks: {
     virtualMainnet: {
       url: process.env.TENDERLY_VIRTUAL_MAINNET_RPC!,
-      chainId: 1,
+      chainId: 2131213115,
     },
     hardhat: {
       forking: {

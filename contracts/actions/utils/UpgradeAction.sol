@@ -9,10 +9,6 @@ import {ITransactionRegistry} from "../../interfaces/ITransactionRegistry.sol";
 /// @notice This contract allows execution of pre-approved upgrade transactions through the sequence executor
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract UpgradeAction is ActionBase {
-    struct Params {
-        bytes data; // The calldata to execute
-    }
-
     /// @notice The transaction registry contract
     ITransactionRegistry public immutable TRANSACTION_REGISTRY;
 
@@ -23,12 +19,11 @@ contract UpgradeAction is ActionBase {
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable override {
-        // Parse inputs - the data is directly encoded as bytes
-        /// @dev Decoding bytes to bytes seems daft, but it fits the pattern of the other actions.
+        // Decode the bytes parameter to get the raw transaction data
         bytes memory data = abi.decode(_callData, (bytes));
 
         // Check if transaction is approved in TransactionRegistry
-        bytes32 txHash = keccak256(abi.encodePacked(data));
+        bytes32 txHash = keccak256(abi.encode(data));
 
         bool isApproved = TRANSACTION_REGISTRY.isApprovedTransaction(txHash);
         require(isApproved, Errors.UpgradeAction_TransactionNotApproved(txHash));

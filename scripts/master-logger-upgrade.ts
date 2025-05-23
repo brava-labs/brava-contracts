@@ -13,6 +13,7 @@ const CONFIG = {
     ADMIN_VAULT: process.env.CURRENT_ADMIN_VAULT || '0x02219F8B9BB7B9853AA110D687EE82e9835A13fB', // Current AdminVault address
     LOGGER: process.env.CURRENT_LOGGER || '0xB4Ae0e64217cFc7244693f9072585C8E80B2280f', // New Logger proxy address
     TRANSACTION_REGISTRY: process.env.CURRENT_TRANSACTION_REGISTRY || '', // Current TransactionRegistry address
+    UPGRADE_ACTION: process.env.CURRENT_UPGRADE_ACTION || '', // Current UpgradeAction address
     
     // Ownership
     MULTISIG: process.env.CURRENT_MULTISIG || '0x44149c547A135ae6eC6e40BF51a272c07e9361F4', // The address of your multisig/owner
@@ -36,6 +37,7 @@ const CONFIG = {
     SEQUENCE_EXECUTOR: '',
     BRAVA_GUARD: '',
     FEE_TAKE_SAFE_MODULE: '',
+    PARASWAP_SWAP: '',
     
     // Other contracts will be stored as they are deployed
     UTILITY_CONTRACTS: {} as Record<string, string>,
@@ -107,8 +109,6 @@ async function saveDeploymentOutput(outputData: any, incrementalUpdate = false) 
 
 // Add a function to save progress after each major step
 async function saveProgressStep(stepName: string, data: any) {
-  console.log(`📝 Saving progress after step: ${stepName}`);
-  
   const progressData = {
     steps: {
       [stepName]: {
@@ -124,25 +124,19 @@ async function saveProgressStep(stepName: string, data: any) {
 
 // Verify a contract on Etherscan
 async function verifyContractOnEtherscan(name: string, address: string, constructorArgs: any[]) {
-  console.log(`  🔍 Verifying ${name} at ${address} on Etherscan...`);
-  
   for (let attempt = 1; attempt <= CONFIG.VERIFICATION.RETRY_COUNT; attempt++) {
     try {
       await run("verify:verify", {
         address: address,
         constructorArguments: constructorArgs
       });
-      console.log(`  ✅ Successfully verified ${name} on Etherscan on attempt ${attempt}`);
       return true;
     } catch (error: any) {
       if (error.message.includes("Already Verified")) {
-        console.log(`  ℹ️ Contract ${name} is already verified on Etherscan`);
         return true;
       } else if (attempt === CONFIG.VERIFICATION.RETRY_COUNT) {
-        console.error(`  ❌ Failed to verify ${name} on Etherscan after ${attempt} attempts: ${error.message}`);
         return false;
       } else {
-        console.log(`  ⚠️ Verification attempt ${attempt} failed, retrying in ${CONFIG.VERIFICATION.DELAY_BETWEEN_RETRIES/1000}s...`);
         await new Promise(r => setTimeout(r, CONFIG.VERIFICATION.DELAY_BETWEEN_RETRIES));
       }
     }
@@ -152,53 +146,29 @@ async function verifyContractOnEtherscan(name: string, address: string, construc
 
 // Verify a contract on Tenderly
 async function verifyContractOnTenderly(name: string, address: string) {
-  console.log(`  🔍 Verifying ${name} at ${address} on Tenderly...`);
-  
   // Check if it's the Logger implementation and fix the name
   const contractName = name.includes('Logger (Implementation)') ? 'Logger' : name;
   
   // Check for Tenderly environment variables before attempting verification
   if (!process.env.TENDERLY_USERNAME || process.env.TENDERLY_USERNAME.trim() === '') {
-    console.error(`  ❌ Tenderly verification requires TENDERLY_USERNAME environment variable`);
-    console.log(`  💡 Add TENDERLY_USERNAME to your .env file`);
     return false;
   }
 
   if (!process.env.TENDERLY_PROJECT || process.env.TENDERLY_PROJECT.trim() === '') {
-    console.error(`  ❌ Tenderly verification requires TENDERLY_PROJECT environment variable`);
-    console.log(`  💡 Add TENDERLY_PROJECT to your .env file`);
     return false;
   }
   
-  console.log(`  ℹ️ Using Tenderly config - Username: ${process.env.TENDERLY_USERNAME}, Project: ${process.env.TENDERLY_PROJECT}`);
-  
   for (let attempt = 1; attempt <= CONFIG.VERIFICATION.RETRY_COUNT; attempt++) {
     try {
-      // Log detailed Tenderly params for debugging
-      console.log(`  ℹ️ Verifying with params: name=${contractName}, address=${address}`);
-      
       await tenderly.verify({
         name: contractName,
         address: address,
       });
-      console.log(`  ✅ Successfully verified ${contractName} on Tenderly on attempt ${attempt}`);
       return true;
     } catch (error: any) {
-      console.error(`  ❌ Tenderly verification error details:`, error);
-
       if (attempt === CONFIG.VERIFICATION.RETRY_COUNT) {
-        console.error(`  ❌ Failed to verify ${contractName} on Tenderly after ${attempt} attempts`);
-        
-        // Provide more helpful error message with possible solutions
-        console.log(`  💡 Troubleshooting tips for Tenderly verification:`);
-        console.log(`     - Check that your TENDERLY_USERNAME and TENDERLY_PROJECT are correct`);
-        console.log(`     - Ensure you're connected to the internet and have access to Tenderly`);
-        console.log(`     - Verify your contract is properly compiled and deployed`);
-        console.log(`     - Check if the contract source code matches the deployed bytecode`);
-        
         return false;
       } else {
-        console.log(`  ⚠️ Verification attempt ${attempt} failed, retrying in ${CONFIG.VERIFICATION.DELAY_BETWEEN_RETRIES/1000}s...`);
         await new Promise(r => setTimeout(r, CONFIG.VERIFICATION.DELAY_BETWEEN_RETRIES));
       }
     }
@@ -209,14 +179,12 @@ async function verifyContractOnTenderly(name: string, address: string) {
 // Verify a contract on both platforms
 async function verifyContract(name: string, address: string, constructorArgs: any[]) {
   if (!CONFIG.VERIFICATION.ETHERSCAN_ENABLED && !CONFIG.VERIFICATION.TENDERLY_ENABLED) {
-    console.log(`  ⏩ Verification disabled, skipping verification for ${name}`);
     return;
   }
   
   // Fix Logger implementation name if needed
   const contractName = name.includes('Logger (Implementation)') ? 'Logger' : name;
   
-  console.log(`\n🔎 Verifying ${contractName} at ${address}...`);
   let verificationResults = {
     etherscan: false,
     tenderly: false
@@ -224,43 +192,12 @@ async function verifyContract(name: string, address: string, constructorArgs: an
   
   // Verify on Etherscan if enabled
   if (CONFIG.VERIFICATION.ETHERSCAN_ENABLED) {
-    console.log(`  Verifying ${contractName} on Etherscan...`);
     verificationResults.etherscan = await verifyContractOnEtherscan(contractName, address, constructorArgs);
-  } else {
-    console.log(`  ℹ️ Etherscan verification disabled for ${contractName}`);
   }
   
   // Verify on Tenderly if enabled
   if (CONFIG.VERIFICATION.TENDERLY_ENABLED) {
-    console.log(`  Verifying ${contractName} on Tenderly...`);
     verificationResults.tenderly = await verifyContractOnTenderly(contractName, address);
-  } else {
-    console.log(`  ℹ️ Tenderly verification disabled for ${contractName}`);
-  }
-  
-  // Log verification results
-  if (CONFIG.VERIFICATION.ETHERSCAN_ENABLED && CONFIG.VERIFICATION.TENDERLY_ENABLED) {
-    if (verificationResults.etherscan && verificationResults.tenderly) {
-      console.log(`  ✅ Successfully verified ${contractName} on both platforms`);
-    } else if (verificationResults.etherscan) {
-      console.log(`  ⚠️ Partially verified: ${contractName} verified on Etherscan only`);
-    } else if (verificationResults.tenderly) {
-      console.log(`  ⚠️ Partially verified: ${contractName} verified on Tenderly only`);
-    } else {
-      console.log(`  ❌ Failed to verify ${contractName} on both platforms`);
-    }
-  } else if (CONFIG.VERIFICATION.ETHERSCAN_ENABLED) {
-    if (verificationResults.etherscan) {
-      console.log(`  ✅ Successfully verified ${contractName} on Etherscan`);
-    } else {
-      console.log(`  ❌ Failed to verify ${contractName} on Etherscan`);
-    }
-  } else if (CONFIG.VERIFICATION.TENDERLY_ENABLED) {
-    if (verificationResults.tenderly) {
-      console.log(`  ✅ Successfully verified ${contractName} on Tenderly`);
-    } else {
-      console.log(`  ❌ Failed to verify ${contractName} on Tenderly`);
-    }
   }
   
   // Add to list of verified contracts
@@ -271,7 +208,6 @@ async function verifyContract(name: string, address: string, constructorArgs: an
 function queueContractForVerification(name: string, address: string, constructorArgs: any[]) {
   // Fix Logger implementation name if needed
   const contractName = name.includes('Logger (Implementation)') ? 'Logger' : name;
-  console.log(`  📋 Queuing ${contractName} at ${address} for verification later`);
   
   CONFIG.VERIFICATION.CONTRACTS_TO_VERIFY.push({
     name: contractName,
@@ -283,17 +219,17 @@ function queueContractForVerification(name: string, address: string, constructor
 // Verify all queued contracts
 async function verifyQueuedContracts() {
   if ((!CONFIG.VERIFICATION.ETHERSCAN_ENABLED && !CONFIG.VERIFICATION.TENDERLY_ENABLED) || CONFIG.VERIFICATION.CONTRACTS_TO_VERIFY.length === 0) {
-    console.log('No contracts queued for verification, skipping');
     return;
   }
   
-  console.log(`\n📋 Verifying ${CONFIG.VERIFICATION.CONTRACTS_TO_VERIFY.length} queued contracts...`);
+  process.stdout.write('📋 Verifying contracts');
   
   for (const contract of [...CONFIG.VERIFICATION.CONTRACTS_TO_VERIFY]) {
+    process.stdout.write('.');
     await verifyContract(contract.name, contract.address, contract.constructorArgs);
   }
   
-  console.log('✅ Finished verifying all queued contracts');
+  process.stdout.write(' ✅\n');
 }
 
 // STEP 0: Ensure prerequisites are deployed (original contracts if needed)
@@ -333,90 +269,83 @@ async function ensurePrerequisites(deployer: any) {
     console.log(`Using existing AdminVault at ${CONFIG.CURRENT.ADMIN_VAULT}`);
   }
   
-  // Check if we need to deploy a TransactionRegistry
+  // Check if we need to deploy a TransactionRegistry for the OLD deployment
+  // This TransactionRegistry will use the NEW Logger with the OLD AdminVault
   if (!CONFIG.CURRENT.TRANSACTION_REGISTRY) {
-    console.log('TransactionRegistry not found, deploying...');
+    console.log('TransactionRegistry not found, deploying for old deployment...');
+    console.log('Note: Using NEW Logger with OLD AdminVault for compatibility');
     const TransactionRegistry = await ethers.getContractFactory('TransactionRegistry', deployer);
     const txRegistry = await TransactionRegistry.deploy(
       CONFIG.CURRENT.ADMIN_VAULT,
-      CONFIG.CURRENT.LOGGER
+      CONFIG.NEW.LOGGER  // Use NEW Logger for compatibility with UpgradeAction
     );
     await txRegistry.waitForDeployment();
     CONFIG.CURRENT.TRANSACTION_REGISTRY = await txRegistry.getAddress();
-    console.log(`TransactionRegistry deployed to: ${CONFIG.CURRENT.TRANSACTION_REGISTRY}`);
+    console.log(`TransactionRegistry (for old deployment) deployed to: ${CONFIG.CURRENT.TRANSACTION_REGISTRY}`);
+    
+    // Verify the contract
+    await verifyContract('TransactionRegistry (Old Deployment)', await txRegistry.getAddress(), [
+      CONFIG.CURRENT.ADMIN_VAULT,
+      CONFIG.NEW.LOGGER
+    ]);
+    
+    // Note: TransactionRegistry is NOT an action, so we don't add it to AdminVault
+    // It's a helper contract that the UpgradeAction uses
   } else {
     console.log(`Using existing TransactionRegistry at ${CONFIG.CURRENT.TRANSACTION_REGISTRY}`);
   }
   
-  // Check if we need to deploy the original UpgradeAction
-  const UpgradeAction = await ethers.getContractFactory('UpgradeAction', deployer);
-  const deployerAddress = await deployer.getAddress();
-  
-  console.log('Deploying original UpgradeAction...');
-  try {
-    const upgradeAction = await UpgradeAction.deploy(
-      CONFIG.CURRENT.ADMIN_VAULT,
-      CONFIG.CURRENT.LOGGER,
-      CONFIG.CURRENT.TRANSACTION_REGISTRY
-    );
-    await upgradeAction.waitForDeployment();
-    const upgradeActionAddress = await upgradeAction.getAddress();
-    console.log(`Original UpgradeAction deployed to: ${upgradeActionAddress}`);
+  // Check if we need to deploy the original UpgradeAction for the OLD deployment
+  // This UpgradeAction will use NEW Logger + OLD AdminVault + OLD TransactionRegistry
+  if (!CONFIG.CURRENT.UPGRADE_ACTION) {
+    const UpgradeAction = await ethers.getContractFactory('UpgradeAction', deployer);
+    const deployerAddress = await deployer.getAddress();
     
-    // Add the UpgradeAction to the AdminVault if we're on testnet
-    if (CONFIG.NETWORK.IS_TESTNET) {
-      console.log('Adding UpgradeAction to AdminVault...');
+    console.log('Deploying UpgradeAction for old deployment...');
+    console.log('Note: Using NEW Logger with OLD AdminVault and OLD TransactionRegistry');
+    try {
+      const upgradeAction = await UpgradeAction.deploy(
+        CONFIG.CURRENT.ADMIN_VAULT,
+        CONFIG.NEW.LOGGER,  // Use NEW Logger for compatibility
+        CONFIG.CURRENT.TRANSACTION_REGISTRY
+      );
+      await upgradeAction.waitForDeployment();
+      const upgradeActionAddress = await upgradeAction.getAddress();
+      console.log(`UpgradeAction (for old deployment) deployed to: ${upgradeActionAddress}`);
       
-      try {
-        // Setup impersonation of the multisig/owner
-        console.log(`Impersonating owner address ${CONFIG.CURRENT.MULTISIG}...`);
-        await ethers.provider.send('hardhat_impersonateAccount', [CONFIG.CURRENT.MULTISIG]);
-        const impersonatedSigner = await ethers.getSigner(CONFIG.CURRENT.MULTISIG);
-        
-        // Fund the impersonated signer if needed
-        const balance = await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG);
-        if (balance < ethers.parseEther('0.1')) {
-          console.log('Funding impersonated account with ETH...');
-          await deployer.sendTransaction({
-            to: CONFIG.CURRENT.MULTISIG,
-            value: ethers.parseEther('1.0')
-          });
-        }
-        
-        // Use the impersonated signer to interact with the AdminVault
-        const adminVault = await ethers.getContractAt('AdminVault', CONFIG.CURRENT.ADMIN_VAULT, impersonatedSigner);
-        const upgradeActionSignature = getBytes4(upgradeActionAddress);
-        
-        try {
-          // Check if the action is already registered
-          const actionAddress = await adminVault.getActionAddress(upgradeActionSignature);
-          if (actionAddress === upgradeActionAddress) {
-            console.log('UpgradeAction already registered in AdminVault');
-          }
-        } catch (error) {
-          // Action not found, register it
-          console.log('Proposing UpgradeAction to AdminVault...');
-          await adminVault.proposeAction(upgradeActionSignature, upgradeActionAddress);
-          
-          console.log('Adding UpgradeAction to AdminVault...');
-          await adminVault.addAction(upgradeActionSignature, upgradeActionAddress);
-          console.log('UpgradeAction successfully added to AdminVault');
-        }
-        
-        // Stop impersonating
-        await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
-      } catch (error) {
-        console.error('Error while impersonating to add UpgradeAction:', error);
-        // Try to stop impersonation in case it was started
-        try {
-          await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
-        } catch (e) {
-          // Ignore errors during cleanup
-        }
+      // Store this as the old deployment's upgrade action
+      CONFIG.CURRENT.UPGRADE_ACTION = upgradeActionAddress;
+      
+      // Verify the contract
+      await verifyContract('UpgradeAction (Old Deployment)', upgradeActionAddress, [
+        CONFIG.CURRENT.ADMIN_VAULT,
+        CONFIG.NEW.LOGGER,
+        CONFIG.CURRENT.TRANSACTION_REGISTRY
+      ]);
+      
+      // Add the UpgradeAction to the OLD AdminVault immediately
+      console.log('Adding UpgradeAction to old AdminVault...');
+      if (CONFIG.NETWORK.IS_TESTNET) {
+        await addUpgradeActionToOldAdminVault(deployer, upgradeActionAddress);
+      } else {
+        console.log('For production deployment:');
+        console.log('1. Call AdminVault.proposeAction with:');
+        console.log(`   - actionSignature: ${getBytes4(upgradeActionAddress)}`);
+        console.log(`   - actionAddress: ${upgradeActionAddress}`);
+        console.log('2. After delay, call AdminVault.addAction with the same parameters');
+        console.log('Please coordinate with multisig owners to execute these transactions');
       }
+    } catch (error) {
+      console.error('Failed to deploy original UpgradeAction, but continuing with migration:', error);
     }
-  } catch (error) {
-    console.error('Failed to deploy original UpgradeAction, but continuing with migration:', error);
+  } else {
+    console.log(`Using existing UpgradeAction at ${CONFIG.CURRENT.UPGRADE_ACTION}`);
+    
+    // Still try to add it to the AdminVault if we're on testnet
+    if (CONFIG.NETWORK.IS_TESTNET) {
+      console.log('Ensuring UpgradeAction is registered in old AdminVault...');
+      await addUpgradeActionToOldAdminVault(deployer, CONFIG.CURRENT.UPGRADE_ACTION);
+    }
   }
   
   // Check if we have a MULTISIG address, if not, use the deployer
@@ -439,33 +368,219 @@ async function ensurePrerequisites(deployer: any) {
   return true;
 }
 
-// STEP 1: Deploy UpgradeAction that uses the new Logger
+// Generic helper function to add any action to old AdminVault
+async function addActionToOldAdminVault(deployer: any, actionAddress: string, actionName?: string) {
+  const displayName = actionName || 'Action';
+  console.log(`Adding ${displayName} ${actionAddress} to old AdminVault ${CONFIG.CURRENT.ADMIN_VAULT}...`);
+  
+  try {
+    // Setup impersonation
+    await ethers.provider.send('hardhat_impersonateAccount', [CONFIG.CURRENT.MULTISIG]);
+    const impersonatedSigner = await ethers.getSigner(CONFIG.CURRENT.MULTISIG);
+    
+    // Fund the impersonated signer if needed (on some testnets this is required)
+    const balance = await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG);
+    if (balance < ethers.parseEther('0.1')) {
+      console.log('Funding impersonated account with ETH...');
+      await deployer.sendTransaction({
+        to: CONFIG.CURRENT.MULTISIG,
+        value: ethers.parseEther('1.0')
+      });
+    }
+    
+    // Add to original AdminVault
+    const originalAdminVault = await ethers.getContractAt('AdminVault', CONFIG.CURRENT.ADMIN_VAULT, impersonatedSigner);
+    
+    const actionSignature = getBytes4(actionAddress);
+    
+    try {
+      // Check if the action is already registered
+      const registeredAddress = await originalAdminVault.getActionAddress(actionSignature);
+      if (registeredAddress === actionAddress) {
+        console.log(`${displayName} already registered in old AdminVault`);
+        return;
+      }
+    } catch (error) {
+      // Action not found, register it
+      console.log(`Proposing ${displayName} to old AdminVault...`);
+      await originalAdminVault.proposeAction(actionSignature, actionAddress);
+      
+      console.log(`Adding ${displayName} to old AdminVault...`);
+      await originalAdminVault.addAction(actionSignature, actionAddress);
+      
+      console.log(`✅ ${displayName} added to old AdminVault`);
+    }
+    
+    // Stop impersonating
+    await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
+  } catch (error) {
+    console.error(`Error adding ${displayName} to old AdminVault:`, error);
+    
+    // Stop impersonating in case it was started
+    try {
+      await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
+    } catch (e) {
+      // Ignore errors during cleanup
+    }
+  }
+}
+
+// Helper function to add UpgradeAction to old AdminVault
+async function addUpgradeActionToOldAdminVault(deployer: any, upgradeActionAddress: string) {
+  return addActionToOldAdminVault(deployer, upgradeActionAddress, 'UpgradeAction');
+}
+
+// STEP 1: Deploy UpgradeAction for the NEW deployment
 async function deployUpgradeAction(deployer: any) {
-  console.log('\n\n🚀 STEP 1: Deploying UpgradeAction with new Logger');
+  console.log('📦 About to deploy UpgradeAction for NEW deployment...');
+  console.log('Note: This will use NEW Logger + NEW AdminVault + NEW TransactionRegistry');
+  
+  // Check if we have the new AdminVault deployed yet
+  if (!CONFIG.NEW.ADMIN_VAULT) {
+    console.log('⚠️ NEW AdminVault not yet deployed, will deploy UpgradeAction after AdminVault is ready');
+    return null; // Return null to indicate this should be done later
+  }
+  
+  // Check if we have the new TransactionRegistry deployed yet
+  if (!CONFIG.NEW.TRANSACTION_REGISTRY) {
+    console.log('⚠️ NEW TransactionRegistry not yet deployed, will deploy UpgradeAction after TransactionRegistry is ready');
+    return null; // Return null to indicate this should be done later
+  }
   
   const UpgradeAction = await ethers.getContractFactory('UpgradeAction', deployer);
   
-  console.log('Deploying UpgradeAction with new Logger...');
   const upgradeAction = await UpgradeAction.deploy(
-    CONFIG.CURRENT.ADMIN_VAULT,
-    CONFIG.NEW.LOGGER, // Use the new Logger
-    CONFIG.CURRENT.TRANSACTION_REGISTRY
+    CONFIG.NEW.ADMIN_VAULT, // Use the NEW AdminVault
+    CONFIG.NEW.LOGGER, // Use the NEW Logger
+    CONFIG.NEW.TRANSACTION_REGISTRY // Use the NEW TransactionRegistry
   );
   
   await upgradeAction.waitForDeployment();
   const upgradeActionAddress = await upgradeAction.getAddress();
+  console.log(`✅ UpgradeAction (for NEW deployment) deployed to: ${upgradeActionAddress}`);
   
-  console.log(`UpgradeAction deployed to: ${upgradeActionAddress}`);
   CONFIG.NEW.UPGRADE_ACTION = upgradeActionAddress;
   
   // Verify the contract
-  await verifyContract('UpgradeAction', upgradeActionAddress, [
-    CONFIG.CURRENT.ADMIN_VAULT,
+  await verifyContract('UpgradeAction (New Deployment)', upgradeActionAddress, [
+    CONFIG.NEW.ADMIN_VAULT,
     CONFIG.NEW.LOGGER,
-    CONFIG.CURRENT.TRANSACTION_REGISTRY
+    CONFIG.NEW.TRANSACTION_REGISTRY
   ]);
   
   return upgradeActionAddress;
+}
+
+// Deploy UpgradeAction for NEW deployment (called after TransactionRegistry is deployed)
+async function deployNewUpgradeAction(deployer: any) {
+  console.log('\n📦 Deploying UpgradeAction for NEW deployment...');
+  console.log('Note: This uses NEW Logger + NEW AdminVault + NEW TransactionRegistry');
+  
+  const UpgradeAction = await ethers.getContractFactory('UpgradeAction', deployer);
+  
+  const upgradeAction = await UpgradeAction.deploy(
+    CONFIG.NEW.ADMIN_VAULT, // Use the NEW AdminVault
+    CONFIG.NEW.LOGGER, // Use the NEW Logger
+    CONFIG.NEW.TRANSACTION_REGISTRY // Use the NEW TransactionRegistry
+  );
+  
+  await upgradeAction.waitForDeployment();
+  const upgradeActionAddress = await upgradeAction.getAddress();
+  console.log(`✅ UpgradeAction (for NEW deployment) deployed to: ${upgradeActionAddress}`);
+  
+  CONFIG.NEW.UPGRADE_ACTION = upgradeActionAddress;
+  
+  // Verify the contract
+  await verifyContract('UpgradeAction (New Deployment)', upgradeActionAddress, [
+    CONFIG.NEW.ADMIN_VAULT,
+    CONFIG.NEW.LOGGER,
+    CONFIG.NEW.TRANSACTION_REGISTRY
+  ]);
+  
+  return upgradeActionAddress;
+}
+
+// STEP 2: Add UpgradeAction to old AdminVault
+async function addOldUpgradeActionToAdminVault(deployer: any) {
+  console.log('\n\n🔧 Adding UpgradeAction (old deployment) to old AdminVault');
+  
+  if (!CONFIG.CURRENT.UPGRADE_ACTION) {
+    console.log('⚠️ No old UpgradeAction deployed, skipping');
+    return;
+  }
+  
+  if (CONFIG.NETWORK.IS_TESTNET) {
+    // For testnet, we need to impersonate the multisig/owner to have sufficient permissions
+    console.log(`Impersonating owner address ${CONFIG.CURRENT.MULTISIG} to add UpgradeAction...`);
+    
+    try {
+      // Setup impersonation
+      await ethers.provider.send('hardhat_impersonateAccount', [CONFIG.CURRENT.MULTISIG]);
+      const impersonatedSigner = await ethers.getSigner(CONFIG.CURRENT.MULTISIG);
+      
+      // Fund the impersonated signer if needed (on some testnets this is required)
+      const balance = await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG);
+      if (balance < ethers.parseEther('0.1')) {
+        console.log('Funding impersonated account with ETH...');
+        await deployer.sendTransaction({
+          to: CONFIG.CURRENT.MULTISIG,
+          value: ethers.parseEther('1.0')
+        });
+      }
+      
+      // Add to original AdminVault
+      console.log('\n🔧 Adding UpgradeAction to original AdminVault...');
+      const originalAdminVault = await ethers.getContractAt('AdminVault', CONFIG.CURRENT.ADMIN_VAULT, impersonatedSigner);
+      
+      console.log('Proposing UpgradeAction to original AdminVault...');
+      const upgradeActionSignature = getBytes4(CONFIG.CURRENT.UPGRADE_ACTION);
+      
+      try {
+        // Check if the action is already registered
+        const actionAddress = await originalAdminVault.getActionAddress(upgradeActionSignature);
+        if (actionAddress === CONFIG.CURRENT.UPGRADE_ACTION) {
+          console.log('UpgradeAction already registered in old AdminVault');
+        }
+      } catch (error) {
+        // Action not found, register it
+        await originalAdminVault.proposeAction(upgradeActionSignature, CONFIG.CURRENT.UPGRADE_ACTION);
+        
+        console.log('Adding UpgradeAction to original AdminVault...');
+        await originalAdminVault.addAction(upgradeActionSignature, CONFIG.CURRENT.UPGRADE_ACTION);
+        
+        console.log('✅ UpgradeAction added to original AdminVault');
+      }
+      
+      // Stop impersonating
+      await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
+    } catch (error) {
+      console.error('Error during impersonation:', error);
+      
+      // Check if impersonation is supported on this network
+      console.log('Impersonation might not be supported on this network.');
+      console.log('For production deployment:');
+      console.log('1. Call AdminVault.proposeAction with:');
+      console.log(`   - actionSignature: ${getBytes4(CONFIG.CURRENT.UPGRADE_ACTION)}`);
+      console.log(`   - actionAddress: ${CONFIG.CURRENT.UPGRADE_ACTION}`);
+      console.log('2. After delay, call AdminVault.addAction with the same parameters');
+      console.log('Please coordinate with multisig owners to execute these transactions');
+      
+      // Stop impersonating in case it was started
+      try {
+        await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+    }
+  } else {
+    // For production, we'd need the multisig to perform these actions
+    console.log('For production deployment:');
+    console.log('1. Call AdminVault.proposeAction with:');
+    console.log(`   - actionSignature: ${getBytes4(CONFIG.CURRENT.UPGRADE_ACTION)}`);
+    console.log(`   - actionAddress: ${CONFIG.CURRENT.UPGRADE_ACTION}`);
+    console.log('2. After delay, call AdminVault.addAction with the same parameters');
+    console.log('Please coordinate with multisig owners to execute these transactions');
+  }
 }
 
 // STEP 2: Add the new UpgradeAction to the admin vault
@@ -552,15 +667,8 @@ async function addUpgradeActionToAdminVault(deployer: any) {
 
 // STEP 3: Deploy the new Logger V2 with proper upgradeable proxy
 async function deployLoggerV2(deployer: any) {
-  console.log('\n\n📝 STEP 3: Deploying new Logger V2');
-  
   // Check if the Logger is already provided in the config
   if (CONFIG.NEW.LOGGER && CONFIG.NEW.LOGGER_IMPL && CONFIG.NEW.LOGGER_ADMIN) {
-    console.log('Using pre-deployed Logger:');
-    console.log(`Proxy address: ${CONFIG.NEW.LOGGER}`);
-    console.log(`Implementation address: ${CONFIG.NEW.LOGGER_IMPL}`);
-    console.log(`Admin address: ${CONFIG.NEW.LOGGER_ADMIN}`);
-    
     // Queue implementation contract for verification
     queueContractForVerification('Logger (Implementation)', CONFIG.NEW.LOGGER_IMPL, []);
     
@@ -572,7 +680,6 @@ async function deployLoggerV2(deployer: any) {
   }
   
   // If not pre-deployed, deploy Logger as upgradeable
-  console.log('Deploying new Logger V2...');
   const Logger = await ethers.getContractFactory('Logger', deployer);
   
   const logger = await upgrades.deployProxy(Logger, [], {
@@ -583,15 +690,11 @@ async function deployLoggerV2(deployer: any) {
   await logger.waitForDeployment();
   const loggerAddress = await logger.getAddress();
   
-  console.log('Logger V2 proxy deployed to:', loggerAddress);
   CONFIG.NEW.LOGGER = loggerAddress;
   
   // Get the implementation and admin addresses
   const implAddress = await upgrades.erc1967.getImplementationAddress(loggerAddress);
   const adminAddress = await upgrades.erc1967.getAdminAddress(loggerAddress);
-  
-  console.log('Logger implementation address:', implAddress);
-  console.log('Logger admin address:', adminAddress);
   
   CONFIG.NEW.LOGGER_IMPL = implAddress;
   CONFIG.NEW.LOGGER_ADMIN = adminAddress;
@@ -611,6 +714,7 @@ async function deployLoggerV2(deployer: any) {
 async function deployNewAdminVault(deployer: any) {
   console.log('\n\n🏛️ STEP 4: Deploying new AdminVault with new Logger');
   
+  console.log('📦 About to deploy AdminVault...');
   const AdminVault = await ethers.getContractFactory('AdminVault', deployer);
   const deployerAddress = await deployer.getAddress();
   
@@ -626,7 +730,7 @@ async function deployNewAdminVault(deployer: any) {
   await adminVault.waitForDeployment();
   const adminVaultAddress = await adminVault.getAddress();
   
-  console.log(`AdminVault deployed to: ${adminVaultAddress}`);
+  console.log(`✅ AdminVault deployed to: ${adminVaultAddress}`);
   CONFIG.NEW.ADMIN_VAULT = adminVaultAddress;
   
   // Verify the contract
@@ -641,7 +745,6 @@ async function deployNewAdminVault(deployer: any) {
 
 // Unified function to deploy all action contracts
 async function deployActionContracts(deployer: any) {
-  console.log('\n\n🔨 STEP 5: Deploying action contracts...');
   
   const contracts: any = {
     utility: {},
@@ -698,7 +801,7 @@ async function deployActionContracts(deployer: any) {
   };
   
   // First, deploy and register TransactionRegistry (core contract - always deploy)
-  console.log('Deploying TransactionRegistry...');
+  console.log('📦 About to deploy TransactionRegistry...');
   const TransactionRegistry = await ethers.getContractFactory('TransactionRegistry', deployer);
   const transactionRegistry = await TransactionRegistry.deploy(
     CONFIG.NEW.ADMIN_VAULT,  // AdminVault address
@@ -706,8 +809,8 @@ async function deployActionContracts(deployer: any) {
   );
   await transactionRegistry.waitForDeployment();
   const registryAddress = await transactionRegistry.getAddress();
-  
   console.log(`✅ TransactionRegistry deployed to: ${registryAddress}`);
+  
   CONFIG.NEW.TRANSACTION_REGISTRY = registryAddress;
   contracts.utility.transactionregistry = registryAddress;
   
@@ -717,26 +820,18 @@ async function deployActionContracts(deployer: any) {
     CONFIG.NEW.LOGGER
   ]);
   
+  // Deploy the NEW UpgradeAction now that we have the NEW TransactionRegistry
+  console.log('\n📦 Deploying NEW UpgradeAction...');
+  const newUpgradeActionAddress = await deployNewUpgradeAction(deployer);
+  contracts.utility.upgradeaction = newUpgradeActionAddress;
+  
   // Now add the specialized contracts that need the transaction registry
   const specializedContracts: Record<string, {name: string, params: any[]}[]> = {
     utility: [
-      {
-        name: 'UpgradeAction',
-        params: [CONFIG.NEW.ADMIN_VAULT, CONFIG.NEW.LOGGER, registryAddress]
-      },
+      // Note: UpgradeAction is deployed separately above
       {
         name: 'Curve3PoolSwap',
         params: [CONFIG.NEW.ADMIN_VAULT, CONFIG.NEW.LOGGER, constants.CURVE_3POOL_ADDRESS]
-      },
-      // ParaswapSwap with Augustus Router address - based on test environment
-      {
-        name: 'ParaswapSwap',
-        params: [
-          CONFIG.NEW.ADMIN_VAULT, 
-          CONFIG.NEW.LOGGER, 
-          '0x6A000F20005980200259B80c5102003040001068', // Augustus Router from tests
-          CONFIG.NEW.TOKEN_REGISTRY
-        ]
       }
     ],
     protocol: [
@@ -1632,8 +1727,7 @@ async function transferProxyAdminOwnership(deployer: any) {
 
 // Helper function to deploy a contract and log its address
 async function deployContract(name: string, deployer: any, ...args: any[]) {
-  console.log(`\nDeploying ${name}...`);
-  
+  console.log(`📦 About to deploy ${name}...`);
   const Contract = await ethers.getContractFactory(name, deployer);
   const contract = await Contract.deploy(...args);
   await contract.waitForDeployment();
@@ -1649,47 +1743,23 @@ async function deployContract(name: string, deployer: any, ...args: any[]) {
 
 // Check environment configuration
 function checkEnvironmentConfig() {
-  console.log('\n🔍 Checking environment configuration...');
-  
   // Check Tenderly verification configuration if enabled
   if (CONFIG.VERIFICATION.TENDERLY_ENABLED) {
-    console.log('Checking Tenderly verification configuration...');
-    
     if (!process.env.TENDERLY_USERNAME || process.env.TENDERLY_USERNAME.trim() === '') {
-      console.warn('⚠️ WARNING: TENDERLY_USERNAME is not set in .env file');
-      console.warn('   Tenderly verification will likely fail');
-    } else {
-      console.log(`✅ TENDERLY_USERNAME is set: ${process.env.TENDERLY_USERNAME}`);
+      console.warn('⚠️  WARNING: TENDERLY_USERNAME is not set in .env file');
     }
     
     if (!process.env.TENDERLY_PROJECT || process.env.TENDERLY_PROJECT.trim() === '') {
-      console.warn('⚠️ WARNING: TENDERLY_PROJECT is not set in .env file');
-      console.warn('   Tenderly verification will likely fail');
-    } else {
-      console.log(`✅ TENDERLY_PROJECT is set: ${process.env.TENDERLY_PROJECT}`);
-    }
-    
-    if (!process.env.TENDERLY_API_KEY || process.env.TENDERLY_API_KEY.trim() === '') {
-      console.warn('⚠️ WARNING: TENDERLY_API_KEY is not set in .env file');
-      console.warn('   This may be needed for some Tenderly operations');
-    } else {
-      console.log(`✅ TENDERLY_API_KEY is set`);
+      console.warn('⚠️  WARNING: TENDERLY_PROJECT is not set in .env file');
     }
   }
   
   // Check Etherscan verification configuration if enabled
   if (CONFIG.VERIFICATION.ETHERSCAN_ENABLED) {
-    console.log('Checking Etherscan verification configuration...');
-    
     if (!process.env.ETHERSCAN_API_KEY || process.env.ETHERSCAN_API_KEY.trim() === '') {
-      console.warn('⚠️ WARNING: ETHERSCAN_API_KEY is not set in .env file');
-      console.warn('   Etherscan verification will likely fail');
-    } else {
-      console.log(`✅ ETHERSCAN_API_KEY is set`);
+      console.warn('⚠️  WARNING: ETHERSCAN_API_KEY is not set in .env file');
     }
   }
-  
-  console.log('Environment configuration check complete');
 }
 
 // Master function to handle all AdminVault operations in a single multicall
@@ -2043,11 +2113,11 @@ async function configureAdminVault(deployer: any, contracts: any) {
     );
   }
   
-  // 5. Then add all role grants for primary multisig
-  console.log('Adding primary multisig role grants to multicall...');
-  const mainMultisigRoles = [...allRoles.main, ...allRoles.proposer, ...allRoles.other];
+  // 5. Then add ALL role grants for primary multisig (main, proposer, executor, canceler, other)
+  console.log('Adding ALL role grants to primary multisig...');
+  const allRolesFlat = [...allRoles.main, ...allRoles.proposer, ...allRoles.executor, ...allRoles.canceler, ...allRoles.other];
   
-  for (const role of mainMultisigRoles) {
+  for (const role of allRolesFlat) {
     // Skip if multisig already has this role
     const hasRole = await adminVault.hasRole(role.bytes32, CONFIG.CURRENT.MULTISIG);
     if (hasRole) {
@@ -2055,13 +2125,14 @@ async function configureAdminVault(deployer: any, contracts: any) {
       continue;
     }
     
+    console.log(`Adding role ${role.name} to primary multisig`);
     combinedCalldata.push(
       adminVault.interface.encodeFunctionData('grantRole', [role.bytes32, CONFIG.CURRENT.MULTISIG])
     );
   }
   
-  // 6. Then add all role grants for dev multisig
-  console.log('Adding dev multisig role grants to multicall...');
+  // 6. Then add executor and canceler role grants for dev multisig
+  console.log('Adding executor and canceler role grants to dev multisig...');
   const devMultisigRoles = [...allRoles.executor, ...allRoles.canceler];
   
   for (const role of devMultisigRoles) {
@@ -2072,13 +2143,15 @@ async function configureAdminVault(deployer: any, contracts: any) {
       continue;
     }
     
+    console.log(`Adding role ${role.name} to dev multisig`);
     combinedCalldata.push(
       adminVault.interface.encodeFunctionData('grantRole', [role.bytes32, DEV_MULTISIG])
     );
   }
   
-  // 7. Finally add all role revocations for deployer (except ROLE_MANAGER_ROLE)
-  console.log('Adding deployer role revocations to multicall...');
+  // 7. Finally add all role revocations for deployer (except OWNER_ROLE and ROLE_MANAGER_ROLE)
+  console.log('Adding deployer role revocations to multicall (leaving only OWNER_ROLE)...');
+  // Include all operational roles but exclude main roles (OWNER_ROLE and ROLE_MANAGER_ROLE)
   const operationalRoles = [...allRoles.proposer, ...allRoles.executor, ...allRoles.canceler, ...allRoles.other];
   
   for (const role of operationalRoles) {
@@ -2089,6 +2162,7 @@ async function configureAdminVault(deployer: any, contracts: any) {
       continue;
     }
     
+    console.log(`Adding revocation of ${role.name} from deployer`);
     combinedCalldata.push(
       adminVault.interface.encodeFunctionData('revokeRole', [role.bytes32, deployerAddress])
     );
@@ -2102,7 +2176,7 @@ async function configureAdminVault(deployer: any, contracts: any) {
     console.log(`  • ${flattenedContracts.length} contract registrations`);
     console.log(`  • ${poolsToAdd.length} pool proposals`);
     console.log(`  • ${poolsToAdd.length} pool registrations`);
-    console.log(`  • ${mainMultisigRoles.length} primary multisig role grants`);
+    console.log(`  • ${allRolesFlat.length} primary multisig role grants`);
     console.log(`  • ${devMultisigRoles.length} dev multisig role grants`);
     console.log(`  • ${operationalRoles.length} deployer role revocations`);
     
@@ -2116,9 +2190,21 @@ async function configureAdminVault(deployer: any, contracts: any) {
   // =================== STEP 5: Handle ROLE_MANAGER_ROLE separately ===================
   // Handle ROLE_MANAGER_ROLE separately as it must be done last
   console.log('\n🔑 Handling ROLE_MANAGER_ROLE separately...');
-  const hasRoleManager = await adminVault.hasRole(ROLE_MANAGER_ROLE, deployerAddress);
   
-  if (hasRoleManager) {
+  // First verify primary multisig has ROLE_MANAGER_ROLE
+  const multisigHasRoleManager = await adminVault.hasRole(ROLE_MANAGER_ROLE, CONFIG.CURRENT.MULTISIG);
+  if (!multisigHasRoleManager) {
+    console.log(`Primary multisig does not have ROLE_MANAGER_ROLE yet, granting it now...`);
+    const grantRoleManagerTx = await adminVault.grantRole(ROLE_MANAGER_ROLE, CONFIG.CURRENT.MULTISIG);
+    await grantRoleManagerTx.wait();
+    console.log(`✅ ROLE_MANAGER_ROLE granted to primary multisig (${CONFIG.CURRENT.MULTISIG})`);
+  } else {
+    console.log(`✅ Primary multisig already has ROLE_MANAGER_ROLE`);
+  }
+  
+  // Then revoke from deployer if they have it
+  const deployerHasRoleManager = await adminVault.hasRole(ROLE_MANAGER_ROLE, deployerAddress);
+  if (deployerHasRoleManager) {
     console.log(`Revoking ROLE_MANAGER_ROLE from deployer...`);
     const revokeRoleManagerTx = await adminVault.revokeRole(ROLE_MANAGER_ROLE, deployerAddress);
     await revokeRoleManagerTx.wait();
@@ -2128,19 +2214,36 @@ async function configureAdminVault(deployer: any, contracts: any) {
   }
   
   // =================== STEP 6: Final status check ===================
-  // Verify current state
+  // Verify current state with detailed role checks
   console.log('\n📊 Final AdminVault configuration status:');
-  console.log(`• Primary multisig (${CONFIG.CURRENT.MULTISIG}):`);
-  console.log(`  - Has OWNER_ROLE: ${await adminVault.hasRole(OWNER_ROLE, CONFIG.CURRENT.MULTISIG)}`);
-  console.log(`  - Has ACTION_PROPOSER_ROLE: ${await adminVault.hasRole(allRoles.proposer[2].bytes32, CONFIG.CURRENT.MULTISIG)}`);
   
-  console.log(`• Dev multisig (${DEV_MULTISIG}):`);
-  console.log(`  - Has ACTION_EXECUTOR_ROLE: ${await adminVault.hasRole(allRoles.executor[2].bytes32, DEV_MULTISIG)}`);
-  console.log(`  - Has ACTION_CANCELER_ROLE: ${await adminVault.hasRole(allRoles.canceler[2].bytes32, DEV_MULTISIG)}`);
+  // Define a new all roles array for checking
+  const allRolesForCheck = [...allRoles.main, ...allRoles.proposer, ...allRoles.executor, ...allRoles.canceler, ...allRoles.other];
   
-  console.log(`• Deployer (${deployerAddress}):`);
-  console.log(`  - Has OWNER_ROLE: ${await adminVault.hasRole(OWNER_ROLE, deployerAddress)}`);
-  console.log(`  - Has ROLE_MANAGER_ROLE: ${await adminVault.hasRole(ROLE_MANAGER_ROLE, deployerAddress)}`);
+  // Check primary multisig roles
+  console.log(`\n• Primary multisig (${CONFIG.CURRENT.MULTISIG}) roles:`);
+  console.log(`  - OWNER_ROLE: ${await adminVault.hasRole(OWNER_ROLE, CONFIG.CURRENT.MULTISIG)}`);
+  console.log(`  - ROLE_MANAGER_ROLE: ${await adminVault.hasRole(ROLE_MANAGER_ROLE, CONFIG.CURRENT.MULTISIG)}`);
+  
+  // Check key operational roles - especially transaction roles
+  console.log(`  - ACTION_PROPOSER_ROLE: ${await adminVault.hasRole(allRoles.proposer[2].bytes32, CONFIG.CURRENT.MULTISIG)}`);
+  console.log(`  - TRANSACTION_PROPOSER_ROLE: ${await adminVault.hasRole(allRoles.proposer[3].bytes32, CONFIG.CURRENT.MULTISIG)}`);
+  console.log(`  - ACTION_EXECUTOR_ROLE: ${await adminVault.hasRole(allRoles.executor[2].bytes32, CONFIG.CURRENT.MULTISIG)}`);
+  console.log(`  - TRANSACTION_EXECUTOR_ROLE: ${await adminVault.hasRole(allRoles.executor[3].bytes32, CONFIG.CURRENT.MULTISIG)}`);
+  console.log(`  - ACTION_CANCELER_ROLE: ${await adminVault.hasRole(allRoles.canceler[2].bytes32, CONFIG.CURRENT.MULTISIG)}`);
+  console.log(`  - TRANSACTION_CANCELER_ROLE: ${await adminVault.hasRole(allRoles.canceler[3].bytes32, CONFIG.CURRENT.MULTISIG)}`);
+  
+  // Check dev multisig roles
+  console.log(`\n• Dev multisig (${DEV_MULTISIG}) roles:`);
+  console.log(`  - ACTION_EXECUTOR_ROLE: ${await adminVault.hasRole(allRoles.executor[2].bytes32, DEV_MULTISIG)}`);
+  console.log(`  - TRANSACTION_EXECUTOR_ROLE: ${await adminVault.hasRole(allRoles.executor[3].bytes32, DEV_MULTISIG)}`);
+  console.log(`  - ACTION_CANCELER_ROLE: ${await adminVault.hasRole(allRoles.canceler[2].bytes32, DEV_MULTISIG)}`);
+  console.log(`  - TRANSACTION_CANCELER_ROLE: ${await adminVault.hasRole(allRoles.canceler[3].bytes32, DEV_MULTISIG)}`);
+  
+  // Check deployer roles
+  console.log(`\n• Deployer (${deployerAddress}) roles:`);
+  console.log(`  - OWNER_ROLE: ${await adminVault.hasRole(OWNER_ROLE, deployerAddress)}`);
+  console.log(`  - ROLE_MANAGER_ROLE: ${await adminVault.hasRole(ROLE_MANAGER_ROLE, deployerAddress)}`);
   
   console.log('\n🚨 Ownership transfer almost complete!');
   console.log(`The deployer still has OWNER_ROLE. The primary multisig (${CONFIG.CURRENT.MULTISIG}) should`);
@@ -2158,9 +2261,9 @@ async function configureAdminVault(deployer: any, contracts: any) {
 async function deployTokenRegistry(deployer: any) {
   console.log('\n\n🪙 STEP 5B: Deploying TokenRegistry for Paraswap');
   
+  console.log('📦 About to deploy TokenRegistry...');
   const TokenRegistry = await ethers.getContractFactory('TokenRegistry', deployer);
   
-  console.log('Deploying TokenRegistry with new Logger...');
   const tokenRegistry = await TokenRegistry.deploy(
     CONFIG.NEW.ADMIN_VAULT,
     CONFIG.NEW.LOGGER
@@ -2169,7 +2272,7 @@ async function deployTokenRegistry(deployer: any) {
   await tokenRegistry.waitForDeployment();
   const tokenRegistryAddress = await tokenRegistry.getAddress();
   
-  console.log(`TokenRegistry deployed to: ${tokenRegistryAddress}`);
+  console.log(`✅ TokenRegistry deployed to: ${tokenRegistryAddress}`);
   CONFIG.NEW.TOKEN_REGISTRY = tokenRegistryAddress;
   
   // Verify the contract
@@ -2185,9 +2288,9 @@ async function deployTokenRegistry(deployer: any) {
 async function deploySequenceExecutor(deployer: any) {
   console.log('\n\n🔄 STEP 5C: Deploying SequenceExecutor with new AdminVault');
   
+  console.log('📦 About to deploy SequenceExecutor...');
   const SequenceExecutor = await ethers.getContractFactory('SequenceExecutor', deployer);
   
-  console.log('Deploying SequenceExecutor...');
   const sequenceExecutor = await SequenceExecutor.deploy(
     CONFIG.NEW.ADMIN_VAULT
   );
@@ -2195,7 +2298,7 @@ async function deploySequenceExecutor(deployer: any) {
   await sequenceExecutor.waitForDeployment();
   const sequenceExecutorAddress = await sequenceExecutor.getAddress();
   
-  console.log(`SequenceExecutor deployed to: ${sequenceExecutorAddress}`);
+  console.log(`✅ SequenceExecutor deployed to: ${sequenceExecutorAddress}`);
   CONFIG.NEW.SEQUENCE_EXECUTOR = sequenceExecutorAddress;
   
   // Verify the contract
@@ -2210,9 +2313,9 @@ async function deploySequenceExecutor(deployer: any) {
 async function deployBravaGuard(deployer: any) {
   console.log('\n\n🛡️ STEP 5D: Deploying BravaGuard with new SequenceExecutor');
   
+  console.log('📦 About to deploy BravaGuard...');
   const BravaGuard = await ethers.getContractFactory('BravaGuard', deployer);
   
-  console.log('Deploying BravaGuard...');
   const bravaGuard = await BravaGuard.deploy(
     CONFIG.NEW.SEQUENCE_EXECUTOR
   );
@@ -2220,7 +2323,7 @@ async function deployBravaGuard(deployer: any) {
   await bravaGuard.waitForDeployment();
   const bravaGuardAddress = await bravaGuard.getAddress();
   
-  console.log(`BravaGuard deployed to: ${bravaGuardAddress}`);
+  console.log(`✅ BravaGuard deployed to: ${bravaGuardAddress}`);
   CONFIG.NEW.BRAVA_GUARD = bravaGuardAddress;
   
   // Verify the contract
@@ -2235,9 +2338,9 @@ async function deployBravaGuard(deployer: any) {
 async function deployFeeTakeSafeModule(deployer: any) {
   console.log('\n\n💰 STEP 5E: Deploying FeeTakeSafeModule');
   
+  console.log('📦 About to deploy FeeTakeSafeModule...');
   const FeeTakeSafeModule = await ethers.getContractFactory('FeeTakeSafeModule', deployer);
   
-  console.log('Deploying FeeTakeSafeModule...');
   const feeTakeSafeModule = await FeeTakeSafeModule.deploy(
     CONFIG.NEW.ADMIN_VAULT,
     CONFIG.NEW.SEQUENCE_EXECUTOR
@@ -2246,7 +2349,7 @@ async function deployFeeTakeSafeModule(deployer: any) {
   await feeTakeSafeModule.waitForDeployment();
   const feeTakeSafeModuleAddress = await feeTakeSafeModule.getAddress();
   
-  console.log(`FeeTakeSafeModule deployed to: ${feeTakeSafeModuleAddress}`);
+  console.log(`✅ FeeTakeSafeModule deployed to: ${feeTakeSafeModuleAddress}`);
   CONFIG.NEW.FEE_TAKE_SAFE_MODULE = feeTakeSafeModuleAddress;
   
   // Verify the contract
@@ -2256,6 +2359,468 @@ async function deployFeeTakeSafeModule(deployer: any) {
   ]);
   
   return feeTakeSafeModuleAddress;
+}
+
+// STEP 5F: Deploy ParaswapSwap with TokenRegistry
+async function deployParaswapSwap(deployer: any) {
+  console.log('\n\n💱 STEP 5F: Deploying ParaswapSwap with TokenRegistry');
+  
+  // Check that TokenRegistry is already deployed
+  if (!CONFIG.NEW.TOKEN_REGISTRY) {
+    throw new Error('TokenRegistry must be deployed before ParaswapSwap');
+  }
+  
+  // Augustus Router address from tests
+  const AUGUSTUS_ROUTER = '0x6A000F20005980200259B80c5102003040001068';
+  
+  console.log('📦 About to deploy ParaswapSwap...');
+  const ParaswapSwap = await ethers.getContractFactory('ParaswapSwap', deployer);
+  
+  const paraswapSwap = await ParaswapSwap.deploy(
+    CONFIG.NEW.ADMIN_VAULT,
+    CONFIG.NEW.LOGGER,
+    AUGUSTUS_ROUTER,
+    CONFIG.NEW.TOKEN_REGISTRY
+  );
+  
+  await paraswapSwap.waitForDeployment();
+  const paraswapSwapAddress = await paraswapSwap.getAddress();
+  
+  console.log(`✅ ParaswapSwap deployed to: ${paraswapSwapAddress}`);
+  
+  // Add to utility contracts and config
+  if (!CONFIG.NEW.UTILITY_CONTRACTS) {
+    CONFIG.NEW.UTILITY_CONTRACTS = {};
+  }
+  CONFIG.NEW.UTILITY_CONTRACTS.paraswapswap = paraswapSwapAddress;
+  CONFIG.NEW.PARASWAP_SWAP = paraswapSwapAddress;
+  
+  // Verify the contract
+  await verifyContract('ParaswapSwap', paraswapSwapAddress, [
+    CONFIG.NEW.ADMIN_VAULT,
+    CONFIG.NEW.LOGGER,
+    AUGUSTUS_ROUTER,
+    CONFIG.NEW.TOKEN_REGISTRY
+  ]);
+  
+  return paraswapSwapAddress;
+}
+
+// STEP 5G: Approve BravaGuard upgrade in OLD TransactionRegistry
+async function approveOldUpgradeTransactions(deployer: any) {
+  console.log('\n\n🔄 STEP 5G-OLD: Adding BravaGuard upgrade to OLD TransactionRegistry');
+  
+  // Check that BravaGuard is deployed
+  if (!CONFIG.NEW.BRAVA_GUARD) {
+    throw new Error('BravaGuard must be deployed before approving upgrades');
+  }
+  
+  if (!CONFIG.CURRENT.TRANSACTION_REGISTRY) {
+    throw new Error('OLD TransactionRegistry address is required for approving BravaGuard upgrade');
+  }
+  
+  console.log(`Using OLD TransactionRegistry at ${CONFIG.CURRENT.TRANSACTION_REGISTRY}`);
+  
+  // Load contract ABI for interfaces we need
+  const SAFE_SETUP_ABI = [
+    'function setGuard(address guard) external'
+  ];
+  
+  // Generate transaction data for upgrade to new BravaGuard
+  console.log(`\n🛡️ Generating upgrade data for BravaGuard: ${CONFIG.NEW.BRAVA_GUARD}`);
+  const safeSetupInterface = new ethers.Interface(SAFE_SETUP_ABI);
+  const guardUpdateData = safeSetupInterface.encodeFunctionData('setGuard', [CONFIG.NEW.BRAVA_GUARD]);
+  const guardUpdateTxHash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [guardUpdateData]));
+  
+  console.log(`Transaction data: ${guardUpdateData}`);
+  console.log(`Transaction hash: ${guardUpdateTxHash}`);
+  console.log(`Data from script:`, guardUpdateData);
+  console.log(`TxHash from script:`, guardUpdateTxHash);
+  
+  // For testnet, impersonate the multisig to approve transactions
+  // For production, skip this step as real multisig will handle it
+  if (!CONFIG.NETWORK.IS_TESTNET) {
+    console.log('\n⏩ Production deployment detected. Skipping BravaGuard upgrade approval.');
+    console.log('The multisig will need to manually approve this transaction in OLD TransactionRegistry:');
+    console.log(`1. BravaGuard Update: ${guardUpdateTxHash}`);
+    console.log(`   Data: ${guardUpdateData}`);
+    
+    return {
+      guardUpdateApproved: false,
+      guardUpdateData,
+      guardUpdateTxHash
+    };
+  }
+  
+  // Testnet: Impersonate multisig to approve transactions
+  console.log(`\n🔄 Testnet detected. Impersonating multisig ${CONFIG.CURRENT.MULTISIG} to approve BravaGuard upgrade...`);
+  
+  try {
+    // Setup impersonation
+    await ethers.provider.send('hardhat_impersonateAccount', [CONFIG.CURRENT.MULTISIG]);
+    const multisigSigner = await ethers.getSigner(CONFIG.CURRENT.MULTISIG);
+    
+    // Fund the impersonated signer if needed
+    const balance = await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG);
+    if (balance < ethers.parseEther('0.1')) {
+      console.log('Funding multisig account with ETH...');
+      await deployer.sendTransaction({
+        to: CONFIG.CURRENT.MULTISIG,
+        value: ethers.parseEther('1.0')
+      });
+      console.log(`Funded multisig with 1 ETH`);
+    }
+    
+    console.log(`✅ Successfully impersonating multisig with balance: ${ethers.formatEther(await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG))} ETH`);
+    
+    // Connect to OLD TransactionRegistry with multisig signer
+    const transactionRegistry = await ethers.getContractAt('TransactionRegistry', CONFIG.CURRENT.TRANSACTION_REGISTRY, multisigSigner);
+    
+    // Check if the transaction is already approved
+    const isGuardUpdateApproved = await transactionRegistry.isApprovedTransaction(guardUpdateTxHash);
+  
+    if (isGuardUpdateApproved) {
+      console.log(`\n✅ BravaGuard upgrade already approved, nothing to do`);
+      return { 
+        guardUpdateApproved: true,
+        guardUpdateData,
+        guardUpdateTxHash
+      };
+    }
+    
+    console.log(`\n🔄 Proposing and approving BravaGuard upgrade...`);
+    
+    try {
+      // Try to execute both propose and approve in a single multicall
+      const multicallData = [
+        transactionRegistry.interface.encodeFunctionData('proposeTransaction', [guardUpdateTxHash]),
+        transactionRegistry.interface.encodeFunctionData('approveTransaction', [guardUpdateTxHash])
+      ];
+      
+      console.log(`Executing multicall with ${multicallData.length} operations...`);
+      const tx = await transactionRegistry.multicall(multicallData);
+      console.log(`Transaction sent: ${tx.hash}`);
+      const receipt = await tx.wait();
+      console.log(`✅ Multicall executed successfully: ${tx.hash}`);
+      console.log(`Gas used: ${receipt?.gasUsed || 'unknown'}`);
+    } catch (error) {
+      console.error(`❌ Multicall failed: ${error}`);
+      
+      // Try individual transactions if multicall fails
+      console.log(`\nAttempting individual transactions...`);
+      
+      try {
+        console.log(`Proposing BravaGuard update transaction...`);
+        console.log(`Hash to propose: ${guardUpdateTxHash}`);
+        const proposeTx = await transactionRegistry.proposeTransaction(guardUpdateTxHash);
+        await proposeTx.wait();
+        console.log(`✅ BravaGuard update transaction proposed`);
+        
+        console.log(`Approving BravaGuard update transaction...`);
+        console.log(`Hash to approve: ${guardUpdateTxHash}`);
+        console.log(`Current timestamp: ${Math.floor(Date.now() / 1000)}`);
+        
+        // Check if there's an active proposal
+        const proposal = await transactionRegistry.transactionProposals(guardUpdateTxHash);
+        console.log(`Proposal timestamp: ${proposal}`);
+        
+        const approveTx = await transactionRegistry.approveTransaction(guardUpdateTxHash);
+        await approveTx.wait();
+        console.log(`✅ BravaGuard update transaction approved`);
+      } catch (error) {
+        console.error(`❌ Failed to process BravaGuard update: ${error}`);
+      }
+    }
+    
+    // Verify final state
+    const finalGuardUpdateApproved = await transactionRegistry.isApprovedTransaction(guardUpdateTxHash);
+    
+    console.log(`\n📊 OLD TRANSACTION REGISTRY APPROVAL STATUS:`);
+    console.log(`• BravaGuard Update: ${finalGuardUpdateApproved ? '✅ APPROVED' : '❌ NOT APPROVED'}`);
+    
+    if (finalGuardUpdateApproved) {
+      console.log(`\n✅ BravaGuard upgrade approved in OLD TransactionRegistry`);
+      console.log(`This transaction can now be executed through the OLD UpgradeAction contract`);
+    }
+    
+    return {
+      guardUpdateApproved: finalGuardUpdateApproved,
+      guardUpdateData,
+      guardUpdateTxHash
+    };
+  
+  } catch (error) {
+    console.error(`❌ Error during multisig impersonation for BravaGuard approval: ${error}`);
+    
+    // Try to stop impersonation in case it was started
+    try {
+      await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+    
+    // Return with failed status
+    return {
+      guardUpdateApproved: false,
+      guardUpdateData,
+      guardUpdateTxHash
+    };
+  } finally {
+    // Ensure impersonation is stopped
+    try {
+      await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
+      console.log(`\n🧹 Stopped impersonating multisig account`);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+  }
+}
+
+// STEP 5H: Approve FeeTakeSafeModule transactions in NEW TransactionRegistry
+async function approveNewUpgradeTransactions(deployer: any) {
+  console.log('\n\n🔄 STEP 5H-NEW: Adding FeeTakeSafeModule transactions to NEW TransactionRegistry');
+  
+  // Check that FeeTakeSafeModule is deployed
+  if (!CONFIG.NEW.FEE_TAKE_SAFE_MODULE) {
+    throw new Error('FeeTakeSafeModule must be deployed before approving upgrades');
+  }
+  
+  if (!CONFIG.NEW.TRANSACTION_REGISTRY) {
+    throw new Error('NEW TransactionRegistry address is required for approving FeeTakeSafeModule transactions');
+  }
+  
+  console.log(`Using NEW TransactionRegistry at ${CONFIG.NEW.TRANSACTION_REGISTRY}`);
+  
+  // Load contract ABI for interfaces we need
+  const SAFE_SETUP_ABI = [
+    'function enableModule(address module) external',
+    'function disableModule(address prevModule, address module) external'
+  ];
+  
+  const safeSetupInterface = new ethers.Interface(SAFE_SETUP_ABI);
+  
+  // 1. Generate transaction data for enabling new FeeTakeSafeModule
+  console.log(`\n💰 Generating upgrade data for enabling FeeTakeSafeModule: ${CONFIG.NEW.FEE_TAKE_SAFE_MODULE}`);
+  const moduleEnableData = safeSetupInterface.encodeFunctionData('enableModule', [CONFIG.NEW.FEE_TAKE_SAFE_MODULE]);
+  const moduleEnableTxHash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [moduleEnableData]));
+  
+  console.log(`Transaction data: ${moduleEnableData}`);
+  console.log(`Transaction hash: ${moduleEnableTxHash}`);
+  console.log(`Data from script:`, moduleEnableData);
+  console.log(`TxHash from script:`, moduleEnableTxHash);
+  
+  // 2. Generate transaction data for disabling old FeeTakeSafeModule
+  const OLD_FEE_TAKE_SAFE_MODULE = process.env.CURRENT_FEE_TAKE_SAFE_MODULE || '0x2a4524eB1e4D0844032A8490E415aCaaa2c598cC';
+  console.log(`\n🗑️ Generating upgrade data for disabling old FeeTakeSafeModule: ${OLD_FEE_TAKE_SAFE_MODULE}`);
+  
+  // Always use the new module as the previous module
+  const prevModuleAddress = CONFIG.NEW.FEE_TAKE_SAFE_MODULE;
+  const moduleDisableData = safeSetupInterface.encodeFunctionData('disableModule', [prevModuleAddress, OLD_FEE_TAKE_SAFE_MODULE]);
+  const moduleDisableTxHash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [moduleDisableData]));
+  
+  console.log(`Previous module address: ${prevModuleAddress}`);
+  console.log(`Module to disable address: ${OLD_FEE_TAKE_SAFE_MODULE}`);
+  console.log(`Transaction data: ${moduleDisableData}`);
+  console.log(`Transaction hash: ${moduleDisableTxHash}`);
+  console.log(`Data from script:`, moduleDisableData);
+  console.log(`TxHash from script:`, moduleDisableTxHash);
+  
+  // For testnet, impersonate the multisig to approve transactions
+  // For production, skip this step as real multisig will handle it
+  if (!CONFIG.NETWORK.IS_TESTNET) {
+    console.log('\n⏩ Production deployment detected. Skipping FeeTakeSafeModule transaction approvals.');
+    console.log('The multisig will need to manually approve these transactions in NEW TransactionRegistry:');
+    console.log(`1. FeeTakeSafeModule Enable: ${moduleEnableTxHash}`);
+    console.log(`   Data: ${moduleEnableData}`);
+    console.log(`2. FeeTakeSafeModule Disable: ${moduleDisableTxHash}`);
+    console.log(`   Data: ${moduleDisableData}`);
+    
+    return {
+      moduleEnableApproved: false,
+      moduleDisableApproved: false,
+      moduleEnableData,
+      moduleDisableData,
+      moduleEnableTxHash,
+      moduleDisableTxHash
+    };
+  }
+  
+  // Testnet: Impersonate multisig to approve transactions
+  console.log(`\n🔄 Testnet detected. Impersonating multisig ${CONFIG.CURRENT.MULTISIG} to approve FeeTakeSafeModule transactions...`);
+  
+  try {
+    // Setup impersonation
+    await ethers.provider.send('hardhat_impersonateAccount', [CONFIG.CURRENT.MULTISIG]);
+    const multisigSigner = await ethers.getSigner(CONFIG.CURRENT.MULTISIG);
+    
+    // Fund the impersonated signer if needed
+    const balance = await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG);
+    if (balance < ethers.parseEther('0.1')) {
+      console.log('Funding multisig account with ETH...');
+      await deployer.sendTransaction({
+        to: CONFIG.CURRENT.MULTISIG,
+        value: ethers.parseEther('1.0')
+      });
+      console.log(`Funded multisig with 1 ETH`);
+    }
+    
+    console.log(`✅ Successfully impersonating multisig with balance: ${ethers.formatEther(await ethers.provider.getBalance(CONFIG.CURRENT.MULTISIG))} ETH`);
+    
+    // Connect to NEW TransactionRegistry with multisig signer
+    const transactionRegistry = await ethers.getContractAt('TransactionRegistry', CONFIG.NEW.TRANSACTION_REGISTRY, multisigSigner);
+    
+    // Check if the transactions are already approved
+    const isModuleEnableApproved = await transactionRegistry.isApprovedTransaction(moduleEnableTxHash);
+    const isModuleDisableApproved = await transactionRegistry.isApprovedTransaction(moduleDisableTxHash);
+  
+    if (isModuleEnableApproved && isModuleDisableApproved) {
+      console.log(`\n✅ All FeeTakeSafeModule transactions already approved, nothing to do`);
+      return { 
+        moduleEnableApproved: true,
+        moduleDisableApproved: true,
+        moduleEnableData,
+        moduleDisableData,
+        moduleEnableTxHash,
+        moduleDisableTxHash
+      };
+    }
+    
+    console.log(`\n🔄 Proposing and approving FeeTakeSafeModule transactions...`);
+    
+    // Prepare multicall data for all needed transactions
+    const multicallData = [];
+    
+    if (!isModuleEnableApproved) {
+      console.log(`Adding FeeTakeSafeModule enable to multicall...`);
+      multicallData.push(
+        transactionRegistry.interface.encodeFunctionData('proposeTransaction', [moduleEnableTxHash]),
+        transactionRegistry.interface.encodeFunctionData('approveTransaction', [moduleEnableTxHash])
+      );
+    }
+    
+    if (!isModuleDisableApproved) {
+      console.log(`Adding FeeTakeSafeModule disable to multicall...`);
+      multicallData.push(
+        transactionRegistry.interface.encodeFunctionData('proposeTransaction', [moduleDisableTxHash]),
+        transactionRegistry.interface.encodeFunctionData('approveTransaction', [moduleDisableTxHash])
+      );
+    }
+    
+    if (multicallData.length > 0) {
+      try {
+        // Execute the multicall
+        console.log(`Executing multicall with ${multicallData.length} operations...`);
+        const tx = await transactionRegistry.multicall(multicallData);
+        console.log(`Transaction sent: ${tx.hash}`);
+        const receipt = await tx.wait();
+        console.log(`✅ Multicall executed successfully: ${tx.hash}`);
+        console.log(`Gas used: ${receipt?.gasUsed || 'unknown'}`);
+      } catch (error) {
+        console.error(`❌ Multicall failed: ${error}`);
+        
+        // Try individual transactions if multicall fails
+        console.log(`\nAttempting individual transactions...`);
+        
+        if (!isModuleEnableApproved) {
+          try {
+            console.log(`Proposing FeeTakeSafeModule enable transaction...`);
+            console.log(`Hash to propose: ${moduleEnableTxHash}`);
+            const proposeTx = await transactionRegistry.proposeTransaction(moduleEnableTxHash);
+            await proposeTx.wait();
+            console.log(`✅ FeeTakeSafeModule enable transaction proposed`);
+            
+            console.log(`Approving FeeTakeSafeModule enable transaction...`);
+            console.log(`Hash to approve: ${moduleEnableTxHash}`);
+            console.log(`Current timestamp: ${Math.floor(Date.now() / 1000)}`);
+            
+            // Check if there's an active proposal
+            const moduleProposal = await transactionRegistry.transactionProposals(moduleEnableTxHash);
+            console.log(`Proposal timestamp: ${moduleProposal}`);
+            
+            const approveTx = await transactionRegistry.approveTransaction(moduleEnableTxHash);
+            await approveTx.wait();
+            console.log(`✅ FeeTakeSafeModule enable transaction approved`);
+          } catch (error) {
+            console.error(`❌ Failed to process FeeTakeSafeModule enable: ${error}`);
+          }
+        }
+        
+        if (!isModuleDisableApproved) {
+          try {
+            console.log(`Proposing FeeTakeSafeModule disable transaction...`);
+            console.log(`Hash to propose: ${moduleDisableTxHash}`);
+            const proposeTx = await transactionRegistry.proposeTransaction(moduleDisableTxHash);
+            await proposeTx.wait();
+            console.log(`✅ FeeTakeSafeModule disable transaction proposed`);
+            
+            console.log(`Approving FeeTakeSafeModule disable transaction...`);
+            console.log(`Hash to approve: ${moduleDisableTxHash}`);
+            console.log(`Current timestamp: ${Math.floor(Date.now() / 1000)}`);
+            
+            // Check if there's an active proposal
+            const moduleProposal = await transactionRegistry.transactionProposals(moduleDisableTxHash);
+            console.log(`Proposal timestamp: ${moduleProposal}`);
+            
+            const approveTx = await transactionRegistry.approveTransaction(moduleDisableTxHash);
+            await approveTx.wait();
+            console.log(`✅ FeeTakeSafeModule disable transaction approved`);
+          } catch (error) {
+            console.error(`❌ Failed to process FeeTakeSafeModule disable: ${error}`);
+          }
+        }
+      }
+    }
+    
+    // Verify final state
+    const finalModuleEnableApproved = await transactionRegistry.isApprovedTransaction(moduleEnableTxHash);
+    const finalModuleDisableApproved = await transactionRegistry.isApprovedTransaction(moduleDisableTxHash);
+    
+    console.log(`\n📊 NEW TRANSACTION REGISTRY APPROVAL STATUS:`);
+    console.log(`• FeeTakeSafeModule Enable: ${finalModuleEnableApproved ? '✅ APPROVED' : '❌ NOT APPROVED'}`);
+    console.log(`• FeeTakeSafeModule Disable: ${finalModuleDisableApproved ? '✅ APPROVED' : '❌ NOT APPROVED'}`);
+    
+    if (finalModuleEnableApproved && finalModuleDisableApproved) {
+      console.log(`\n✅ All FeeTakeSafeModule transactions approved in NEW TransactionRegistry`);
+      console.log(`These transactions can now be executed through the NEW UpgradeAction contract`);
+    }
+    
+    return {
+      moduleEnableApproved: finalModuleEnableApproved,
+      moduleDisableApproved: finalModuleDisableApproved,
+      moduleEnableData,
+      moduleDisableData,
+      moduleEnableTxHash,
+      moduleDisableTxHash
+    };
+  
+  } catch (error) {
+    console.error(`❌ Error during multisig impersonation for FeeTakeSafeModule approvals: ${error}`);
+    
+    // Try to stop impersonation in case it was started
+    try {
+      await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+    
+    // Return with failed status
+    return {
+      moduleEnableApproved: false,
+      moduleDisableApproved: false,
+      moduleEnableData,
+      moduleDisableData,
+      moduleEnableTxHash,
+      moduleDisableTxHash
+    };
+  } finally {
+    // Ensure impersonation is stopped
+    try {
+      await ethers.provider.send('hardhat_stopImpersonatingAccount', [CONFIG.CURRENT.MULTISIG]);
+      console.log(`\n🧹 Stopped impersonating multisig account`);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+  }
 }
 
 // Main deployment function
@@ -2290,43 +2855,42 @@ async function main() {
   };
   
   try {
+    console.log('🚀 Starting logger upgrade deployment...\n');
+    
     // Save initial state
     await saveDeploymentOutput(output, true);
     
-    // NEW STEP 0: Ensure prerequisites
+    // STEP 0: Prerequisites
+    process.stdout.write('📋 Setting up prerequisites');
     await ensurePrerequisites(deployer);
+    output.current = { ...CONFIG.CURRENT };
     await saveProgressStep('prerequisites_ensured', { 
       adminVault: CONFIG.CURRENT.ADMIN_VAULT,
       logger: CONFIG.CURRENT.LOGGER,
       transactionRegistry: CONFIG.CURRENT.TRANSACTION_REGISTRY
     });
-    
-    // Update the output with the actual addresses
-    output.current = { ...CONFIG.CURRENT };
     await saveDeploymentOutput(output, true);
+    console.log(' ✅');
     
-    // STEP 1: Deploy UpgradeAction (using the new Logger)
-    const upgradeActionAddress = await deployUpgradeAction(deployer);
-    output.new.upgradeAction = upgradeActionAddress;
-    await saveProgressStep('upgrade_action_deployed', { address: upgradeActionAddress });
+    // STEP 1: Core Infrastructure
+    process.stdout.write('🏗️  Deploying core infrastructure');
     
-    // STEP 2: Add UpgradeAction to AdminVault
-    if (CONFIG.NETWORK.IS_TESTNET) {
-      await addUpgradeActionToAdminVault(deployer);
-      await saveProgressStep('upgrade_action_added_to_admin_vault', { address: upgradeActionAddress });
-    }
-    
-    // STEP 3: Deploy Logger V2
+    // Deploy Logger first (needed for both old and new UpgradeActions)
     const loggerInfo = await deployLoggerV2(deployer);
+    process.stdout.write('.');
     output.new.logger = loggerInfo;
     await saveProgressStep('logger_v2_deployed', loggerInfo);
     
-    // STEP 4: Deploy new AdminVault
+    // Deploy new AdminVault
     const adminVaultAddress = await deployNewAdminVault(deployer);
+    process.stdout.write('.');
     output.new.adminVault = adminVaultAddress;
     await saveProgressStep('admin_vault_deployed', { address: adminVaultAddress });
     
-    // STEP 5-6: Deploy all action contracts (utility and protocol)
+    console.log(' ✅');
+    
+    // STEP 2: Action Contracts
+    process.stdout.write('⚙️  Deploying action contracts');
     const actionContracts = await deployActionContracts(deployer);
     output.contracts.utility = actionContracts.utility;
     output.contracts.protocol = actionContracts.protocol;
@@ -2336,53 +2900,99 @@ async function main() {
       utilityCount: Object.keys(actionContracts.utility).length,
       protocolCount: Object.keys(actionContracts.protocol).length
     });
+    console.log(' ✅');
     
-    // STEP 5B: Deploy TokenRegistry for Paraswap
+    // STEP 3: Safe Integration
+    process.stdout.write('🔒 Deploying Safe integration');
     const tokenRegistryAddress = await deployTokenRegistry(deployer);
+    process.stdout.write('.');
     output.new.tokenRegistry = tokenRegistryAddress;
     await saveProgressStep('token_registry_deployed', { address: tokenRegistryAddress });
     
-    // STEP 5C: Deploy SequenceExecutor
     const sequenceExecutorAddress = await deploySequenceExecutor(deployer);
+    process.stdout.write('.');
     output.new.sequenceExecutor = sequenceExecutorAddress;
     await saveProgressStep('sequence_executor_deployed', { address: sequenceExecutorAddress });
     
-    // STEP 5D: Deploy BravaGuard
     const bravaGuardAddress = await deployBravaGuard(deployer);
+    process.stdout.write('.');
     output.new.bravaGuard = bravaGuardAddress;
     await saveProgressStep('brava_guard_deployed', { address: bravaGuardAddress });
     
-    // STEP 5E: Deploy FeeTakeSafeModule
     const feeTakeSafeModuleAddress = await deployFeeTakeSafeModule(deployer);
+    process.stdout.write('.');
     output.new.feeTakeSafeModule = feeTakeSafeModuleAddress;
     await saveProgressStep('fee_take_safe_module_deployed', { address: feeTakeSafeModuleAddress });
     
-    // MASTER STEP: Configure AdminVault (replaces steps 7, 7B, and 8)
+    const paraswapSwapAddress = await deployParaswapSwap(deployer);
+    process.stdout.write('.');
+    output.new.paraswapSwap = paraswapSwapAddress;
+    await saveProgressStep('paraswap_swap_deployed', { address: paraswapSwapAddress });
+    console.log(' ✅');
+    
+    // STEP 4: Upgrade Approvals (Testnet only)
     if (CONFIG.NETWORK.IS_TESTNET) {
+      process.stdout.write('🔄 Approving upgrade transactions');
+      
+      // Approve BravaGuard upgrade in OLD TransactionRegistry
+      const oldUpgradeApprovalsResult = await approveOldUpgradeTransactions(deployer);
+      process.stdout.write('.');
+      
+      // Approve FeeTakeSafeModule transactions in NEW TransactionRegistry
+      const newUpgradeApprovalsResult = await approveNewUpgradeTransactions(deployer);
+      process.stdout.write('.');
+      
+      output.new.upgradeTransactions = {
+        bravaGuard: {
+          txHash: oldUpgradeApprovalsResult.guardUpdateTxHash,
+          data: oldUpgradeApprovalsResult.guardUpdateData,
+          approved: oldUpgradeApprovalsResult.guardUpdateApproved
+        },
+        feeTakeSafeModuleEnable: {
+          txHash: newUpgradeApprovalsResult.moduleEnableTxHash,
+          data: newUpgradeApprovalsResult.moduleEnableData,
+          approved: newUpgradeApprovalsResult.moduleEnableApproved
+        },
+        feeTakeSafeModuleDisable: {
+          txHash: newUpgradeApprovalsResult.moduleDisableTxHash,
+          data: newUpgradeApprovalsResult.moduleDisableData,
+          approved: newUpgradeApprovalsResult.moduleDisableApproved
+        }
+      };
+      await saveProgressStep('upgrade_transactions_approved', {
+        oldRegistry: oldUpgradeApprovalsResult,
+        newRegistry: newUpgradeApprovalsResult
+      });
+      console.log(' ✅');
+    }
+    
+    // STEP 5: AdminVault Configuration (Testnet only)
+    if (CONFIG.NETWORK.IS_TESTNET) {
+      process.stdout.write('🔧 Configuring AdminVault');
       const configResult = await configureAdminVault(deployer, { 
         ...actionContracts.utility,
-        ...actionContracts.protocol
+        ...actionContracts.protocol,
+        upgradeaction: CONFIG.NEW.UPGRADE_ACTION, // Include the NEW UpgradeAction
+        paraswapswap: CONFIG.NEW.PARASWAP_SWAP
       });
-      
       await saveProgressStep('admin_vault_configured', {
         contractsAdded: configResult.contractsAdded,
         poolsAdded: configResult.poolsAdded,
         totalOperations: configResult.totalMulticallOperations
       });
-    }
-    
-    // STEP 9: Transfer ProxyAdmin ownership (for production)
-    if (CONFIG.NETWORK.IS_TESTNET) {
+      console.log(' ✅');
+      
+      process.stdout.write('👑 Transferring ownership');
       await transferProxyAdminOwnership(deployer);
       await saveProgressStep('proxy_admin_ownership_transferred', {
         from: deployerAddress,
         to: CONFIG.CURRENT.MULTISIG
       });
+      console.log(' ✅');
     }
     
-    // STEP 10: Verify any remaining queued contracts
+    // STEP 6: Contract Verification
     if ((CONFIG.VERIFICATION.ETHERSCAN_ENABLED || CONFIG.VERIFICATION.TENDERLY_ENABLED) && CONFIG.VERIFICATION.CONTRACTS_TO_VERIFY.length > 0) {
-      console.log('\n\n🔍 STEP 10: Verifying remaining queued contracts...');
       await verifyQueuedContracts();
       await saveProgressStep('remaining_contracts_verified', {
         count: CONFIG.VERIFICATION.CONTRACTS_TO_VERIFY.length
@@ -2391,50 +3001,128 @@ async function main() {
     
     // Save the final output
     const outputFile = await saveDeploymentOutput(output);
-    console.log(`\n✅ Deployment complete! Final output saved to: ${outputFile}`);
     
-    // Print summary
-    console.log('\n==== 📊 DEPLOYMENT SUMMARY ====');
+    // Print comprehensive summary
+    console.log('\n\n' + '='.repeat(80));
+    console.log('🎉 DEPLOYMENT COMPLETE - CONTRACT ADDRESSES');
+    console.log('='.repeat(80));
     console.log(`Network: ${output.network.name} (chainId: ${output.network.chainId})`);
     console.log(`Deployer: ${output.deployer}`);
-    console.log(`\n🔑 Core Contract Addresses:`);
-    console.log(`• UpgradeAction: ${output.new.upgradeAction}`);
-    console.log(`• Logger V2 Proxy: ${output.new.logger.proxy}`);
-    console.log(`• Logger Implementation: ${output.new.logger.implementation}`);
-    console.log(`• Logger Admin: ${output.new.logger.admin}`);
-    console.log(`• AdminVault: ${output.new.adminVault}`);
-    console.log(`• Transaction Registry: ${CONFIG.NEW.TRANSACTION_REGISTRY}`);
+    console.log('');
     
-    console.log(`\n🔄 Safe Integration Components:`);
-    console.log(`• TokenRegistry: ${CONFIG.NEW.TOKEN_REGISTRY}`);
-    console.log(`• SequenceExecutor: ${CONFIG.NEW.SEQUENCE_EXECUTOR}`);
-    console.log(`• BravaGuard: ${CONFIG.NEW.BRAVA_GUARD}`);
-    console.log(`• FeeTakeSafeModule: ${CONFIG.NEW.FEE_TAKE_SAFE_MODULE}`);
+    // Core Infrastructure
+    console.log('📊 CORE INFRASTRUCTURE:');
     
-    console.log(`\n📦 Contract Deployments:`);
-    console.log(`• Utility contracts: ${Object.keys(actionContracts.utility).length}`);
-    console.log(`• Protocol contracts: ${Object.keys(actionContracts.protocol).length}`);
-    console.log(`• Total contracts: ${Object.keys(actionContracts.utility).length + Object.keys(actionContracts.protocol).length + 7}`); // +7 for Logger, AdminVault, TransactionRegistry, TokenRegistry, SequenceExecutor, BravaGuard, FeeTakeSafeModule
+    // OLD DEPLOYMENT (for upgrade path compatibility)
+    console.log('OLD DEPLOYMENT (upgrade compatibility):');
+    if (CONFIG.CURRENT.UPGRADE_ACTION) {
+      console.log(`  UpgradeAction (Old)     = "${CONFIG.CURRENT.UPGRADE_ACTION}"`);
+    }
+    console.log(`  TransactionRegistry (Old) = "${CONFIG.CURRENT.TRANSACTION_REGISTRY}"`);
+    console.log(`  AdminVault (Old)        = "${CONFIG.CURRENT.ADMIN_VAULT}"`);
+    console.log('');
     
-    console.log(`\n🔐 Ownership Status:`);
-    if (CONFIG.NETWORK.IS_TESTNET) {
-      console.log(`• AdminVault: Roles granted to multisig (${CONFIG.CURRENT.MULTISIG})`);
-      console.log(`  ⚠️ Final OWNER_ROLE transfer must be completed by multisig`);
-      console.log(`• ProxyAdmin: Transferred to multisig (${CONFIG.CURRENT.MULTISIG})`);
-    } else {
-      console.log(`• AdminVault: Ownership transfer pending (instructions provided)`);
-      console.log(`• ProxyAdmin: Ownership transfer pending (instructions provided)`);
+    // NEW DEPLOYMENT
+    console.log('NEW DEPLOYMENT:');
+    console.log(`  UpgradeAction (New)     = "${CONFIG.NEW.UPGRADE_ACTION}"`);
+    console.log(`  Logger_Proxy            = "${output.new.logger.proxy}"`);
+    console.log(`  Logger_Implementation   = "${output.new.logger.implementation}"`);
+    console.log(`  Logger_Admin            = "${output.new.logger.admin}"`);
+    console.log(`  AdminVault (New)        = "${output.new.adminVault}"`);
+    console.log(`  TransactionRegistry (New) = "${CONFIG.NEW.TRANSACTION_REGISTRY}"`);
+    console.log('');
+    
+    // Safe Integration
+    console.log('🔒 SAFE INTEGRATION:');
+    console.log(`TokenRegistry            = "${CONFIG.NEW.TOKEN_REGISTRY}"`);
+    console.log(`SequenceExecutor         = "${CONFIG.NEW.SEQUENCE_EXECUTOR}"`);
+    console.log(`BravaGuard               = "${CONFIG.NEW.BRAVA_GUARD}"`);
+    console.log(`FeeTakeSafeModule        = "${CONFIG.NEW.FEE_TAKE_SAFE_MODULE}"`);
+    console.log(`ParaswapSwap             = "${CONFIG.NEW.PARASWAP_SWAP}"`);
+    console.log('');
+    
+    // Utility Contracts
+    console.log('🔧 UTILITY CONTRACTS:');
+    Object.entries(actionContracts.utility).sort().forEach(([name, address]) => {
+      const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+      console.log(`${displayName.padEnd(25)} = "${address}"`);
+    });
+    console.log('');
+    
+    // Protocol Contracts
+    console.log('🏛️ PROTOCOL CONTRACTS:');
+    Object.entries(actionContracts.protocol).sort().forEach(([name, address]) => {
+      const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+      console.log(`${displayName.padEnd(25)} = "${address}"`);
+    });
+    console.log('');
+    
+    // Upgrade Transactions (if any)
+    if (output.new.upgradeTransactions) {
+      console.log('🔄 UPGRADE TRANSACTIONS:');
+      console.log(`BravaGuard_TxHash        = "${output.new.upgradeTransactions.bravaGuard.txHash}"`);
+      console.log(`BravaGuard_TxData        = "${output.new.upgradeTransactions.bravaGuard.data}"`);
+      console.log(`ModuleEnable_TxHash      = "${output.new.upgradeTransactions.feeTakeSafeModuleEnable.txHash}"`);
+      console.log(`ModuleEnable_TxData      = "${output.new.upgradeTransactions.feeTakeSafeModuleEnable.data}"`);
+      console.log(`ModuleDisable_TxHash     = "${output.new.upgradeTransactions.feeTakeSafeModuleDisable.txHash}"`);
+      console.log(`ModuleDisable_TxData     = "${output.new.upgradeTransactions.feeTakeSafeModuleDisable.data}"`);
+      console.log('');
+      
+      const allApproved = 
+        output.new.upgradeTransactions.bravaGuard.approved && 
+        output.new.upgradeTransactions.feeTakeSafeModuleEnable.approved && 
+        output.new.upgradeTransactions.feeTakeSafeModuleDisable.approved;
+      
+      console.log(`Upgrade Status: ${allApproved ? '✅ ALL APPROVED' : '⚠️ SOME PENDING'}`);
+      console.log('');
     }
     
-    console.log(`\n🚀 Next Steps:`);
-    if (CONFIG.NETWORK.IS_TESTNET) {
-      console.log(`1. Verify that all contracts are functioning correctly using the test environment.`);
-      console.log(`2. Have the multisig complete the ownership transfer by revoking OWNER_ROLE from deployer.`);
-    } else {
-      console.log(`1. Complete the AdminVault ownership transfer by following the instructions above.`);
-      console.log(`2. Complete the ProxyAdmin ownership transfer by following the instructions above.`);
+    // Summary Stats
+    const totalContracts = Object.keys(actionContracts.utility).length + Object.keys(actionContracts.protocol).length + 7;
+    console.log('📈 DEPLOYMENT STATS:');
+    console.log(`Total Contracts          = ${totalContracts}`);
+    console.log(`Utility Contracts        = ${Object.keys(actionContracts.utility).length}`);
+    console.log(`Protocol Contracts       = ${Object.keys(actionContracts.protocol).length}`);
+    console.log(`Infrastructure           = 7`);
+    console.log('');
+    
+    // Copy-paste friendly format
+    console.log('📋 COPY-PASTE FORMAT:');
+    console.log('```javascript');
+    console.log('const DEPLOYED_ADDRESSES = {');
+    console.log('  // Old Deployment (upgrade compatibility)');
+    if (CONFIG.CURRENT.UPGRADE_ACTION) {
+      console.log(`  OLD_UPGRADE_ACTION: "${CONFIG.CURRENT.UPGRADE_ACTION}",`);
     }
-    console.log(`3. Verify all contracts via Etherscan and Tenderly interfaces if automatic verification failed.`);
+    console.log(`  OLD_TRANSACTION_REGISTRY: "${CONFIG.CURRENT.TRANSACTION_REGISTRY}",`);
+    console.log(`  OLD_ADMIN_VAULT: "${CONFIG.CURRENT.ADMIN_VAULT}",`);
+    console.log('  // New Deployment - Core Infrastructure');
+    console.log(`  NEW_UPGRADE_ACTION: "${CONFIG.NEW.UPGRADE_ACTION}",`);
+    console.log(`  LOGGER_PROXY: "${output.new.logger.proxy}",`);
+    console.log(`  LOGGER_IMPL: "${output.new.logger.implementation}",`);
+    console.log(`  LOGGER_ADMIN: "${output.new.logger.admin}",`);
+    console.log(`  NEW_ADMIN_VAULT: "${output.new.adminVault}",`);
+    console.log(`  NEW_TRANSACTION_REGISTRY: "${CONFIG.NEW.TRANSACTION_REGISTRY}",`);
+    console.log('  // Safe Integration');
+    console.log(`  TOKEN_REGISTRY: "${CONFIG.NEW.TOKEN_REGISTRY}",`);
+    console.log(`  SEQUENCE_EXECUTOR: "${CONFIG.NEW.SEQUENCE_EXECUTOR}",`);
+    console.log(`  BRAVA_GUARD: "${CONFIG.NEW.BRAVA_GUARD}",`);
+    console.log(`  FEE_TAKE_SAFE_MODULE: "${CONFIG.NEW.FEE_TAKE_SAFE_MODULE}",`);
+    console.log(`  PARASWAP_SWAP: "${CONFIG.NEW.PARASWAP_SWAP}",`);
+    console.log('  // Utility Contracts');
+    Object.entries(actionContracts.utility).sort().forEach(([name, address]) => {
+      const constName = name.toUpperCase();
+      console.log(`  ${constName}: "${address}",`);
+    });
+    console.log('  // Protocol Contracts');
+    Object.entries(actionContracts.protocol).sort().forEach(([name, address]) => {
+      const constName = name.toUpperCase();
+      console.log(`  ${constName}: "${address}",`);
+    });
+    console.log('};');
+    console.log('```');
+    console.log('');
+    console.log('='.repeat(80));
     
   } catch (error) {
     console.error('\n❌ Deployment failed:', error);
