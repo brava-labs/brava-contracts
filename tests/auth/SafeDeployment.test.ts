@@ -62,23 +62,13 @@ describe("SafeDeployment", function () {
             await logger.getAddress() // _logger (third parameter)
         );
 
-        // Deploy SafeSetupRegistry as implementation and proxy
+        // Deploy SafeSetupRegistry (it uses constructor, not proxy pattern)
         const SafeSetupRegistryFactory = await ethers.getContractFactory("SafeSetupRegistry");
-        const setupRegistryImpl = await SafeSetupRegistryFactory.deploy();
-        await setupRegistryImpl.waitForDeployment();
-
-        // Deploy proxy for SafeSetupRegistry
-        const setupRegistryProxy = await ERC1967ProxyFactory.deploy(
-            await setupRegistryImpl.getAddress(),
-            setupRegistryImpl.interface.encodeFunctionData("initialize", [
-                await adminVault.getAddress(),
-                await logger.getAddress()
-            ])
+        setupRegistry = await SafeSetupRegistryFactory.deploy(
+            await adminVault.getAddress(),
+            await logger.getAddress()
         );
-        await setupRegistryProxy.waitForDeployment();
-
-        // Get SafeSetupRegistry interface connected to proxy
-        setupRegistry = SafeSetupRegistryFactory.attach(await setupRegistryProxy.getAddress()) as SafeSetupRegistry;
+        await setupRegistry.waitForDeployment();
 
         // Deploy SafeDeployment as implementation and proxy
         const SafeDeploymentFactory = await ethers.getContractFactory("SafeDeployment");
