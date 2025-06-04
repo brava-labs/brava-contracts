@@ -181,20 +181,7 @@ describe('EIP712TypedDataSafeModule Complex Flow Tests', function () {
       };
 
       // 6. Alice signs the bundle using proper EIP-712 signTypedData
-      console.log('=== Debug Signing ===');
-      console.log('Alice address:', alice.address);
-      console.log('Alice signer info:', {
-        address: alice.address,
-        provider: alice.provider ? 'has provider' : 'no provider'
-      });
-
-      // Alice signs using helper function
       const signature = await signBundle(alice, bundle, await eip712Module.getAddress());
-      console.log('Generated signature:', signature);
-
-      // Verify what we should recover locally
-      const sig = ethers.Signature.from(signature);
-      console.log('Signature components v:', sig.v, 'r:', sig.r, 's:', sig.s);
 
       // Test what the contract will actually recover
       const contractDomainSeparator = await eip712Module.getDomainSeparator();
@@ -205,13 +192,6 @@ describe('EIP712TypedDataSafeModule Complex Flow Tests', function () {
         rawBundleHash
       ]));
       const contractRecovered = ethers.recoverAddress(contractDigest, signature);
-      
-      console.log('=== Contract vs Alice Verification ===');
-      console.log('Raw bundle hash:', rawBundleHash);
-      console.log('Contract digest:', contractDigest);
-      console.log('Alice address:', alice.address);
-      console.log('Contract recovered:', contractRecovered);
-      console.log('Addresses match:', alice.address.toLowerCase() === contractRecovered.toLowerCase());
 
       // 7. Check initial balances
       const aliceUSDCBefore = await USDC.balanceOf(alice.address);

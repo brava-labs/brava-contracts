@@ -71,7 +71,7 @@ describe('EIP712TypedDataSafeModule', function () {
         MODULE_VERSION
       );
 
-      console.log('✅ EIP712TypedDataSafeModule deployed at:', await eip712Module.getAddress());
+      // EIP712TypedDataSafeModule deployed successfully
 
       // Enable the module on the Safe
       const enableModulePayload = safe.interface.encodeFunctionData('enableModule', [
@@ -81,7 +81,7 @@ describe('EIP712TypedDataSafeModule', function () {
       expect(await safe.isModuleEnabled(await eip712Module.getAddress())).to.be.true;
 
     } catch (error) {
-      console.log('⚠️ Skipping EIP712TypedDataSafeModule tests due to setup error:', error);
+      // Skipping EIP712TypedDataSafeModule tests due to setup error
       this.skip();
     }
   });

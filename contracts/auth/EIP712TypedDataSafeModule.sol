@@ -8,7 +8,6 @@ import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {IOwnerManager} from "../interfaces/safe/IOwnerManager.sol";
 import {Enum} from "../libraries/Enum.sol";
 import {ActionBase} from "../actions/ActionBase.sol";
-import "hardhat/console.sol";
 
 /// @title EIP712TypedDataSafeModule
 /// @notice Safe module that handles EIP-712 typed data signing for cross-chain bundle execution
@@ -185,13 +184,10 @@ contract EIP712TypedDataSafeModule {
         Bundle calldata _bundle,
         bytes calldata _signature
     ) external payable {
-        console.log("EIP712TypedDataSafeModule: executeBundle called for Safe:", _safeAddr);
-        
         // Verify bundle hasn't expired
         if (_bundle.expiry <= block.timestamp) {
             revert EIP712TypedDataSafeModule_BundleExpired();
         }
-        console.log("EIP712TypedDataSafeModule: Bundle expiry check passed");
 
         // Verify EIP-712 signature using proven pattern
         bytes32 digest = hashBundleForSigning(_bundle);
@@ -201,32 +197,25 @@ contract EIP712TypedDataSafeModule {
             revert EIP712TypedDataSafeModule_InvalidSignature();
         }
         
-        console.log("EIP712TypedDataSafeModule: Signature verified for signer:", signer);
-        
         // Verify signer is a Safe owner
         if (!IOwnerManager(_safeAddr).isOwner(signer)) {
             revert EIP712TypedDataSafeModule_SignerNotOwner(signer);
         }
-        console.log("EIP712TypedDataSafeModule: Signer is confirmed Safe owner");
 
         emit SignatureVerified(_safeAddr, signer, digest);
 
         // Find the sequence for current chain and next nonce
         uint256 currentChainId = block.chainid;
         uint256 expectedSequenceNonce = sequenceNonces[_safeAddr][currentChainId];
-        console.log("EIP712TypedDataSafeModule: Looking for chain sequence for chainId:", currentChainId);
-        console.log("EIP712TypedDataSafeModule: Expected sequence nonce:", expectedSequenceNonce);
         
         ChainSequence memory targetSequence = _findChainSequence(
             _bundle.sequences,
             currentChainId,
             expectedSequenceNonce
         );
-        console.log("EIP712TypedDataSafeModule: Found target sequence");
 
         // Validate the sequence actions match their call data
         bytes4[] memory actionIds = _validateSequenceActions(targetSequence.sequence);
-        console.log("EIP712TypedDataSafeModule: Actions validated, found", actionIds.length, "actions");
 
         // Update sequence nonce for this chain
         sequenceNonces[_safeAddr][currentChainId] = expectedSequenceNonce + 1;
@@ -243,9 +232,6 @@ contract EIP712TypedDataSafeModule {
             EXECUTE_SEQUENCE_SELECTOR,
             executorSequence
         );
-        console.log("EIP712TypedDataSafeModule: About to call execTransactionFromModule");
-        console.log("EIP712TypedDataSafeModule: Target:", SEQUENCE_EXECUTOR_ADDR);
-        console.log("EIP712TypedDataSafeModule: Value:", msg.value);
 
         bool success = ISafe(_safeAddr).execTransactionFromModule(
             SEQUENCE_EXECUTOR_ADDR,
@@ -254,13 +240,11 @@ contract EIP712TypedDataSafeModule {
             Enum.Operation.DelegateCall
         );
 
-        console.log("EIP712TypedDataSafeModule: execTransactionFromModule returned:", success);
         if (!success) {
             revert EIP712TypedDataSafeModule_ExecutionFailed();
         }
 
         emit BundleExecuted(_safeAddr, _bundle.expiry, currentChainId, expectedSequenceNonce);
-        console.log("EIP712TypedDataSafeModule: Bundle executed successfully");
     }
 
     /// @notice Gets the next expected sequence nonce for a Safe on a specific chain

@@ -12,7 +12,6 @@ import {ISafeSetupRegistry} from "../interfaces/ISafeSetupRegistry.sol";
 import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {ISafeSetup} from "../interfaces/safe/ISafeSetup.sol";
 import {Roles} from "./Roles.sol";
-import "hardhat/console.sol";
 
 // Import for typed data functionality
 interface IEIP712TypedDataSafeModule {
@@ -327,15 +326,9 @@ contract SafeDeployment is Initializable, Multicall, Roles, ISafeDeployment {
 
         bytes32 salt = keccak256(abi.encodePacked(_userAddress));
         
-        console.log("_deploySafe: deployer (this):", address(this));
-        console.log("_deploySafe: salt:", uint256(salt));
-        console.log("_deploySafe: creationCode hash:", uint256(keccak256(creationCode)));
-        
         assembly {
             safeAddress := create2(0, add(creationCode, 0x20), mload(creationCode), salt)
         }
-        
-        console.log("_deploySafe: actual deployed address:", safeAddress);
         
         require(safeAddress != address(0), "SafeDeployment: Safe deployment failed");
         
@@ -453,18 +446,12 @@ contract SafeDeployment is Initializable, Multicall, Roles, ISafeDeployment {
 
         bytes32 salt = keccak256(abi.encodePacked(_userAddress));
         
-        console.log("predictSafeAddress: deployer (this):", address(this));
-        console.log("predictSafeAddress: salt:", uint256(salt));
-        console.log("predictSafeAddress: creationCode hash:", uint256(keccak256(creationCode)));
-        
         safeAddress = address(uint160(uint256(keccak256(abi.encodePacked(
             bytes1(0xff),
             address(this),
             salt,
             keccak256(creationCode)
         )))));
-        
-        console.log("predictSafeAddress: predicted address:", safeAddress);
     }
 
     /// @notice Checks if a Safe is already deployed at the predicted address
