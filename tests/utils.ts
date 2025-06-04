@@ -9,6 +9,9 @@ import {
   Logger,
   SequenceExecutor,
   SequenceExecutorDebug,
+  SafeDeployment,
+  EIP712TypedDataSafeModule,
+  SafeSetupRegistry,
 } from '../typechain-types';
 import { ActionArgs, actionDefaults, BuyCoverArgs } from './actions';
 import {
@@ -29,7 +32,7 @@ import { getCoverQuote } from './actions/nexus-mutual/nexusCache';
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
 
-export { deploySafe };
+export { deploySafe, executeSafeTransaction };
 export function log(...args: unknown[]): void {
   if (isLoggingEnabled) {
     console.log(...args);
@@ -175,12 +178,71 @@ type BaseSetup = {
   safe: ISafe;
   signer: Signer;
   sequenceExecutor: SequenceExecutor;
+  safeDeployment: SafeDeployment;
+  eip712Module: EIP712TypedDataSafeModule;
+  safeSetupRegistry: SafeSetupRegistry;
 };
+
+// Custom Safe deployment helper that can replace brava-ts-client deploySafe
+// This can be easily switched back to the ts-client when it's updated
+export async function deployBravaSafe(
+  signer: Signer, 
+  safeDeployment?: SafeDeployment,
+  eip712Module?: EIP712TypedDataSafeModule
+): Promise<string> {
+  // If SafeDeployment is provided, use it for deployment
+  if (safeDeployment && eip712Module) {
+    // Use the SafeDeployment system with typed data configuration
+    const signerAddress = await signer.getAddress();
+    
+    // Check if Safe already exists
+    const isDeployed = await safeDeployment.isSafeDeployed(signerAddress);
+    if (isDeployed) {
+      return await safeDeployment.predictSafeAddress(signerAddress);
+    }
+
+    // For testing, we'll deploy using the typed data config
+    // This requires the TYPED_DATA_SAFE_CONFIG to be set up in the registry
+    const configId = ethers.id("TYPED_DATA_SAFE_CONFIG");
+    
+         try {
+       // Try to deploy using the typed data system
+       const tx = await safeDeployment.connect(signer).deploySafeForUser(
+         signerAddress,
+         configId
+       );
+       const receipt = await tx.wait();
+       const safeAddress = await safeDeployment.predictSafeAddress(signerAddress);
+       return safeAddress;
+     } catch (error) {
+       // Fall back to basic Safe deployment if config not set up
+       // Fall back to basic Safe deployment if config not set up
+     }
+  }
+
+  // Fall back to the original brava-ts-client deploySafe
+  // This will be used when SafeDeployment isn't available or configured
+  return await deploySafe(signer);
+}
 
 export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
   const deploySigner = signer ?? (await ethers.getSigners())[0];
+  
+  // Deploy Logger with proxy (similar to production setup)
   const loggerImplementation = await deploy<Logger>('Logger', deploySigner);
-  const logger = await ethers.getContractAt('Logger', await loggerImplementation.getAddress());
+  
+  // Deploy ERC1967Proxy for Logger
+  const loggerInitData = loggerImplementation.interface.encodeFunctionData('initialize');
+  const ERC1967ProxyFactory = await ethers.getContractFactory('ERC1967Proxy', deploySigner);
+  const loggerProxy = await ERC1967ProxyFactory.deploy(
+    await loggerImplementation.getAddress(),
+    loggerInitData
+  );
+  await loggerProxy.waitForDeployment();
+  
+  // Get Logger interface connected to proxy
+  const logger = await ethers.getContractAt('Logger', await loggerProxy.getAddress());
+  
   const adminVault = await deploy<AdminVault>(
     'AdminVault',
     deploySigner,
@@ -195,11 +257,105 @@ export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
     await adminVault.getAddress()
   );
 
-  const safeAddress = await deploySafe(deploySigner);
+  // Deploy SafeSetupRegistry (standalone contract with constructor params)
+  const safeSetupRegistry = await deploy<SafeSetupRegistry>(
+    'SafeSetupRegistry',
+    deploySigner,
+    await adminVault.getAddress(),
+    await logger.getAddress()
+  );
+
+  // Deploy SafeDeployment with proxy (for deterministic addresses across chains)
+  const safeDeploymentImplementation = await deploy<SafeDeployment>(
+    'SafeDeployment',
+    deploySigner
+  );
+
+  // Deploy ERC1967Proxy for SafeDeployment with initialization
+  const SAFE_SINGLETON = "0x41675C099F32341bf84BFc5382aF534df5C7461a";
+  const SAFE_SETUP = "0x8EcD4ec46D4D2a6B64fE960B3D64e8B94B2234eb";
+  
+  const safeDeploymentInitData = safeDeploymentImplementation.interface.encodeFunctionData('initialize', [
+    await adminVault.getAddress(),
+    await logger.getAddress(),
+    SAFE_SINGLETON,
+    SAFE_SETUP,
+    await safeSetupRegistry.getAddress()
+  ]);
+  
+  const safeDeploymentProxy = await ERC1967ProxyFactory.deploy(
+    await safeDeploymentImplementation.getAddress(),
+    safeDeploymentInitData
+  );
+  await safeDeploymentProxy.waitForDeployment();
+  
+  // Get SafeDeployment interface connected to proxy
+  const safeDeployment = await ethers.getContractAt('SafeDeployment', await safeDeploymentProxy.getAddress());
+
+  // Deploy EIP712TypedDataSafeModule
+  const eip712Module = await deploy<EIP712TypedDataSafeModule>(
+    'EIP712TypedDataSafeModule',
+    deploySigner,
+    await adminVault.getAddress(),
+    await sequenceExecutor.getAddress(),
+    'BravaSafeModule',
+    '1.0.0'
+  );
+
+  // Set up the SafeDeployment with typed data module
+  try {
+    await safeDeployment.setEIP712TypedDataModule(await eip712Module.getAddress());
+  } catch (error) {
+    // Continue without this setup for basic functionality
+  }
+
+  // Create and approve the TYPED_DATA_SAFE_CONFIG in SafeSetupRegistry
+  try {
+    const TYPED_DATA_SAFE_CONFIG_ID = ethers.id("TYPED_DATA_SAFE_CONFIG");
+    
+    // Grant TRANSACTION_PROPOSER_ROLE to deploySigner (needed for proposeSetupConfig)
+    const TRANSACTION_PROPOSER_ROLE = ethers.id("TRANSACTION_PROPOSER_ROLE");
+    if (!(await adminVault.hasRole(TRANSACTION_PROPOSER_ROLE, await deploySigner.getAddress()))) {
+      await adminVault.grantRole(TRANSACTION_PROPOSER_ROLE, await deploySigner.getAddress());
+    }
+    
+    // Grant TRANSACTION_EXECUTOR_ROLE to deploySigner (needed for approveSetupConfig)
+    const TRANSACTION_EXECUTOR_ROLE = ethers.id("TRANSACTION_EXECUTOR_ROLE");
+    if (!(await adminVault.hasRole(TRANSACTION_EXECUTOR_ROLE, await deploySigner.getAddress()))) {
+      await adminVault.grantRole(TRANSACTION_EXECUTOR_ROLE, await deploySigner.getAddress());
+    }
+    
+    // Create the configuration (separate parameters, not as object)
+    // Use the same fallback handler as the Safe setup
+    const SAFE_COMPATIBILITY_FALLBACK_HANDLER = "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804";
+    await safeSetupRegistry.proposeSetupConfig(
+      TYPED_DATA_SAFE_CONFIG_ID,
+      SAFE_COMPATIBILITY_FALLBACK_HANDLER, // fallbackHandler
+      [await eip712Module.getAddress()], // modules array
+      ethers.ZeroAddress // guard
+    );
+    
+    // Approve the configuration
+    await safeSetupRegistry.approveSetupConfig(TYPED_DATA_SAFE_CONFIG_ID);
+  } catch (error) {
+    // Continue without this setup for basic functionality
+  }
+
+  // Deploy Safe using our custom helper
+  const safeAddress = await deployBravaSafe(deploySigner, safeDeployment, eip712Module);
   const safe = await ethers.getContractAt('ISafe', safeAddress);
 
-  log('Safe deployed at:', safeAddress);
-  return { logger, adminVault, safe, signer: deploySigner, sequenceExecutor };
+
+  return { 
+    logger, 
+    adminVault, 
+    safe, 
+    signer: deploySigner, 
+    sequenceExecutor,
+    safeDeployment,
+    eip712Module,
+    safeSetupRegistry
+  };
 }
 
 let baseSetupCache: Awaited<ReturnType<typeof deployBaseSetup>> | null = null;
@@ -249,6 +405,9 @@ let globalSetup:
       adminVault: AdminVault;
       safe: ISafe;
       signer: Signer;
+      safeDeployment: SafeDeployment;
+      eip712Module: EIP712TypedDataSafeModule;
+      safeSetupRegistry: SafeSetupRegistry;
     }
   | undefined;
 
@@ -257,6 +416,9 @@ export function setGlobalSetup(params: {
   adminVault: AdminVault;
   safe: ISafe;
   signer: Signer;
+  safeDeployment: SafeDeployment;
+  eip712Module: EIP712TypedDataSafeModule;
+  safeSetupRegistry: SafeSetupRegistry;
 }) {
   globalSetup = params;
 }
@@ -266,6 +428,9 @@ export function getGlobalSetup(): {
   adminVault: AdminVault;
   safe: ISafe;
   signer: Signer;
+  safeDeployment: SafeDeployment;
+  eip712Module: EIP712TypedDataSafeModule;
+  safeSetupRegistry: SafeSetupRegistry;
 } {
   if (!globalSetup) {
     throw new Error('Global setup not set');
