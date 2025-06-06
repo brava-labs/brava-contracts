@@ -4,9 +4,12 @@
 
 The `EIP712TypedDataSafeModule` is a Safe module that enables secure cross-chain bundle execution using EIP-712 typed data signing. It allows Safe owners to sign structured bundles containing sequences for multiple chains and nonces, ensuring that only the appropriate sequence for the current chain is executed.
 
+**Key Design Decision**: The module uses **chainID 1** for all EIP-712 domain separators to ensure cross-chain compatibility and easier signature validation. Chain-specific protection is maintained at the sequence level, where each sequence includes its target `chainId` and `sequenceNonce`.
+
 ## Features
 
 - ✅ **EIP-712 Typed Data Signing**: Uses standardized structured data signing for security
+- ✅ **Cross-Chain Compatibility**: Uses chainID 1 for consistent domain across all networks  
 - ✅ **Cross-Chain Support**: Handles bundles containing sequences for multiple chains
 - ✅ **Nonce Management**: Tracks processed nonces to prevent replay attacks
 - ✅ **Safe Owner Verification**: Ensures only Safe owners can execute bundles
@@ -147,8 +150,9 @@ const bundleHash = await module.getBundleHash(bundle);
 #### Step 3.3: Sign the Bundle
 
 ```typescript
-// Safe owner signs the bundle hash
-const signature = await safeOwner.signMessage(ethers.utils.arrayify(bundleHash));
+// Safe owner signs the bundle hash using chainID 1 for cross-chain compatibility
+// Note: Always use chainID 1 regardless of the network you're deploying to
+const signature = await signBundle(safeOwner, bundle, safeAddress, 1);
 ```
 
 ### 4. Execute Bundle
@@ -208,15 +212,51 @@ const bundle = {
 };
 ```
 
+## ChainID 1 Design Pattern
+
+### Why ChainID 1 for Domain?
+
+The module uses **chainID 1** for all EIP-712 domain separators, regardless of the actual network being used. This design decision provides several benefits:
+
+1. **Cross-Chain Consistency**: Signatures work the same way across all networks
+2. **Simplified Integration**: Client applications don't need to track different chainIDs for signing
+3. **Easier Validation**: Off-chain signature validation is consistent across chains
+4. **Future-Proof**: New chains can be supported without signature format changes
+
+### Security Considerations
+
+Chain-specific protection is maintained through:
+- **Sequence ChainID**: Each sequence specifies its target `chainId`
+- **Sequence Nonces**: Per-chain nonce tracking prevents replay attacks  
+- **Execution Validation**: Only sequences matching `block.chainid` are executed
+
+### Example Usage
+
+```typescript
+// Always sign with chainID 1, regardless of target network
+const signature = await signBundle(signer, bundle, safeAddress, 1);
+
+// Bundle can contain sequences for multiple chains
+const bundle = {
+  expiry: expiry,
+  sequences: [
+    { chainId: 1, sequenceNonce: 10, sequence: ethereumSequence },     // Ethereum
+    { chainId: 137, sequenceNonce: 5, sequence: polygonSequence },     // Polygon  
+    { chainId: 42161, sequenceNonce: 3, sequence: arbitrumSequence }   // Arbitrum
+  ]
+};
+```
+
 ## Best Practices
 
-1. **Always Validate Bundles**: Verify bundle structure before signing
-2. **Use Sequential Nonces**: Ensure nonces are used in order
-3. **Verify Chain Context**: Check that sequences are intended for the target chain
-4. **Match Action Definitions**: Ensure action definitions in typed data match actual action contracts
-5. **Monitor Events**: Listen for module events to track execution
-6. **Handle Errors Gracefully**: Implement proper error handling for failed executions
-7. **Test Thoroughly**: Always test bundle execution on testnets first
+1. **Always Use ChainID 1**: Sign all bundles with chainID 1, never the actual network chainID
+2. **Always Validate Bundles**: Verify bundle structure before signing
+3. **Use Sequential Nonces**: Ensure nonces are used in order
+4. **Verify Chain Context**: Check that sequences are intended for the target chain
+5. **Match Action Definitions**: Ensure action definitions in typed data match actual action contracts
+6. **Monitor Events**: Listen for module events to track execution
+7. **Handle Errors Gracefully**: Implement proper error handling for failed executions
+8. **Test Thoroughly**: Always test bundle execution on testnets first
 
 ## Deployment Checklist
 

@@ -1,14 +1,14 @@
 import { ethers } from 'hardhat';
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers';
 
-// EIP-712 Domain definition - always uses chainId 1 for cross-chain compatibility
-export function createEIP712Domain(verifyingContract: string) {
+// EIP-712 Domain definition - uses chainID 1 for cross-chain compatibility
+export function createEIP712Domain(verifyingContract: string, chainId?: number) {
   return {
     name: 'BravaSafeModule',
     version: '1.0.0',
-    chainId: 1, // Always use chainId 1 for cross-chain compatibility
+    chainId: chainId || 1, // Default to chainID 1 for cross-chain compatibility
     verifyingContract,
-    salt: ethers.keccak256(ethers.toUtf8Bytes('BravaSafeModule'))
+    salt: ethers.keccak256(ethers.toUtf8Bytes('BravaSafe'))
   };
 }
 
@@ -21,6 +21,7 @@ export const EIP712_TYPES = {
   ChainSequence: [
     { name: 'chainId', type: 'uint256' },
     { name: 'sequenceNonce', type: 'uint256' },
+    { name: 'deploySafe', type: 'bool' },
     { name: 'sequence', type: 'Sequence' }
   ],
   Sequence: [
@@ -51,6 +52,7 @@ export interface Sequence {
 export interface ChainSequence {
   chainId: bigint;
   sequenceNonce: bigint;
+  deploySafe: boolean;
   sequence: Sequence;
 }
 
@@ -69,69 +71,54 @@ export interface Bundle {
 export async function signBundle(
   signer: HardhatEthersSigner,
   bundle: Bundle,
-  verifyingContract: string
+  verifyingContract: string,
+  chainId?: number
 ): Promise<string> {
-  const domain = createEIP712Domain(verifyingContract);
+  const domain = createEIP712Domain(verifyingContract, chainId);
   return await signer.signTypedData(domain, EIP712_TYPES, bundle);
 }
 
 /**
- * Creates a simple empty sequence bundle for testing
- * @param signer The signer address
- * @param chainId The chain ID to use
- * @param sequenceNonce The sequence nonce
- * @param expiryOffset How many seconds from now to expire (default 1 hour)
- * @returns A bundle with an empty sequence
+ * Creates a bundle with optional actions (empty bundle if no actions provided)
+ * @param options Configuration options for the bundle
+ * @param options.actions Array of action definitions (default: [])
+ * @param options.actionIds Array of action IDs (bytes4) (default: [])
+ * @param options.callData Array of call data (default: [])
+ * @param options.chainId The chain ID to use (default: 31337 for local testing)
+ * @param options.sequenceNonce The sequence nonce (default: 0)
+ * @param options.expiryOffset How many seconds from now to expire (default: 1 hour)
+ * @param options.sequenceName Name for the sequence (default: 'Sequence')
+ * @param options.deploySafe Whether to deploy Safe for this sequence (default: false)
+ * @returns A bundle with the specified or empty actions
  */
-export function createEmptyBundle(
-  chainId: bigint = BigInt(31337),
-  sequenceNonce: bigint = BigInt(0),
-  expiryOffset: number = 3600,
-  sequenceName: string = 'EmptySequence'
-): Bundle {
-  return {
-    expiry: BigInt(Math.floor(Date.now() / 1000) + expiryOffset),
-    sequences: [
-      {
-        chainId,
-        sequenceNonce,
-        sequence: {
-          name: sequenceName,
-          actions: [],
-          actionIds: [],
-          callData: [],
-        },
-      },
-    ],
-  };
-}
+export function createBundle(options: {
+  actions?: ActionDefinition[];
+  actionIds?: string[];
+  callData?: string[];
+  chainId?: bigint;
+  sequenceNonce?: bigint;
+  expiryOffset?: number;
+  sequenceName?: string;
+  deploySafe?: boolean;
+} = {}): Bundle {
+  const {
+    actions = [],
+    actionIds = [],
+    callData = [],
+    chainId = BigInt(31337),
+    sequenceNonce = BigInt(0),
+    expiryOffset = 3600,
+    sequenceName = 'Sequence',
+    deploySafe = false
+  } = options;
 
-/**
- * Helper to create a bundle with specific actions
- * @param actions Array of action definitions
- * @param actionIds Array of action IDs (bytes4)
- * @param callData Array of call data
- * @param chainId The chain ID to use
- * @param sequenceNonce The sequence nonce
- * @param expiryOffset How many seconds from now to expire
- * @param sequenceName Name for the sequence
- * @returns A bundle with the specified actions
- */
-export function createActionBundle(
-  actions: ActionDefinition[],
-  actionIds: string[],
-  callData: string[],
-  chainId: bigint = BigInt(31337),
-  sequenceNonce: bigint = BigInt(0),
-  expiryOffset: number = 3600,
-  sequenceName: string = 'ActionSequence'
-): Bundle {
   return {
     expiry: BigInt(Math.floor(Date.now() / 1000) + expiryOffset),
     sequences: [
       {
         chainId,
         sequenceNonce,
+        deploySafe,
         sequence: {
           name: sequenceName,
           actions,
@@ -155,10 +142,11 @@ export async function validateBundleSignature(
   bundle: Bundle,
   signature: string,
   expectedSigner: string,
-  verifyingContract: string
+  verifyingContract: string,
+  chainId?: number
 ): Promise<boolean> {
   try {
-    const domain = createEIP712Domain(verifyingContract);
+    const domain = createEIP712Domain(verifyingContract, chainId);
     const recoveredAddress = ethers.verifyTypedData(domain, EIP712_TYPES, bundle, signature);
     return recoveredAddress.toLowerCase() === expectedSigner.toLowerCase();
   } catch (error) {

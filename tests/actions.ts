@@ -14,6 +14,85 @@ export const actionTypes = {
   CUSTOM_ACTION: 6,
 };
 
+// Protocol name mappings for TypedData structures
+export const protocolNames = {
+  // Core protocols
+  FluidV1: 'FluidV1',
+  YearnV2: 'YearnV2',
+  YearnV3: 'YearnV3', 
+  VesperV1: 'VesperV1',
+  ClearpoolV1: 'ClearpoolV1',
+  SparkV1: 'SparkV1',
+  AcrossV3: 'AcrossV3',
+  MorphoV1: 'MorphoV1',
+  NotionalV3: 'NotionalV3',
+  GearboxPassiveV3: 'GearboxPassiveV3',
+  EulerV2: 'EulerV2',
+  CurveSavings: 'CurveSavings',
+  MapleV1: 'MapleV1',
+  AaveV2: 'AaveV2',
+  AaveV3: 'AaveV3',
+  StrikeV1: 'StrikeV1',
+  UwULendV1: 'UwULendV1',
+  BendDaoV1: 'BendDaoV1',
+  
+  // Special protocols
+  Curve: 'Curve',
+  Paraswap: 'Paraswap',
+  NexusMutual: 'NexusMutual',
+  Brava: 'Brava', // For internal actions like PullToken, SendToken
+} as const;
+
+// Action type mapping for TypedData
+export function getActionTypeForProtocolAction(actionName: string): number {
+  if (actionName.includes('Supply') || actionName.includes('Deposit')) {
+    return actionTypes.DEPOSIT_ACTION;
+  }
+  if (actionName.includes('Withdraw')) {
+    return actionTypes.WITHDRAW_ACTION;
+  }
+  if (actionName.includes('Swap')) {
+    return actionTypes.SWAP_ACTION;
+  }
+  if (actionName.includes('Cover')) {
+    return actionTypes.COVER_ACTION;
+  }
+  if (actionName.includes('PullToken') || actionName.includes('SendToken')) {
+    return actionTypes.TRANSFER_ACTION;
+  }
+  return actionTypes.CUSTOM_ACTION;
+}
+
+// Protocol name extraction from action name
+export function getProtocolNameForAction(actionName: string): string {
+  // Handle special cases first
+  if (actionName.includes('PullToken') || actionName.includes('SendToken')) {
+    return protocolNames.Brava;
+  }
+  if (actionName.includes('Curve')) {
+    return protocolNames.Curve;
+  }
+  if (actionName.includes('Paraswap')) {
+    return protocolNames.Paraswap;
+  }
+  if (actionName.includes('BuyCover')) {
+    return protocolNames.NexusMutual;
+  }
+  
+  // Extract protocol from action name (e.g., "FluidV1Supply" -> "FluidV1")
+  const protocolMatch = actionName.match(/^([A-Za-z0-9]+)[A-Z]/);
+  if (protocolMatch) {
+    const protocolKey = protocolMatch[1];
+    const protocolNameKey = protocolKey as keyof typeof protocolNames;
+    if (protocolNames[protocolNameKey]) {
+      return protocolNames[protocolNameKey];
+    }
+  }
+  
+  // Fallback
+  return protocolNames.Brava;
+}
+
 // Base interface for common properties
 interface BaseActionArgs {
   useSDK?: boolean;
@@ -30,6 +109,9 @@ interface BaseActionArgs {
   gasPrice?: number;
   baseGas?: number;
   debug?: boolean;
+  // TypedData properties (auto-generated but can be overridden)
+  protocolName?: string;
+  actionType?: number;
 }
 
 // Share-based withdraw specific args

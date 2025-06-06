@@ -1,3 +1,28 @@
+/**
+ * Enhanced Brava Test Utils with Unified Execution
+ * 
+ * This module provides utilities that can execute actions and sequences using either:
+ * 1. Standard execution (direct Safe transactions via SequenceExecutor)
+ * 2. TypedData execution (EIP-712 signed bundles via SafeDeployment + EIP712Module)
+ * 3. Debug execution (using SequenceExecutorDebug for detailed logging)
+ * 
+ * Key functions:
+ * - executeActionSmart/executeSequenceSmart: Uses USE_TYPED_DATA env var to choose mode
+ * - executeTypedData.action/sequence: Forces TypedData execution
+ * - executeStandard.action/sequence: Forces standard execution  
+ * - executeDebug.action/sequence: Forces debug execution
+ * 
+ * TypedData utilities:
+ * - createSmartBundle: Creates bundles with smart defaults and auto-nonce
+ * - signAndExecuteBundle: One-call bundle creation and execution
+ * - getSequenceNonce: Gets current nonce for a safe/chain combination
+ * 
+ * Migration path:
+ * 1. Replace executeAction calls with executeActionSmart
+ * 2. Replace manual sequence creation with executeSequenceSmart([actions])
+ * 3. Set USE_TYPED_DATA=true to switch entire test suite to TypedData execution
+ */
+
 import nexusSdk, { CoverAsset } from '@nexusmutual/sdk';
 import * as bravaSdk from 'brava-ts-client';
 import { deploySafe, executeSafeTransaction } from 'brava-ts-client';
@@ -10,6 +35,7 @@ import {
   SequenceExecutor,
   SequenceExecutorDebug,
   SafeDeployment,
+  SafeSetup,
   EIP712TypedDataSafeModule,
   SafeSetupRegistry,
 } from '../typechain-types';
@@ -28,9 +54,20 @@ import {
   ParaswapSwapParams,
 } from './params';
 import { getCoverQuote } from './actions/nexus-mutual/nexusCache';
+import { SignerWithAddress, HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers';
+import { 
+  Bundle, 
+  ChainSequence, 
+  Sequence, 
+  ActionDefinition, 
+  signBundle, 
+  createBundle 
+} from './utils-eip712';
+import { getProtocolNameForAction, getActionTypeForProtocolAction } from './actions';
 
 export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 export const USE_BRAVA_SDK = process.env.USE_BRAVA_SDK === 'true';
+export const USE_TYPED_DATA = process.env.USE_TYPED_DATA === 'true';
 
 export { deploySafe, executeSafeTransaction };
 export function log(...args: unknown[]): void {
@@ -206,11 +243,8 @@ export async function deployBravaSafe(
     const configId = ethers.id("TYPED_DATA_SAFE_CONFIG");
     
          try {
-       // Try to deploy using the typed data system
-       const tx = await safeDeployment.connect(signer).deploySafeForUser(
-         signerAddress,
-         configId
-       );
+       // Try to deploy using the simplified system
+       const tx = await safeDeployment.connect(signer).deploySafe(signerAddress);
        const receipt = await tx.wait();
        const safeAddress = await safeDeployment.predictSafeAddress(signerAddress);
        return safeAddress;
@@ -271,15 +305,20 @@ export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
     deploySigner
   );
 
+  // Deploy SafeSetup contract first
+  const safeSetup = await deploy<SafeSetup>(
+    'SafeSetup',
+    deploySigner
+  );
+
   // Deploy ERC1967Proxy for SafeDeployment with initialization
   const SAFE_SINGLETON = "0x41675C099F32341bf84BFc5382aF534df5C7461a";
-  const SAFE_SETUP = "0x8EcD4ec46D4D2a6B64fE960B3D64e8B94B2234eb";
   
   const safeDeploymentInitData = safeDeploymentImplementation.interface.encodeFunctionData('initialize', [
     await adminVault.getAddress(),
     await logger.getAddress(),
     SAFE_SINGLETON,
-    SAFE_SETUP,
+    await safeSetup.getAddress(),
     await safeSetupRegistry.getAddress()
   ]);
   
@@ -298,48 +337,24 @@ export async function deployBaseSetup(signer?: Signer): Promise<BaseSetup> {
     deploySigner,
     await adminVault.getAddress(),
     await sequenceExecutor.getAddress(),
+    await safeDeployment.getAddress(),
     'BravaSafeModule',
     '1.0.0'
   );
 
-  // Set up the SafeDeployment with typed data module
-  try {
-    await safeDeployment.setEIP712TypedDataModule(await eip712Module.getAddress());
-  } catch (error) {
-    // Continue without this setup for basic functionality
-  }
+  // Grant OWNER_ROLE to deploySigner for SafeSetupRegistry configuration
+  const OWNER_ROLE = ethers.id("OWNER_ROLE");
+  await adminVault.grantRole(OWNER_ROLE, await deploySigner.getAddress());
 
-  // Create and approve the TYPED_DATA_SAFE_CONFIG in SafeSetupRegistry
-  try {
-    const TYPED_DATA_SAFE_CONFIG_ID = ethers.id("TYPED_DATA_SAFE_CONFIG");
-    
-    // Grant TRANSACTION_PROPOSER_ROLE to deploySigner (needed for proposeSetupConfig)
-    const TRANSACTION_PROPOSER_ROLE = ethers.id("TRANSACTION_PROPOSER_ROLE");
-    if (!(await adminVault.hasRole(TRANSACTION_PROPOSER_ROLE, await deploySigner.getAddress()))) {
-      await adminVault.grantRole(TRANSACTION_PROPOSER_ROLE, await deploySigner.getAddress());
-    }
-    
-    // Grant TRANSACTION_EXECUTOR_ROLE to deploySigner (needed for approveSetupConfig)
-    const TRANSACTION_EXECUTOR_ROLE = ethers.id("TRANSACTION_EXECUTOR_ROLE");
-    if (!(await adminVault.hasRole(TRANSACTION_EXECUTOR_ROLE, await deploySigner.getAddress()))) {
-      await adminVault.grantRole(TRANSACTION_EXECUTOR_ROLE, await deploySigner.getAddress());
-    }
-    
-    // Create the configuration (separate parameters, not as object)
-    // Use the same fallback handler as the Safe setup
-    const SAFE_COMPATIBILITY_FALLBACK_HANDLER = "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804";
-    await safeSetupRegistry.proposeSetupConfig(
-      TYPED_DATA_SAFE_CONFIG_ID,
-      SAFE_COMPATIBILITY_FALLBACK_HANDLER, // fallbackHandler
-      [await eip712Module.getAddress()], // modules array
-      ethers.ZeroAddress // guard
-    );
-    
-    // Approve the configuration
-    await safeSetupRegistry.approveSetupConfig(TYPED_DATA_SAFE_CONFIG_ID);
-  } catch (error) {
-    // Continue without this setup for basic functionality
-  }
+  // Set up the SafeSetupRegistry with current configuration
+  const SAFE_COMPATIBILITY_FALLBACK_HANDLER = "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99";
+  await safeSetupRegistry.updateCurrentConfig(
+    SAFE_COMPATIBILITY_FALLBACK_HANDLER, // fallbackHandler
+    [await eip712Module.getAddress()], // modules array
+    ethers.ZeroAddress // guard
+  );
+
+  // Configuration already set in previous try block - no additional setup needed
 
   // Deploy Safe using our custom helper
   const safeAddress = await deployBravaSafe(deploySigner, safeDeployment, eip712Module);
@@ -448,6 +463,10 @@ export function getDeployedContract(name: string): DeployedContract | undefined 
   return deployedContracts[name];
 }
 
+export function registerDeployedContract(name: string, address: string, contract: BaseContract): void {
+  deployedContracts[name] = { address, contract };
+}
+
 async function prepareNexusMutualCoverPurchase(args: Partial<BuyCoverArgs>): Promise<{
   encodedFunctionCall: string;
   buyCoverParams: any;
@@ -541,6 +560,317 @@ async function prepareParaswapSwap(args: Partial<ActionArgs>): Promise<{
     1,
   ]);
   return { encodedFunctionCall };
+}
+
+// Enhanced action encoding result that includes both calldata and TypedData
+export interface EncodedActionResult {
+  callData: string;
+  actionDefinition: ActionDefinition;
+  actionId: string;
+}
+
+// Enhanced sequence encoding result
+export interface EncodedSequenceResult {
+  sequence: Sequence;
+  callDataArray: string[];
+  actionIds: string[];
+}
+
+/**
+ * Enhanced encodeAction that returns both calldata and TypedData structures
+ * @param args Action arguments
+ * @returns Both the encoded calldata and the TypedData ActionDefinition
+ */
+export async function encodeActionWithTypedData(args: ActionArgs): Promise<EncodedActionResult> {
+  // Get the regular calldata using existing logic
+  const callData = await encodeAction(args);
+  
+  // Extract or generate protocol name and action type
+  const protocolName = args.protocolName || getProtocolNameForAction(args.type);
+  const actionType = args.actionType ?? getActionTypeForProtocolAction(args.type);
+  
+  // Get the action contract to derive the action ID
+  const actionContract = getDeployedContract(args.type);
+  if (!actionContract) {
+    throw new Error(`Contract ${args.type} not deployed`);
+  }
+  const actionId = getBytes4(actionContract.address);
+  
+  return {
+    callData,
+    actionDefinition: {
+      protocolName,
+      actionType
+    },
+    actionId
+  };
+}
+
+/**
+ * Encode multiple actions into a complete sequence structure
+ * @param actions Array of action arguments
+ * @param sequenceName Name for the sequence
+ * @returns Complete sequence with calldata and TypedData structures
+ */
+export async function encodeSequenceWithTypedData(
+  actions: ActionArgs[], 
+  sequenceName: string = 'GeneratedSequence'
+): Promise<EncodedSequenceResult> {
+  const encodedActions = await Promise.all(
+    actions.map(action => encodeActionWithTypedData(action))
+  );
+  
+  const sequence: Sequence = {
+    name: sequenceName,
+    actions: encodedActions.map(result => result.actionDefinition),
+    actionIds: encodedActions.map(result => result.actionId),
+    callData: encodedActions.map(result => result.callData),
+  };
+  
+  return {
+    sequence,
+    callDataArray: sequence.callData,
+    actionIds: sequence.actionIds,
+  };
+}
+
+/**
+ * Create a complete TypedData Bundle from action sequences
+ * @param actions Array of action arguments  
+ * @param options Bundle creation options
+ * @returns Complete Bundle ready for signing and execution
+ */
+export async function createTypedDataBundle(
+  actions: ActionArgs[],
+  options: {
+    sequenceName?: string;
+    chainId?: bigint;
+    sequenceNonce?: bigint;
+    expiryOffset?: number;
+  } = {}
+): Promise<Bundle> {
+  const {
+    sequenceName = 'ActionBundle',
+    chainId = BigInt(31337),
+    sequenceNonce = BigInt(0),
+    expiryOffset = 3600, // 1 hour
+  } = options;
+  
+  const { sequence } = await encodeSequenceWithTypedData(actions, sequenceName);
+  
+  return createBundle({
+    actions: sequence.actions,
+    actionIds: sequence.actionIds,
+    callData: sequence.callData,
+    chainId,
+    sequenceNonce,
+    expiryOffset,
+    sequenceName,
+    deploySafe: false // deploySafe - default to false for backward compatibility
+  });
+}
+
+/**
+ * Execute a TypedData bundle using the EIP712TypedDataSafeModule directly
+ * @param bundle The bundle to execute
+ * @param signer The signer (owner of the Safe)
+ * @param options Execution options
+ * @returns Transaction response
+ */
+export async function executeTypedDataBundle(
+  bundle: Bundle,
+  signer: HardhatEthersSigner,
+  options: {
+    safeAddress?: string;
+    safeDeployment?: SafeDeployment;
+    eip712Module?: EIP712TypedDataSafeModule;
+    value?: bigint;
+  } = {}
+): Promise<TransactionResponse> {
+  const globalSetup = getGlobalSetup();
+  const eip712Module = options.eip712Module || globalSetup.eip712Module;
+  const safeDeployment = options.safeDeployment || globalSetup.safeDeployment;
+  const value = options.value || BigInt(0);
+  
+  // Get or predict the Safe address
+  const safeAddress = options.safeAddress || await safeDeployment.predictSafeAddress(signer.address);
+  
+  // Sign the bundle using Safe address as verifying contract with chainID 1 for cross-chain compatibility
+  const signature = await signBundle(signer, bundle, safeAddress, 1);
+  
+  // Execute via EIP712TypedDataSafeModule with explicit Safe address
+  return eip712Module.connect(signer).executeBundle(safeAddress, bundle, signature, { value });
+}
+
+/**
+ * Convenience function: encode actions and execute via TypedData in one call
+ * @param actions Array of actions to execute
+ * @param signer The signer
+ * @param options Execution options
+ * @returns Transaction response
+ */
+export async function encodeAndExecuteTypedDataActions(
+  actions: ActionArgs[],
+  signer: HardhatEthersSigner,
+  options: {
+    sequenceName?: string;
+    chainId?: bigint;
+    sequenceNonce?: bigint;
+    expiryOffset?: number;
+    safeDeployment?: SafeDeployment;
+    eip712Module?: EIP712TypedDataSafeModule;
+    value?: bigint;
+  } = {}
+): Promise<TransactionResponse> {
+  // Create the bundle
+  const bundle = await createTypedDataBundle(actions, options);
+  
+  // Execute it
+  return executeTypedDataBundle(bundle, signer, options);
+}
+
+/**
+ * Helper function to execute multiple actions as a sequence using various execution modes
+ * @param actions Array of actions to execute
+ * @param options Optional typed data execution options
+ * @returns Transaction response
+ */
+export async function executeActions(
+  actions: ActionArgs[],
+  options: TypedDataOptions & {
+    signer?: HardhatEthersSigner;
+    safeTxGas?: number;
+    gasPrice?: number;
+    baseGas?: number;
+  } = {}
+): Promise<TransactionResponse> {
+  const useTypedData = options.useTypedData ?? USE_TYPED_DATA;
+  
+  if (useTypedData) {
+    const signer = options.signer || (await getGlobalSetup()).signer as HardhatEthersSigner;
+    return encodeAndExecuteTypedDataActions(actions, signer, options);
+  }
+  
+  // Standard execution - convert to old sequence format
+  const safeAddress = await (await getGlobalSetup()).safe.getAddress();
+  const callDataArray: string[] = [];
+  const actionIds: string[] = [];
+  
+  for (const action of actions) {
+    const callData = await encodeAction(action);
+    const actionContract = getDeployedContract(action.type);
+    if (!actionContract) {
+      throw new Error(`Contract ${action.type} not deployed`);
+    }
+    callDataArray.push(callData);
+    actionIds.push(getBytes4(actionContract.address));
+  }
+  
+  const sequence: SequenceExecutor.SequenceStruct = {
+    name: options.sequenceName || 'ActionsSequence',
+    callData: callDataArray,
+    actionIds: actionIds,
+  };
+  
+  return executeSequence(
+    safeAddress,
+    sequence,
+    false, // not debug
+    options.safeTxGas,
+    options.gasPrice,
+    options.baseGas
+  );
+}
+
+/**
+ * Get the sequence nonce for a specific safe and chain
+ * @param safeAddress The safe address (if not provided, uses predicted address for signer)
+ * @param chainId The chain ID (defaults to current network)
+ * @param signer The signer (if safeAddress not provided)
+ * @returns The current sequence nonce
+ */
+export async function getSequenceNonce(
+  safeAddress?: string,
+  chainId?: bigint, // Parameter kept for backward compatibility but ignored
+  signer?: HardhatEthersSigner
+): Promise<bigint> {
+  const globalSetup = getGlobalSetup();
+  const eip712Module = globalSetup.eip712Module;
+  
+  let targetSafeAddress = safeAddress;
+  if (!targetSafeAddress) {
+    if (!signer) {
+      signer = globalSetup.signer as HardhatEthersSigner;
+    }
+    targetSafeAddress = await globalSetup.safeDeployment.predictSafeAddress(signer.address);
+  }
+  
+  // chainId parameter is now ignored since contract only tracks nonces for its own chain
+  return await eip712Module.getSequenceNonce(targetSafeAddress);
+}
+
+/**
+ * Create a bundle with smart defaults
+ * @param actions Actions to include in the bundle
+ * @param options Bundle options with smart defaults
+ * @returns A complete Bundle ready for signing and execution
+ */
+export async function createSmartBundle(
+  actions: ActionArgs[],
+  options: {
+    sequenceName?: string;
+    signer?: HardhatEthersSigner;
+    chainId?: bigint;
+    autoSequenceNonce?: boolean; // If true, automatically get the next nonce
+    sequenceNonce?: bigint;
+    expiryOffset?: number;
+  } = {}
+): Promise<Bundle> {
+  const {
+    sequenceName = 'SmartBundle',
+    signer = (await getGlobalSetup()).signer as HardhatEthersSigner,
+    chainId = BigInt((await ethers.provider.getNetwork()).chainId),
+    autoSequenceNonce = true,
+    expiryOffset = 3600, // 1 hour
+  } = options;
+  
+  let { sequenceNonce } = options;
+  
+  if (autoSequenceNonce && sequenceNonce === undefined) {
+    sequenceNonce = await getSequenceNonce(undefined, chainId, signer);
+  }
+  
+  return createTypedDataBundle(actions, {
+    sequenceName,
+    chainId,
+    sequenceNonce: sequenceNonce || BigInt(0),
+    expiryOffset,
+  });
+}
+
+/**
+ * Sign and execute a bundle in one call with smart defaults
+ * @param actions Actions to execute
+ * @param signer The signer
+ * @param options Execution options
+ * @returns Transaction response
+ */
+export async function signAndExecuteBundle(
+  actions: ActionArgs[],
+  signer: HardhatEthersSigner,
+  options: {
+    sequenceName?: string;
+    chainId?: bigint;
+    autoSequenceNonce?: boolean;
+    sequenceNonce?: bigint;
+    expiryOffset?: number;
+    safeDeployment?: SafeDeployment;
+    eip712Module?: EIP712TypedDataSafeModule;
+    value?: bigint;
+  } = {}
+): Promise<TransactionResponse> {
+  const bundle = await createSmartBundle(actions, { ...options, signer });
+  return executeTypedDataBundle(bundle, signer, options);
 }
 
 // Helper function to encode an action
@@ -666,7 +996,18 @@ export async function encodeAction(args: ActionArgs): Promise<string> {
 }
 
 // New executeAction function that uses encodeAction
-export async function executeAction(args: ActionArgs): Promise<TransactionResponse> {
+export async function executeAction(
+  args: ActionArgs,
+  typedDataOptions?: TypedDataOptions
+): Promise<TransactionResponse> {
+  // Check if we should use typed data execution
+  const useTypedData = typedDataOptions?.useTypedData ?? USE_TYPED_DATA;
+  
+  if (useTypedData) {
+    const signer = args.signer as HardhatEthersSigner || (await getGlobalSetup()).signer as HardhatEthersSigner;
+    return encodeAndExecuteTypedDataActions([args], signer, typedDataOptions || {});
+  }
+
   // If debug is true, execute the action using the debug version
   if (args.debug) {
     return executeActionDebug(args);
@@ -948,4 +1289,18 @@ export async function processMapleWithdrawal(poolAddress: string, sharesToProces
     method: 'hardhat_stopImpersonatingAccount',
     params: [poolDelegate],
   });
+}
+
+// Execution mode for actions/sequences
+export type ExecutionMode = 'standard' | 'typedData' | 'debug';
+
+// TypedData execution options
+export interface TypedDataOptions {
+  useTypedData?: boolean;
+  sequenceName?: string;
+  chainId?: bigint;
+  sequenceNonce?: bigint;
+  expiryOffset?: number;
+  safeDeployment?: SafeDeployment;
+  eip712Module?: EIP712TypedDataSafeModule;
 }

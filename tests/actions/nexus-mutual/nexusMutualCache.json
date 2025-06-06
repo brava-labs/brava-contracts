@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "lastUpdated": 1746090994507,
+  "lastUpdated": 1749052309033,
   "cachedQuotes": [
     {
       "timestamp": 1746090983378,
@@ -57,6 +57,34 @@
           "poolId": "2",
           "coverAmountInAsset": "1251835",
           "skip": false
+        }
+      ]
+    },
+    {
+      "timestamp": 1749052309033,
+      "blockNumber": 22388051,
+      "productId": 152,
+      "coverAmount": "1000000000000000000",
+      "period": 2419200,
+      "coverAsset": 1,
+      "owner": "0x79390141484010dE1a1E871D3f61cA7C93bB3a91",
+      "buyCoverParams": {
+        "coverId": 0,
+        "owner": "0x79390141484010dE1a1E871D3f61cA7C93bB3a91",
+        "productId": 152,
+        "coverAsset": 1,
+        "amount": "1000000000000000000",
+        "period": 2419200,
+        "maxPremiumInAsset": "3327522095624521",
+        "paymentAsset": 1,
+        "commissionRatio": 1500,
+        "commissionDestination": "0x8e53D04644E9ab0412a8c6bd228C84da7664cFE3",
+        "ipfsData": ""
+      },
+      "poolAllocationRequests": [
+        {
+          "poolId": "22",
+          "coverAmountInAsset": "1248586437977911937"
         }
       ]
     }

@@ -9,7 +9,7 @@ import {ISafeSetupRegistry} from "../interfaces/ISafeSetupRegistry.sol";
 import {Roles} from "./Roles.sol";
 
 /// @title SafeSetupRegistry
-/// @notice Manages Safe setup configurations with a delay mechanism
+/// @notice Manages the current Safe setup configuration
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract SafeSetupRegistry is Multicall, Roles, ISafeSetupRegistry {
@@ -19,11 +19,8 @@ contract SafeSetupRegistry is Multicall, Roles, ISafeSetupRegistry {
     /// @notice The Logger contract for events
     ILogger public immutable LOGGER;
 
-    /// @notice Mapping of configuration IDs to their setup configurations
-    mapping(bytes32 => SafeSetupConfig) public setupConfigs;
-
-    /// @notice Mapping of configuration IDs to their proposal timestamps
-    mapping(bytes32 => uint256) public configProposals;
+    /// @notice The current Safe setup configuration
+    SafeSetupConfig public currentConfig;
 
     /// @notice Constructor to initialize the SafeSetupRegistry
     /// @param _adminVault The address of the AdminVault contract
@@ -45,106 +42,47 @@ contract SafeSetupRegistry is Multicall, Roles, ISafeSetupRegistry {
         _;
     }
 
-    /// @notice Gets the delay timestamp from AdminVault
-    function _getDelayTimestamp() internal returns (uint256) {
-        return ADMIN_VAULT.getDelayTimestamp();
-    }
-
-    /// @notice Proposes a new Safe setup configuration
-    /// @param _configId Unique identifier for the configuration
+    /// @notice Updates the current setup configuration
     /// @param _fallbackHandler Address of the fallback handler contract
     /// @param _modules Array of module addresses to enable
     /// @param _guard Address of the guard contract
-    function proposeSetupConfig(
-        bytes32 _configId,
+    function updateCurrentConfig(
         address _fallbackHandler,
         address[] calldata _modules,
         address _guard
-    ) external onlyRole(Roles.TRANSACTION_PROPOSER_ROLE) {
-        require(_configId != bytes32(0), Errors.InvalidInput("SafeSetupRegistry", "proposeSetupConfig"));
-        require(!setupConfigs[_configId].isActive, Errors.AdminVault_TransactionAlreadyApproved());
-        require(configProposals[_configId] == 0, Errors.AdminVault_AlreadyProposed());
-
+    ) external onlyRole(Roles.OWNER_ROLE) {
         // Validate that at least fallback handler or guard is provided
         require(
-            _fallbackHandler != address(0) || _guard != address(0),
-            Errors.InvalidInput("SafeSetupRegistry", "proposeSetupConfig")
+            _fallbackHandler != address(0) || _guard != address(0) || _modules.length > 0,
+            Errors.InvalidInput("SafeSetupRegistry", "updateCurrentConfig")
         );
 
-        configProposals[_configId] = _getDelayTimestamp();
-        
-        // Store the proposed configuration temporarily (will be activated on approval)
-        setupConfigs[_configId] = SafeSetupConfig({
-            fallbackHandler: _fallbackHandler,
-            modules: _modules,
-            guard: _guard,
-            isActive: false
-        });
+        // Update the current configuration
+        currentConfig.fallbackHandler = _fallbackHandler;
+        currentConfig.modules = _modules;
+        currentConfig.guard = _guard;
 
-        emit SetupConfigProposed(_configId, _fallbackHandler, _modules, _guard);
-        LOGGER.logAdminVaultEvent(107, abi.encode(_configId, _fallbackHandler, _modules, _guard));
-    }
-
-    /// @notice Cancels a proposed setup configuration
-    /// @param _configId Unique identifier for the configuration
-    function cancelSetupConfig(bytes32 _configId) external onlyRole(Roles.TRANSACTION_CANCELER_ROLE) {
-        require(configProposals[_configId] != 0, Errors.AdminVault_TransactionNotProposed());
-
-        delete configProposals[_configId];
-        delete setupConfigs[_configId];
-
-        emit SetupConfigCanceled(_configId);
-        LOGGER.logAdminVaultEvent(307, abi.encode(_configId));
-    }
-
-    /// @notice Approves a proposed setup configuration
-    /// @param _configId Unique identifier for the configuration
-    function approveSetupConfig(bytes32 _configId) external onlyRole(Roles.TRANSACTION_EXECUTOR_ROLE) {
-        require(_configId != bytes32(0), Errors.InvalidInput("SafeSetupRegistry", "approveSetupConfig"));
-        require(!setupConfigs[_configId].isActive, Errors.AdminVault_TransactionAlreadyApproved());
-        require(configProposals[_configId] != 0, Errors.AdminVault_TransactionNotProposed());
-        require(
-            block.timestamp >= configProposals[_configId],
-            Errors.AdminVault_DelayNotPassed(block.timestamp, configProposals[_configId])
-        );
-
-        delete configProposals[_configId];
-        setupConfigs[_configId].isActive = true;
-
-        SafeSetupConfig memory config = setupConfigs[_configId];
-        emit SetupConfigApproved(_configId, config.fallbackHandler, config.modules, config.guard);
-        LOGGER.logAdminVaultEvent(207, abi.encode(_configId, config.fallbackHandler, config.modules, config.guard));
-    }
-
-    /// @notice Revokes an active setup configuration
-    /// @param _configId Unique identifier for the configuration
-    function revokeSetupConfig(bytes32 _configId) external onlyRole(Roles.TRANSACTION_DISPOSER_ROLE) {
-        require(setupConfigs[_configId].isActive, "SafeSetupRegistry: Config not active");
-
-        delete setupConfigs[_configId];
-
-        emit SetupConfigRevoked(_configId);
-        LOGGER.logAdminVaultEvent(407, abi.encode(_configId));
+        emit CurrentConfigurationUpdated(_fallbackHandler, _modules, _guard);
+        LOGGER.logAdminVaultEvent(107, abi.encode(_fallbackHandler, _modules, _guard));
     }
 
     /// @notice Gets the current active setup configuration
-    /// @param _configId Unique identifier for the configuration
-    /// @return config The setup configuration
-    function getSetupConfig(bytes32 _configId) external view returns (SafeSetupConfig memory config) {
-        return setupConfigs[_configId];
+    /// @return config The current setup configuration
+    function getCurrentConfig() external view returns (SafeSetupConfig memory config) {
+        return currentConfig;
     }
 
-    /// @notice Checks if a setup configuration is active and approved
-    /// @param _configId Unique identifier for the configuration
-    /// @return bool True if the configuration is active, false otherwise
-    function isApprovedConfig(bytes32 _configId) external view returns (bool) {
-        return setupConfigs[_configId].isActive;
-    }
-
-    /// @notice Gets the proposal timestamp for a configuration
-    /// @param _configId Unique identifier for the configuration
-    /// @return uint256 The proposal timestamp (0 if not proposed)
-    function getProposalTimestamp(bytes32 _configId) external view returns (uint256) {
-        return configProposals[_configId];
+    /// @notice Checks if the current configuration includes a specific module
+    /// @param _module The module address to check
+    /// @return bool True if the module is included in current config
+    function isModuleInCurrentConfig(address _module) external view returns (bool) {
+        if (_module == address(0)) return false;
+        
+        for (uint256 i = 0; i < currentConfig.modules.length; i++) {
+            if (currentConfig.modules[i] == _module) {
+                return true;
+            }
+        }
+        return false;
     }
 } 

@@ -75,4 +75,14 @@ contract Errors {
     // UpgradeAction errors
     error UpgradeAction_TransactionNotApproved(bytes32 txHash);
     error UpgradeAction_ExecutionFailed();
+
+    // EIP712TypedDataSafeModule errors
+    error EIP712TypedDataSafeModule_InvalidSignature();
+    error EIP712TypedDataSafeModule_BundleExpired();
+    error EIP712TypedDataSafeModule_ChainSequenceNotFound(uint256 chainId, uint256 expectedNonce);
+    error EIP712TypedDataSafeModule_ActionMismatch(uint256 actionIndex, string expectedProtocol, uint8 expectedType, string actualProtocol, uint8 actualType);
+    error EIP712TypedDataSafeModule_ExecutionFailed();
+    error EIP712TypedDataSafeModule_SignerNotOwner(address signer);
+    error EIP712TypedDataSafeModule_LengthMismatch();
+    error EIP712TypedDataSafeModule_SafeDeploymentFailed();
 }
