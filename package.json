@@ -26,7 +26,7 @@
     "@nomicfoundation/hardhat-ledger": "1.0.3",
     "@nomicfoundation/hardhat-toolbox": "5.0.0",
     "@openzeppelin/hardhat-upgrades": "3.5.0",
-    "@tenderly/hardhat-tenderly": "2.5.1",
+    "@tenderly/hardhat-tenderly": "^2.5.2",
     "hardhat": "2.22.16"
   },
   "dependencies": {

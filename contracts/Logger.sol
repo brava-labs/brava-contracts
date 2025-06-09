@@ -2,12 +2,14 @@
 
 pragma solidity =0.8.28;
 
-import {ActionBase} from "./actions/ActionBase.sol";
-import {ILogger} from "./interfaces/ILogger.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
-contract Logger is ILogger, Initializable {
+contract Logger is Initializable {
+    /// @notice Events to match the ILogger interface
+    event ActionEvent(address caller, uint8 logId, bytes data);
+    event AdminVaultEvent(uint256 logId, bytes data);
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -20,9 +22,9 @@ contract Logger is ILogger, Initializable {
     }
 
     /// @notice Logs an event from an action
-    /// @param _logType The type of the log
+    /// @param _logType The type of the log as uint8 (allows any enum value from ActionBase.LogType)
     /// @param _data The data to log
-    function logActionEvent(ActionBase.LogType _logType, bytes memory _data) public {
+    function logActionEvent(uint8 _logType, bytes memory _data) public {
         emit ActionEvent(msg.sender, _logType, _data);
     }
 
