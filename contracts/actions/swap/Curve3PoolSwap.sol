@@ -65,11 +65,17 @@ contract Curve3PoolSwap is ActionBase {
         IERC20 tokenIn = IERC20(POOL.coins(uint256(uint128(_params.fromToken))));
         IERC20 tokenOut = IERC20(POOL.coins(uint256(uint128(_params.toToken))));
 
-        tokenIn.safeIncreaseAllowance(address(POOL), _params.amountIn);
+        // Check actual balance and use the minimum of requested amount or available balance
+        uint256 actualBalance = tokenIn.balanceOf(address(this));
+        uint256 actualAmountIn = actualBalance < _params.amountIn ? actualBalance : _params.amountIn;
+        
+        require(actualAmountIn > 0, Errors.InvalidInput("Curve3PoolSwap", "executeAction - insufficient balance"));
+
+        tokenIn.safeIncreaseAllowance(address(POOL), actualAmountIn);
 
         uint256 balanceBefore = tokenOut.balanceOf(address(this));
 
-        POOL.exchange(_params.fromToken, _params.toToken, _params.amountIn, _params.minAmountOut);
+        POOL.exchange(_params.fromToken, _params.toToken, actualAmountIn, _params.minAmountOut);
 
         uint256 balanceAfter = tokenOut.balanceOf(address(this));
         uint256 amountOut = balanceAfter - balanceBefore;
