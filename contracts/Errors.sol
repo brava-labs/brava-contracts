@@ -69,10 +69,45 @@ contract Errors {
     error Paraswap__InvalidCalldata();
     error Paraswap__UnsupportedSelector(bytes4 selector);
 
+    // 0x errors
+error ZeroEx__SwapFailed();
+error ZeroEx__InsufficientOutput(uint256 _amountReceived, uint256 _minToAmount);
+error ZeroEx__InvalidSwapTarget(address provided, address expected);
+error ZeroEx__TokenNotApproved(address token);
+
     // SendToken errors
     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
 
     // UpgradeAction errors
-    error UpgradeAction_TransactionNotApproved(bytes32 txHash);
-    error UpgradeAction_ExecutionFailed();
+    error UpgradeAction_ConfigurationMismatch();
+    error UpgradeAction_ModuleOperationFailed();
+
+    // EIP712TypedDataSafeModule errors
+    error EIP712TypedDataSafeModule_InvalidSignature();
+    error EIP712TypedDataSafeModule_BundleExpired();
+    error EIP712TypedDataSafeModule_ChainSequenceNotFound(uint256 chainId, uint256 expectedNonce);
+    error EIP712TypedDataSafeModule_ActionMismatch(uint256 actionIndex, string expectedProtocol, uint8 expectedType, string actualProtocol, uint8 actualType);
+    error EIP712TypedDataSafeModule_ExecutionFailed();
+    error EIP712TypedDataSafeModule_SignerNotOwner(address signer);
+    error EIP712TypedDataSafeModule_LengthMismatch();
+    error EIP712TypedDataSafeModule_SafeDeploymentFailed();
+    error EIP712TypedDataSafeModule_SafeAddressMismatch(address provided, address predicted);
+    error EIP712TypedDataSafeModule_ActionNotFound(bytes4 actionId);
+    error EIP712TypedDataSafeModule_UnauthorizedRefundCall();
+    // Gas refund errors
+    error EIP712TypedDataSafeModule_InvalidRefundToken(address token);
+    error EIP712TypedDataSafeModule_RefundTokenNotApproved(address token);
+    error EIP712TypedDataSafeModule_InvalidOraclePrice(int256 price);
+    error EIP712TypedDataSafeModule_StaleOraclePrice(uint256 lastUpdated, uint256 currentTime);
+    error EIP712TypedDataSafeModule_InvalidOracleRound(uint80 roundId, uint80 answeredInRound);
+    error EIP712TypedDataSafeModule_InvalidRefundRecipient(uint8 refundTo);
+    error EIP712TypedDataSafeModule_RefundTransferFailed();
+
+    // SafeDeployment errors
+    error SafeDeployment_SafeAlreadyDeployed();
+    error SafeDeployment_SafeDeploymentFailed();
+    error SafeDeployment_SafeInitializationFailed();
+
+    // TokenRegistry errors
+    error TokenRegistry_TokenNotApproved();
 }

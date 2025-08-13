@@ -51,7 +51,8 @@ abstract contract ActionBase {
         PARASWAP_SWAP,
         UPGRADE_ACTION,
         WITHDRAWAL_REQUEST,
-        BUY_COVER_WITH_PREMIUM
+        BUY_COVER_WITH_PREMIUM,
+        ZERO_EX_SWAP
     }
 
     /// @notice Initializes the ActionBase contract

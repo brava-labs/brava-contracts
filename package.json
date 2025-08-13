@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/brava-labs/brava-contracts#readme",
   "devDependencies": {
-    "@nexusmutual/sdk": "0.14.0",
+    "@nexusmutual/sdk": "1.0.0-rc.1",
     "@nomicfoundation/hardhat-ledger": "1.0.3",
     "@nomicfoundation/hardhat-toolbox": "5.0.0",
     "@openzeppelin/hardhat-upgrades": "3.5.0",

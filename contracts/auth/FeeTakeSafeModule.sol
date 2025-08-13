@@ -4,6 +4,7 @@ pragma solidity =0.8.28;
 import {ActionBase} from "../actions/ActionBase.sol";
 import {Errors} from "../Errors.sol";
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
+import {IEip712TypedDataSafeModule} from "../interfaces/IEip712TypedDataSafeModule.sol";
 import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {Enum} from "../libraries/Enum.sol";
 import {Roles} from "./Roles.sol";
@@ -28,7 +29,7 @@ contract FeeTakeSafeModule is Roles {
 
     IAdminVault public immutable ADMIN_VAULT;
     bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint16)"));
-    bytes4 public constant EXECUTE_SEQUENCE_SELECTOR = bytes4(keccak256("executeSequence((string,bytes[],bytes4[]))"));
+    bytes4 public constant EXECUTE_SEQUENCE_SELECTOR = 0xff117938;
     address public immutable SEQUENCE_EXECUTOR_ADDR;
 
     constructor(address _adminVault, address _sequenceExecutor) {
@@ -84,8 +85,18 @@ contract FeeTakeSafeModule is Roles {
             sequence.callData[i] = callData;
         }
 
-        // encode the sequence data
-        bytes memory sequenceData = abi.encodeWithSelector(EXECUTE_SEQUENCE_SELECTOR, sequence);
+        // encode the sequence data with empty bundle for legacy compatibility
+        IEip712TypedDataSafeModule.Bundle memory emptyBundle = IEip712TypedDataSafeModule.Bundle({
+            expiry: 0,
+            sequences: new IEip712TypedDataSafeModule.ChainSequence[](0)
+        });
+        bytes memory sequenceData = abi.encodeWithSelector(
+            EXECUTE_SEQUENCE_SELECTOR, 
+            sequence, 
+            emptyBundle, 
+            "", 
+            uint16(0)
+        );
         // execute the sequence
         bool success = ISafe(_safeAddr).execTransactionFromModule(
             SEQUENCE_EXECUTOR_ADDR,

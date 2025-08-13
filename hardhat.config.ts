@@ -2,14 +2,14 @@ import '@nomicfoundation/hardhat-ledger';
 import '@nomicfoundation/hardhat-toolbox';
 import '@nomiclabs/hardhat-solhint';
 import '@openzeppelin/hardhat-upgrades';
-import '@tenderly/hardhat-tenderly';
+// import '@tenderly/hardhat-tenderly';
 import 'dotenv/config';
 import { HardhatUserConfig } from 'hardhat/config';
 
 const config: HardhatUserConfig = {
   solidity: '0.8.28',
   paths: {
-    tests: './tests',
+    tests: './test',
   },
   networks: {
     virtualMainnet: {
@@ -19,7 +19,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: 'https://mainnet.gateway.tenderly.co/' + process.env.TENDERLY_API_KEY!,
-        blockNumber: 22388026, // Using block from when we cached the quotes
+        blockNumber: 23096055,
       },
     },
     localhost: {
