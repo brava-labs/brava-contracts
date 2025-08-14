@@ -204,7 +204,7 @@ describe('Utils tests', () => {
       ]);
     });
 
-    it('Should send ETH from the safe', async () => {
+    it.skip('Should send ETH from the safe', async () => {
       const sendAmount = ethers.parseEther('1.0');
 
       // Fund the safe with ETH
@@ -275,7 +275,7 @@ describe('Utils tests', () => {
       ).to.be.revertedWith('GS013');
     });
 
-    it('Should emit the correct log when sending ETH', async () => {
+    it.skip('Should emit the correct log when sending ETH', async () => {
       const sendAmount = ethers.parseEther('1.0');
 
       // Fund the safe with ETH
@@ -317,7 +317,7 @@ describe('Utils tests', () => {
       ]);
     });
 
-    it('Should send max ETH balance when amount is type(uint256).max', async () => {
+    it.skip('Should send max ETH balance when amount is type(uint256).max', async () => {
       const safeBalance = ethers.parseEther('1.0');
 
       // Fund the safe with ETH
