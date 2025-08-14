@@ -78,7 +78,7 @@ Example typed data (Domain + Types + Value):
     "name": "BravaSafeModule",
     "version": "1.0.0",
     "chainId": 1,
-    "verifyingContract": "0xEIP712ModuleAddress",
+    "verifyingContract": "0xUserSafeAddress",
     "salt": "0x" // keccak256("BravaSafe")
   },
   "primaryType": "Bundle",
@@ -143,7 +143,7 @@ Example typed data (Domain + Types + Value):
 What each field means, at a glance:
 - **domain.name/version**: Human-readable domain for signatures.
 - **domain.chainId**: Fixed to 1 for cross-chain signature reuse.
-- **domain.verifyingContract**: The `EIP712TypedDataSafeModule` address.
+- **domain.verifyingContract**: The `Safe` address.
 - **domain.salt**: Domain salt; contracts fix this to `keccak256("BravaSafe")`.
 - **Bundle.expiry**: Unix timestamp after which the Bundle is invalid.
 - **ChainSequence.chainId**: Target chain for this sequence.

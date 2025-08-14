@@ -9,6 +9,7 @@ export const isLoggingEnabled = process.env.ENABLE_LOGGING === 'true';
 
 export function log(...args: unknown[]): void {
   if (isLoggingEnabled) {
+    // eslint-disable-next-line no-console
     console.log(...args);
   }
 }
