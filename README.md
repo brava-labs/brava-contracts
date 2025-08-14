@@ -16,26 +16,24 @@ Welcome to the Brava smart contract repository! 🚀 This project houses the sma
    npm install
    ```
 
-3. Create a `.env` file in the root directory. Use a mainnet RPC with historical blocks at or before block 23096055 (archive/backfilled). See `.env.sample` for all options.
+3. Create a `.env` file in the root directory. Tests fork mainnet using `NEXT_PUBLIC_RPC_URL`. Use a provider with historical state at or before block `23096055` (archive/backfilled).
 
    Minimal variables:
    ```
-   # Option A (preferred for tests): Tenderly gateway for mainnet forking
-   TENDERLY_API_KEY=your_tenderly_api_key
-
-   # Option B: Your own Ethereum mainnet RPC (archive/backfilled)
-   # Used for the `mainnet` network and general tooling
-   MAINNET_RPC_URL=https://your.mainnet.rpc
+   # Used by tests for mainnet forking
+   NEXT_PUBLIC_RPC_URL=https://your.archive.mainnet.rpc
    ```
-   Optional variables (used only by specific tests or tasks):
+   Optional variables (used only by specific tests or tooling):
    ```
    ZERO_EX_API_KEY=your_zero_ex_api_key
    ETHERSCAN_API_KEY=your_etherscan_api_key
+   ENABLE_LOGGING=false
+   # Tenderly variables may be used by some scripts but are not required for tests
+   TENDERLY_API_KEY=your_tenderly_api_key
    TENDERLY_VIRTUAL_MAINNET_RPC=https://virtual.mainnet.rpc.if.used
    TENDERLY_PROJECT=your_tenderly_project
    TENDERLY_USERNAME=your_tenderly_username
    LEDGER_ACCOUNT=your_ledger_eth_address
-   ENABLE_LOGGING=false
    ```
 
 4. 🔗 Visit the [brava-ts-client repository](https://github.com/brava-labs/brava-ts-client.git) and follow the installation instructions.
@@ -65,8 +63,110 @@ npm run test -- --grep Curve
 This project uses Hardhat for Ethereum development. The main configuration can be found in `hardhat.config.ts`.
 
 Notes:
-- The local Hardhat network forks mainnet at block 23096055. By default, it uses the Tenderly gateway via `TENDERLY_API_KEY`. If you prefer a different provider, ensure it has historical state at that block.
+- The local Hardhat network forks mainnet at block `23096055`. Configure `NEXT_PUBLIC_RPC_URL` to a mainnet RPC with historical state at that block.
 - Most tests do not require optional credentials. Some integration tests (e.g., ZeroEx) will use the corresponding keys if provided.
+
+### EIP-712 Typed Data Execution
+
+The primary execution path is off-chain signing of a typed-data Bundle by a Safe owner. The signed Bundle is submitted to the `EIP712TypedDataSafeModule`, which validates and executes the sequence on the Safe via the `SequenceExecutor`.
+
+Example typed data (Domain + Types + Value):
+
+```json
+{
+  "domain": {
+    "name": "BravaSafeModule",
+    "version": "1.0.0",
+    "chainId": 1,
+    "verifyingContract": "0xEIP712ModuleAddress",
+    "salt": "0x" // keccak256("BravaSafe")
+  },
+  "primaryType": "Bundle",
+  "types": {
+    "Bundle": [
+      { "name": "expiry", "type": "uint256" },
+      { "name": "sequences", "type": "ChainSequence[]" }
+    ],
+    "ChainSequence": [
+      { "name": "chainId", "type": "uint256" },
+      { "name": "sequenceNonce", "type": "uint256" },
+      { "name": "deploySafe", "type": "bool" },
+      { "name": "enableGasRefund", "type": "bool" },
+      { "name": "refundToken", "type": "address" },
+      { "name": "maxRefundAmount", "type": "uint256" },
+      { "name": "refundRecipient", "type": "uint8" },
+      { "name": "sequence", "type": "Sequence" }
+    ],
+    "Sequence": [
+      { "name": "name", "type": "string" },
+      { "name": "actions", "type": "ActionDefinition[]" },
+      { "name": "actionIds", "type": "bytes4[]" },
+      { "name": "callData", "type": "bytes[]" }
+    ],
+    "ActionDefinition": [
+      { "name": "protocolName", "type": "string" },
+      { "name": "actionType", "type": "uint8" }
+    ]
+  },
+  "message": {
+    "expiry": 1735690000,
+    "sequences": [
+      {
+        "chainId": 1,
+        "sequenceNonce": 0,
+        "deploySafe": false,
+        "enableGasRefund": false,
+        "refundToken": "0x0000000000000000000000000000000000000000",
+        "maxRefundAmount": 0,
+        "refundRecipient": 0,
+        "sequence": {
+          "name": "SampleSequence",
+          "actions": [
+            { "protocolName": "FluidV1", "actionType": 0 },
+            { "protocolName": "SendToken", "actionType": 0 }
+          ],
+          "actionIds": [
+            "0x1a2b3c4d",
+            "0x5e6f7a8b"
+          ],
+          "callData": [
+            "0x...", // ABI-encoded action params for first action
+            "0x..."  // ABI-encoded action params for second action
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+What each field means, at a glance:
+- **domain.name/version**: Human-readable domain for signatures.
+- **domain.chainId**: Fixed to 1 for cross-chain signature reuse.
+- **domain.verifyingContract**: The `EIP712TypedDataSafeModule` address.
+- **domain.salt**: Domain salt; contracts fix this to `keccak256("BravaSafe")`.
+- **Bundle.expiry**: Unix timestamp after which the Bundle is invalid.
+- **ChainSequence.chainId**: Target chain for this sequence.
+- **ChainSequence.sequenceNonce**: Prevents replay; must match the Safe’s next expected nonce.
+- **ChainSequence.deploySafe**: If true, the module will deploy the Safe before executing.
+- **ChainSequence.enableGasRefund**: Enables optional on-chain gas refund via a refund action.
+- **ChainSequence.refundToken/maxRefundAmount/refundRecipient**: Parameters for the refund action.
+- **Sequence.name**: Free-form label for the sequence.
+- **Sequence.actions**: Array of action descriptors used for analytics/UX.
+- **Sequence.actionIds**: Bytes4 identifiers (AdminVault mapping) for each action.
+- **Sequence.callData**: ABI-encoded params for each action.
+
+Execution flow:
+- User signs the Bundle off-chain (EIP-712) as a Safe owner.
+- A relayer (or the dApp) submits `executeBundle(safeAddr, bundle, signature)` to the `EIP712TypedDataSafeModule`.
+- The module verifies the domain, expiry, signer ownership, and sequence nonce.
+- If `deploySafe` is true, the module uses `SafeDeployment` to deploy the user’s Safe deterministically.
+- The module calls `SequenceExecutor.executeSequence(...)` from the Safe via delegatecall to run each action.
+- If enabled, the Gas Refund action reimburses gas to the executor or fee recipient.
+
+#### SafeDeployment and deterministic Safe addresses
+- `SafeDeployment` and related contracts support deterministic deployment (Create2-based proxies) so users can have the same Safe address across chains and be deployed on-demand.
+- See `contracts/auth/SafeDeployment.sol` and `contracts/auth/SafeSetupRegistry.sol` for details.
 
 🔗 This project relies on the brava-ts-client.
 
