@@ -40,6 +40,7 @@ contract BuyCover is ActionBase {
 
     /// @inheritdoc ActionBase
     function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+        
         // Parse inputs
         Params memory inputData = _parseInputs(_callData);
 
@@ -64,6 +65,7 @@ contract BuyCover is ActionBase {
     /// @notice Executes the buy cover action
     /// @param _inputData Struct containing buy cover parameters
     function _buyCover(Params memory _inputData) private returns (uint32 period, uint256 amount, uint256 premiumPaid, uint256 coverId) {
+        
         BuyCoverParams memory params = abi.decode(_inputData.buyCoverParams, (BuyCoverParams));
 
         PoolAllocationRequest[] memory poolAllocationRequests = new PoolAllocationRequest[](
@@ -74,7 +76,6 @@ contract BuyCover is ActionBase {
         }
 
         if (params.paymentAsset == 0) {
-
             uint256 balanceBefore = address(this).balance;
 
             coverId = COVER_BROKER.buyCover{value: params.maxPremiumInAsset}(params, poolAllocationRequests);
@@ -83,11 +84,11 @@ contract BuyCover is ActionBase {
             
             premiumPaid = balanceBefore - balanceAfter; 
         } else {
-
             IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
             uint256 balanceBefore = paymentAsset.balanceOf(address(this));
 
             paymentAsset.safeIncreaseAllowance(address(COVER_BROKER), params.maxPremiumInAsset);
+            
             coverId = COVER_BROKER.buyCover(params, poolAllocationRequests);
 
             uint256 balanceAfter = paymentAsset.balanceOf(address(this));

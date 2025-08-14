@@ -88,7 +88,7 @@ contract TokenRegistry is Multicall, Roles, ITokenRegistry {
     /// @notice Revokes approval for a token
     /// @param _token The address of the token contract to revoke
     function revokeToken(address _token) external onlyRole(Roles.TRANSACTION_DISPOSER_ROLE) {
-        require(approvedTokens[_token], "TokenRegistry: Token not approved");
+        require(approvedTokens[_token], Errors.TokenRegistry_TokenNotApproved());
 
         delete approvedTokens[_token];
         LOGGER.logAdminVaultEvent(406, abi.encode(_token));

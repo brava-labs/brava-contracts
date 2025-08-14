@@ -40,6 +40,7 @@ abstract contract ERC4626Supply is ActionBase {
 
         // Check inputs
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
+        
         address vault = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
 
         // Execute action

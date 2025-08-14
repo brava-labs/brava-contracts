@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "lastUpdated": 1754652815366,
+  "cachedQuotes": [
+    {
+      "timestamp": 1754652804417,
+      "blockNumber": 23096047,
+      "productId": 296,
+      "coverAmount": "2000000000000000000",
+      "period": 2419200,
+      "coverAsset": 0,
+      "owner": "0x9e6E37451523C70656E497a8ceBdEECB3748eB19",
+      "buyCoverParams": {
+        "coverId": 0,
+        "owner": "0x9e6E37451523C70656E497a8ceBdEECB3748eB19",
+        "productId": 296,
+        "coverAsset": 0,
+        "amount": "2000000000000000000",
+        "period": 2419200,
+        "maxPremiumInAsset": "290116372218200",
+        "paymentAsset": 0,
+        "commissionRatio": 1000,
+        "commissionDestination": "0x8e53D04644E9ab0412a8c6bd228C84da7664cFE3",
+        "ipfsData": "Qmf9oh1w2M1G2Kk6MT263dLj5hnMEbMpdNCrxbRd8ky17A"
+      },
+      "poolAllocationRequests": [
+        {
+          "poolId": "2",
+          "coverAmountInAsset": "2000168492719033452"
+        }
+      ]
+    },
+    {
+      "timestamp": 1754652814306,
+      "blockNumber": 23096047,
+      "productId": 296,
+      "coverAmount": "10000000000",
+      "period": 2419200,
+      "coverAsset": 6,
+      "owner": "0x9e6E37451523C70656E497a8ceBdEECB3748eB19",
+      "buyCoverParams": {
+        "coverId": 0,
+        "owner": "0x9e6E37451523C70656E497a8ceBdEECB3748eB19",
+        "productId": 296,
+        "coverAsset": 6,
+        "amount": "10000000000",
+        "period": 2419200,
+        "maxPremiumInAsset": "1450583",
+        "paymentAsset": 6,
+        "commissionRatio": 1000,
+        "commissionDestination": "0x8e53D04644E9ab0412a8c6bd228C84da7664cFE3",
+        "ipfsData": "Qmf9oh1w2M1G2Kk6MT263dLj5hnMEbMpdNCrxbRd8ky17A"
+      },
+      "poolAllocationRequests": [
+        {
+          "poolId": "2",
+          "coverAmountInAsset": "10000856844"
+        }
+      ]
+    },
+    {
+      "timestamp": 1754652815366,
+      "blockNumber": 23096047,
+      "productId": 298,
+      "coverAmount": "10000000000",
+      "period": 2419200,
+      "coverAsset": 6,
+      "owner": "0x9e6E37451523C70656E497a8ceBdEECB3748eB19",
+      "buyCoverParams": {
+        "coverId": 0,
+        "owner": "0x9e6E37451523C70656E497a8ceBdEECB3748eB19",
+        "productId": 298,
+        "coverAsset": 6,
+        "amount": "10000000000",
+        "period": 2419200,
+        "maxPremiumInAsset": "26366495",
+        "paymentAsset": 6,
+        "commissionRatio": 1000,
+        "commissionDestination": "0x8e53D04644E9ab0412a8c6bd228C84da7664cFE3",
+        "ipfsData": "Qmf9oh1w2M1G2Kk6MT263dLj5hnMEbMpdNCrxbRd8ky17A"
+      },
+      "poolAllocationRequests": [
+        {
+          "poolId": "2",
+          "coverAmountInAsset": "10000856844"
+        }
+      ]
+    }
+  ]
+}

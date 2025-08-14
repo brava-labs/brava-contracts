@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: MIT
+pragma solidity =0.8.28;
+
+import {ActionBase} from "../../actions/ActionBase.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IEip712TypedDataSafeModule} from "../../interfaces/IEip712TypedDataSafeModule.sol";
+import {ITokenRegistry} from "../../interfaces/ITokenRegistry.sol";
+import {IAggregatorV3} from "../../interfaces/chainlink/IAggregatorV3.sol";
+import {GasRefundLib} from "../../libraries/GasRefundLib.sol";
+import {Errors} from "../../Errors.sol";
+
+/// @title GasRefundAction
+/// @notice Performs a guarded gas refund transfer from the Safe based on module-provided context
+contract GasRefundAction is ActionBase {
+    using SafeERC20 for IERC20;
+
+    ITokenRegistry public immutable TOKEN_REGISTRY;
+    IAggregatorV3 public immutable ETH_USD_ORACLE;
+    address public immutable FEE_RECIPIENT;
+    IEip712TypedDataSafeModule public immutable EIP712_MODULE;
+
+    struct Params {
+        address refundToken;
+        uint256 maxRefundAmount;
+        uint8 refundRecipient; // 0=executor, 1=fee recipient
+    }
+
+    constructor(
+        address _adminVault,
+        address _logger,
+        address _tokenRegistry,
+        address _ethUsdOracle,
+        address _feeRecipient,
+        address _eip712Module
+    ) ActionBase(_adminVault, _logger) {
+        TOKEN_REGISTRY = ITokenRegistry(_tokenRegistry);
+        ETH_USD_ORACLE = IAggregatorV3(_ethUsdOracle);
+        FEE_RECIPIENT = _feeRecipient;
+        EIP712_MODULE = IEip712TypedDataSafeModule(_eip712Module);
+    }
+
+    function executeAction(bytes memory _callData, uint16 /* _strategyId */) public payable override {
+        Params memory p = abi.decode(_callData, (Params));
+
+        if (p.refundRecipient > uint8(GasRefundLib.RefundRecipient.FEE_RECIPIENT)) {
+            revert Errors.EIP712TypedDataSafeModule_InvalidRefundRecipient(p.refundRecipient);
+        }
+
+        // Consume context from the module; must be called by the Safe via delegatecall
+        (bool ok, bytes memory ret) = address(EIP712_MODULE).call(
+            abi.encodeWithSignature("consumeGasContext()")
+        );
+        if (!ok || ret.length == 0) revert("Gas context unavailable");
+        (uint256 startGas, address executor) = abi.decode(ret, (uint256, address));
+        if (startGas == 0) revert("Gas context empty");
+
+        // Validate token approval
+        if (!TOKEN_REGISTRY.isApprovedToken(p.refundToken)) {
+            return; // skip silently if not approved
+        }
+
+        // Compute gas used and refund amount
+        uint256 endGas = gasleft();
+        uint256 gasUsed = startGas > endGas ? (startGas - endGas + GasRefundLib.GAS_OVERHEAD) : 0;
+        if (gasUsed == 0) {
+            return;
+        }
+
+        // Fetch ETH price
+        (
+            ,
+            int256 answer,
+            ,
+            uint256 updatedAt,
+            
+        ) = ETH_USD_ORACLE.latestRoundData();
+        if (answer <= 0) {
+            return;
+        }
+        if (block.timestamp - updatedAt > GasRefundLib.ORACLE_STALENESS_THRESHOLD) {
+            return;
+        }
+
+        uint256 ethPriceUsd = uint256(answer); // 8 decimals
+        uint256 tokenDecimals = IERC20Metadata(p.refundToken).decimals();
+        // refund = gasUsed * gasPrice * ethPriceUsd / 10^(18+8-tokenDecimals)
+        uint256 numerator = gasUsed * tx.gasprice;
+        uint256 refundAmount = (numerator * ethPriceUsd) / (10 ** (18 + 8 - tokenDecimals));
+        if (p.maxRefundAmount > 0 && refundAmount > p.maxRefundAmount) {
+            refundAmount = p.maxRefundAmount;
+        }
+        if (refundAmount == 0) {
+            return;
+        }
+
+        address recipient = p.refundRecipient == uint8(GasRefundLib.RefundRecipient.EXECUTOR)
+            ? executor
+            : FEE_RECIPIENT;
+        if (recipient == address(0)) {
+            return;
+        }
+
+        // Perform low-level transfer to avoid bubbling reverts
+        (bool success, ) = p.refundToken.call(
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, refundAmount)
+        );
+        success; // ignore result
+    }
+
+    function actionType() public pure override returns (uint8) {
+        return uint8(ActionBase.ActionType.FEE_ACTION);
+    }
+
+    function protocolName() public pure override returns (string memory) {
+        return "Brava";
+    }
+}
+
+
