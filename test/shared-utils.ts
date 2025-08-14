@@ -20,5 +20,6 @@ export function formatAmount(amount: bigint, decimals: number): string {
 export function getBytes4(address: string): string {
   // Import ethers dynamically to avoid circular dependencies
   const ethers = require('hardhat').ethers;
-  return ethers.keccak256(ethers.solidityPacked(['address'], [address])).slice(0, 10);
+  // Compute bytes4(keccak256(rawBytes)) without enforcing address type to allow test invalid values
+  return ethers.keccak256(address).slice(0, 10);
 }
