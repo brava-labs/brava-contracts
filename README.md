@@ -16,10 +16,26 @@ Welcome to the Brava smart contract repository! 🚀 This project houses the sma
    npm install
    ```
 
-3. Create a `.env` file in the root directory and add your Alchemy API key:
+3. Create a `.env` file in the root directory. Use a mainnet RPC with historical blocks at or before block 23096055 (archive/backfilled). See `.env.sample` for all options.
 
+   Minimal variables:
    ```
-   ALCHEMY_API_KEY=your_alchemy_api_key_here
+   # Option A (preferred for tests): Tenderly gateway for mainnet forking
+   TENDERLY_API_KEY=your_tenderly_api_key
+
+   # Option B: Your own Ethereum mainnet RPC (archive/backfilled)
+   # Used for the `mainnet` network and general tooling
+   MAINNET_RPC_URL=https://your.mainnet.rpc
+   ```
+   Optional variables (used only by specific tests or tasks):
+   ```
+   ZERO_EX_API_KEY=your_zero_ex_api_key
+   ETHERSCAN_API_KEY=your_etherscan_api_key
+   TENDERLY_VIRTUAL_MAINNET_RPC=https://virtual.mainnet.rpc.if.used
+   TENDERLY_PROJECT=your_tenderly_project
+   TENDERLY_USERNAME=your_tenderly_username
+   LEDGER_ACCOUNT=your_ledger_eth_address
+   ENABLE_LOGGING=false
    ```
 
 4. 🔗 Visit the [brava-ts-client repository](https://github.com/brava-labs/brava-ts-client.git) and follow the installation instructions.
@@ -47,6 +63,10 @@ npm run test -- --grep Curve
 ## 🚀 Development
 
 This project uses Hardhat for Ethereum development. The main configuration can be found in `hardhat.config.ts`.
+
+Notes:
+- The local Hardhat network forks mainnet at block 23096055. By default, it uses the Tenderly gateway via `TENDERLY_API_KEY`. If you prefer a different provider, ensure it has historical state at that block.
+- Most tests do not require optional credentials. Some integration tests (e.g., ZeroEx) will use the corresponding keys if provided.
 
 🔗 This project relies on the brava-ts-client.
 
