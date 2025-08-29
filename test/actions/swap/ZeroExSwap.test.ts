@@ -29,8 +29,8 @@ describe('ZeroExSwap tests', () => {
   let adminVault: any;
   let tokenRegistry: TokenRegistry;
 
-  // 0x allowance target (spender) address for mainnet
-  const ALLOWANCE_HOLDER = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+  // 0x Allowance Holder (spender) address for mainnet (v2 allowance-holder route)
+  const ALLOWANCE_HOLDER = '0x0000000000001ff3684f28c67538d4d072c22734';
 
   // List of tokens to test all permutations
   const TOKENS_TO_TEST = ['USDC', 'USDT', 'DAI'] as const;
@@ -374,8 +374,8 @@ describe('ZeroExSwap tests', () => {
 });
 
 describe('ZeroExSwap integration', () => {
-  // 0x allowance target (spender) address for mainnet
-  const ALLOWANCE_HOLDER = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+  // 0x Allowance Holder (spender) address for mainnet (v2 allowance-holder route)
+  const ALLOWANCE_HOLDER = '0x0000000000001ff3684f28c67538d4d072c22734';
 
   it('should be compatible with the existing action system', async () => {
     const [signer] = await ethers.getSigners();

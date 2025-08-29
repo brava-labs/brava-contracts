@@ -26,8 +26,8 @@ contract ZeroExSwap is ActionBase {
     /// @param fromAmount Amount of tokens to swap
     /// @param minToAmount Minimum amount of tokens to receive
     /// @param callValue ETH value to forward to the 0x call
-    /// @param swapTarget Address of the 0x exchange contract to call (e.g. Exchange Proxy)
-    /// @param swapCallData Encoded swap data from 0x API
+    /// @param swapTarget Address returned by 0x transaction data (transaction.to). Approval is only granted to ALLOWANCE_TARGET.
+    /// @param swapCallData Encoded call data from 0x transaction data (transaction.data)
     struct Params {
         address tokenIn;
         address tokenOut;
@@ -91,14 +91,9 @@ contract ZeroExSwap is ActionBase {
         IERC20 tokenIn = IERC20(_params.tokenIn);
         IERC20 tokenOut = IERC20(_params.tokenOut);
 
-        // Approve tokens to the 0x allowance target (spender) and swap target.
-        // Some 0x flows may pull from the swap target; approving both ensures compatibility.
-        // Use forceApprove pattern to support non-standard tokens (e.g. USDT) that
-        // require resetting allowance to zero before setting a new non-zero value.
-        tokenIn.forceApprove(ALLOWANCE_TARGET, 0);
-        tokenIn.forceApprove(ALLOWANCE_TARGET, _params.fromAmount);
-        tokenIn.forceApprove(_params.swapTarget, 0);
-        tokenIn.forceApprove(_params.swapTarget, _params.fromAmount);
+        // Approve input only to the canonical 0x Allowance Holder (spender)
+        // Use safeIncreaseAllowance like other actions in the codebase
+        tokenIn.safeIncreaseAllowance(ALLOWANCE_TARGET, _params.fromAmount);
 
         // Record balance before swap
         uint256 balanceBefore = tokenOut.balanceOf(address(this));
@@ -106,6 +101,7 @@ contract ZeroExSwap is ActionBase {
         // Execute swap through 0x exchange contract
         // Ensure forwarded ETH matches parameters for consistency
         require(msg.value == _params.callValue, Errors.InvalidInput("ZeroExSwap", "callValueMismatch"));
+        require(_params.swapCallData.length > 0, Errors.InvalidInput("ZeroExSwap", "swapCallData"));
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, ) = _params.swapTarget.call{value: msg.value}(_params.swapCallData);
         if (!success) {

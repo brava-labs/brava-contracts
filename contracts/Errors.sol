@@ -36,6 +36,7 @@ contract Errors {
     error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);
     error FeeTakeSafeModule_InvalidActionType(bytes4 _actionId);
     error FeeTakeSafeModule_ExecutionFailed();
+    error FeeTakeSafeModule_LengthMismatch();
 
     // Generic Action errors
     error Action_ZeroAmount(string _protocolName, uint8 _actionType);
@@ -102,6 +103,8 @@ error ZeroEx__TokenNotApproved(address token);
     error EIP712TypedDataSafeModule_InvalidOracleRound(uint80 roundId, uint80 answeredInRound);
     error EIP712TypedDataSafeModule_InvalidRefundRecipient(uint8 refundTo);
     error EIP712TypedDataSafeModule_RefundTransferFailed();
+    error EIP712TypedDataSafeModule_RefundActionRequired();
+    error EIP712TypedDataSafeModule_RefundActionNotAllowed();
 
     // SafeDeployment errors
     error SafeDeployment_SafeAlreadyDeployed();

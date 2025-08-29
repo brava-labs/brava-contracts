@@ -42,12 +42,13 @@ describe('UpgradeAction', () => {
   let bravaGuard: BravaGuard;
   let eip712Module: EIP712TypedDataSafeModule;
   let snapshotId: string;
+  let baseSetup: Awaited<ReturnType<typeof getBaseSetup>>;
 
   before(async () => {
     [deployer, user] = await ethers.getSigners();
 
     // Get base setup
-    const baseSetup = await getBaseSetup(deployer);
+    baseSetup = await getBaseSetup(deployer);
     if (!baseSetup) {
       throw new Error('Base setup not deployed');
     }
@@ -78,16 +79,20 @@ describe('UpgradeAction', () => {
       await sequenceExecutor.getAddress()
     );
 
-    // Deploy EIP712TypedDataSafeModule
+    // Deploy EIP712TypedDataSafeModule (constructor-less + initializeConfig)
     eip712Module = await deploy<EIP712TypedDataSafeModule>(
       'EIP712TypedDataSafeModule',
       deployer,
+      await deployer.getAddress()
+    );
+
+    await eip712Module.initializeConfig(
       await adminVault.getAddress(),
       await sequenceExecutor.getAddress(),
-      ethers.ZeroAddress, // Safe deployment address (not needed for tests)
-      baseSetup.tokenRegistry ? await baseSetup.tokenRegistry.getAddress() : ethers.ZeroAddress,
-      ethers.ZeroAddress, // ETH USD Oracle (not needed for tests)
-      await deployer.getAddress(), // Fee recipient
+      await baseSetup.safeDeployment.getAddress(),
+      await baseSetup.tokenRegistry.getAddress(),
+      await baseSetup.mockChainlinkOracle.getAddress(),
+      await deployer.getAddress(),
       'TestDomain',
       '1.0'
     );
@@ -207,11 +212,14 @@ describe('UpgradeAction', () => {
       const newModule = await deploy<EIP712TypedDataSafeModule>(
         'EIP712TypedDataSafeModule',
         deployer,
+        await deployer.getAddress()
+      );
+      await newModule.initializeConfig(
         await adminVault.getAddress(),
         await sequenceExecutor.getAddress(),
-        ethers.ZeroAddress,
-        ethers.ZeroAddress, // tokenRegistry (not needed for test)
-        ethers.ZeroAddress,
+        await baseSetup.safeDeployment.getAddress(),
+        await baseSetup.tokenRegistry.getAddress(),
+        await baseSetup.mockChainlinkOracle.getAddress(),
         await deployer.getAddress(),
         'TestDomain2',
         '1.0'
@@ -271,11 +279,14 @@ describe('UpgradeAction', () => {
       const newModule1 = await deploy<EIP712TypedDataSafeModule>(
         'EIP712TypedDataSafeModule',
         deployer,
+        await deployer.getAddress()
+      );
+      await newModule1.initializeConfig(
         await adminVault.getAddress(),
         await sequenceExecutor.getAddress(),
-        ethers.ZeroAddress,
-        ethers.ZeroAddress,
-        ethers.ZeroAddress,
+        await baseSetup.safeDeployment.getAddress(),
+        await baseSetup.tokenRegistry.getAddress(),
+        await baseSetup.mockChainlinkOracle.getAddress(),
         await deployer.getAddress(),
         'TestDomain3',
         '1.0'
@@ -284,11 +295,14 @@ describe('UpgradeAction', () => {
       const newModule2 = await deploy<EIP712TypedDataSafeModule>(
         'EIP712TypedDataSafeModule',
         deployer,
+        await deployer.getAddress()
+      );
+      await newModule2.initializeConfig(
         await adminVault.getAddress(),
         await sequenceExecutor.getAddress(),
-        ethers.ZeroAddress,
-        ethers.ZeroAddress,
-        ethers.ZeroAddress,
+        await baseSetup.safeDeployment.getAddress(),
+        await baseSetup.tokenRegistry.getAddress(),
+        await baseSetup.mockChainlinkOracle.getAddress(),
         await deployer.getAddress(),
         'TestDomain4',
         '1.0'

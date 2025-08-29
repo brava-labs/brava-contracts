@@ -181,58 +181,30 @@ export async function deploy<T extends BaseContract>(
     return contract as unknown as T;
   }
 
-  // For all other contracts, use CreateX
-  const bytecode = factory.bytecode;
-  let initCode = '';
-  const contractAbi = factory.interface.formatJson();
-  const constructorAbi = JSON.parse(contractAbi).find(
-    (item: { type: string }) => item.type === 'constructor'
-  );
-  if (constructorAbi) {
-    const constructorTypes = constructorAbi.inputs.map((input: { type: string }) => input.type);
-    const abiCoder = new ethers.AbiCoder();
-    const constructorArgs = abiCoder.encode(constructorTypes, args);
-    initCode = ethers.concat([bytecode, constructorArgs]);
-  } else {
-    initCode = bytecode;
-  }
-  const salt = ethers.keccak256(ethers.toUtf8Bytes('Brava'));
-  const createXFactory = await ethers.getContractAt('ICreateX', CREATE_X_ADDRESS, signer);
-  let receipt: TransactionReceipt | null = null;
-  try {
-    // By default try and deploy with gasOverrides from the provider, increased by 20% to account for potential increases
-    const gasOverrides = {
-      maxFeePerGas: feeData.maxFeePerGas
-        ? (feeData.maxFeePerGas * BigInt(120)) / BigInt(100)
-        : undefined,
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
-        ? (feeData.maxPriorityFeePerGas * BigInt(120)) / BigInt(100)
-        : undefined,
-    };
-    const tx = await createXFactory['deployCreate2(bytes32,bytes)'](salt, initCode, gasOverrides);
-    receipt = await tx.wait();
-  } catch (error) {
-    // Log the error and rethrow - no more fallback to zero gas as that's not valid
-    log(`Error deploying ${contractName}:`, error);
-    throw error;
-  }
-  const contractCreationEvent = receipt?.logs.find(
-    (log: Log) => (log as Log & { eventName?: string }).eventName === 'ContractCreation'
-  );
-  if (!contractCreationEvent) {
-    throw new Error(`Contract creation event not found for ${contractName}`);
-  }
-  const addr = ethers.getAddress(contractCreationEvent.topics[1].slice(26));
-  const contract = (await ethers.getContractAt(contractName, addr, signer)) as unknown as T;
-  log(`${contractName} deployed at:`, addr);
-  deployedContracts[contractName] = { address: addr, contract };
+  // For all other contracts in tests, deploy directly via the factory
+  const gasOverrides = {
+    maxFeePerGas: feeData.maxFeePerGas
+      ? (feeData.maxFeePerGas * BigInt(120)) / BigInt(100)
+      : undefined,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
+      ? (feeData.maxPriorityFeePerGas * BigInt(120)) / BigInt(100)
+      : undefined,
+  };
+  const deployed = await factory.deploy(...(args as any), gasOverrides);
+  await deployed.waitForDeployment();
+  const addr = await deployed.getAddress();
+  log(`${contractName} deployed (direct) at:`, addr);
+  deployedContracts[contractName] = {
+    address: addr,
+    contract: deployed as unknown as BaseContract,
+  };
   if (process.env.TENDERLY_VERIFY === 'true') {
     tenderly.verify({
       name: contractName,
       address: addr,
     });
   }
-  return contract;
+  return deployed as unknown as T;
 }
 
 type BaseSetup = {
@@ -377,10 +349,14 @@ export async function deployBaseSetup(signer?: HardhatEthersSigner): Promise<Bas
   // Use a mock fee recipient for testing
   const feeRecipient = await deploySigner.getAddress();
 
-  // Deploy EIP712TypedDataSafeModule with gas refund support
+  // Deploy EIP712TypedDataSafeModule (constructor-less + initializeConfig)
   const eip712Module = await deploy<EIP712TypedDataSafeModule>(
     'EIP712TypedDataSafeModule',
     deploySigner,
+    await deploySigner.getAddress()
+  );
+
+  await eip712Module.initializeConfig(
     await adminVault.getAddress(),
     await sequenceExecutor.getAddress(),
     await safeDeployment.getAddress(),

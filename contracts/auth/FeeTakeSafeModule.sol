@@ -8,6 +8,7 @@ import {IEip712TypedDataSafeModule} from "../interfaces/IEip712TypedDataSafeModu
 import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {Enum} from "../libraries/Enum.sol";
 import {Roles} from "./Roles.sol";
+import {ISequenceExecutor} from "../interfaces/ISequenceExecutor.sol";
 
 /// @title FeeTakeSafeModule
 /// @notice This is a safe module that will allow a bot (as permissioned by the admin vault) to take fees from the pools
@@ -29,7 +30,6 @@ contract FeeTakeSafeModule is Roles {
 
     IAdminVault public immutable ADMIN_VAULT;
     bytes4 public constant EXECUTE_ACTION_SELECTOR = bytes4(keccak256("executeAction(bytes,uint16)"));
-    bytes4 public constant EXECUTE_SEQUENCE_SELECTOR = 0xff117938;
     address public immutable SEQUENCE_EXECUTOR_ADDR;
 
     constructor(address _adminVault, address _sequenceExecutor) {
@@ -53,6 +53,13 @@ contract FeeTakeSafeModule is Roles {
         require(
             ADMIN_VAULT.hasRole(FEE_TAKER_ROLE, msg.sender),
             Errors.FeeTakeSafeModule_SenderNotFeeTaker(msg.sender)
+        );
+
+        // basic input validation
+        require(_safeAddr != address(0), Errors.InvalidInput("FeeTakeSafeModule", "takeFees"));
+        require(
+            _actionIds.length == _poolIds.length && _actionIds.length == _feeBases.length,
+            Errors.FeeTakeSafeModule_LengthMismatch()
         );
 
         // create a sequence of actions to take fees from the pools
@@ -91,10 +98,10 @@ contract FeeTakeSafeModule is Roles {
             sequences: new IEip712TypedDataSafeModule.ChainSequence[](0)
         });
         bytes memory sequenceData = abi.encodeWithSelector(
-            EXECUTE_SEQUENCE_SELECTOR, 
-            sequence, 
-            emptyBundle, 
-            "", 
+            ISequenceExecutor.executeSequence.selector,
+            sequence,
+            emptyBundle,
+            "",
             uint16(0)
         );
         // execute the sequence

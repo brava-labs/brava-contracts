@@ -41,7 +41,6 @@ contract SequenceExecutor {
     }
 
     IAdminVault public immutable ADMIN_VAULT;
-    event SequenceExecuted(bytes32 indexed sequenceHash, address indexed executor, uint256 totalActions, uint256 totalGasUsed);
 
     constructor(address _adminVault) { ADMIN_VAULT = IAdminVault(_adminVault); }
 
@@ -51,19 +50,14 @@ contract SequenceExecutor {
         bytes calldata _signature,
         uint16 _strategyId
     ) public payable virtual {
-        _executeActions(_currSequence, _bundle, _signature, _strategyId);
-    }
-
-    function _executeActions(
-        Sequence memory _currSequence,
-        IEip712TypedDataSafeModule.Bundle calldata _bundle,
-        bytes calldata _signature,
-        uint16 _strategyId
-    ) internal {
+        if (_currSequence.callData.length != _currSequence.actionIds.length) {
+            revert Errors.EIP712TypedDataSafeModule_LengthMismatch();
+        }
         for (uint256 i = 0; i < _currSequence.actionIds.length; ++i) {
             _executeAction(_currSequence, i, _bundle, _signature, _strategyId);
         }
     }
+
 
     function _executeAction(
         Sequence memory _currSequence,
@@ -89,71 +83,53 @@ contract SequenceExecutor {
         }
         
         if (hasBundleContext && supportsBundleContext) {
-            // Bundle execution: Use delegate call to ensure address(this) = Safe
-            (bool success, bytes memory returnData) = actionAddress.delegatecall(
-                abi.encodeWithSelector(
-                    IActionWithBundleContext.executeActionWithBundleContext.selector,
-                    callData,
-                    _bundle,
-                    _signature,
-                    _strategyId
-                )
-            );
-            if (!success) {
-                // Forward the revert reason
-                if (returnData.length > 0) {
-                    assembly {
-                        revert(add(returnData, 0x20), mload(returnData))
-                    }
-                } else {
-                    revert("Bundle action execution failed");
-                }
-            }
+            _executeActionWithBundleContext(actionAddress, callData, _bundle, _signature, _strategyId);
         } else {
-            // Delegate call to executeAction
-            // Extract parameters from the encoded function call
-            // callData format: [4-byte selector][inputParams][strategyId]
-            
-            bytes memory actionCallData;
-            uint16 actionStrategyId;
-            
-            // Decode the function call to extract parameters
-            if (callData.length >= 4) {
-                bytes4 selector;
-                assembly {
-                    selector := mload(add(callData, 0x20))
-                }
-                if (selector == IAction.executeAction.selector) {
-                    // Create new bytes array for the parameters (skip first 4 bytes)
-                    bytes memory parametersData = new bytes(callData.length - 4);
-                    for (uint256 i = 0; i < callData.length - 4; i++) {
-                        parametersData[i] = callData[i + 4];
-                    }
-                    // Decode the parameters from the function call
-                    (actionCallData, actionStrategyId) = abi.decode(parametersData, (bytes, uint16));
-                } else {
-                    // Fallback: treat callData as raw parameters
-                    actionCallData = callData;
-                    actionStrategyId = _strategyId;
-                }
-            } else {
-                // Fallback: treat callData as raw parameters  
-                actionCallData = callData;
-                actionStrategyId = _strategyId;
+            _executeActionStandard(actionAddress, callData);
+        }
+    }
+
+    // =============================
+    // Standard (non-bundle) execution
+    // =============================
+    function _executeActionStandard(address _actionAddress, bytes memory _fullCallData) internal {
+        if (_actionAddress == address(0)) {
+            assembly { revert(0, 0) }
+        }
+        // Delegatecall with provided calldata (non-bundle path)
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            let succeeded := delegatecall(sub(gas(), 5000), _actionAddress, add(_fullCallData, 0x20), mload(_fullCallData), 0, 0)
+            if eq(succeeded, 0) {
+                revert(0, 0)
             }
-            
-            (bool success, bytes memory returnData) = actionAddress.delegatecall(
-                abi.encodeWithSelector(IAction.executeAction.selector, actionCallData, actionStrategyId)
-            );
-            if (!success) {
-                // Forward the revert reason
-                if (returnData.length > 0) {
-                    assembly {
-                        revert(add(returnData, 0x20), mload(returnData))
-                    }
-                } else {
-                    revert("Action execution failed");
-                }
+        }
+    }
+
+    // =============================
+    // Bundle-context execution
+    // =============================
+    function _executeActionWithBundleContext(
+        address _actionAddress,
+        bytes memory _actionCallData,
+        IEip712TypedDataSafeModule.Bundle calldata _bundle,
+        bytes calldata _signature,
+        uint16 _strategyId
+    ) internal {
+        (bool success, bytes memory returnData) = _actionAddress.delegatecall(
+            abi.encodeWithSelector(
+                IActionWithBundleContext.executeActionWithBundleContext.selector,
+                _actionCallData,
+                _bundle,
+                _signature,
+                _strategyId
+            )
+        );
+        if (!success) {
+            if (returnData.length > 0) {
+                assembly { revert(add(returnData, 0x20), mload(returnData)) }
+            } else {
+                revert("Bundle action execution failed");
             }
         }
     }

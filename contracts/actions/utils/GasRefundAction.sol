@@ -8,7 +8,6 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {IEip712TypedDataSafeModule} from "../../interfaces/IEip712TypedDataSafeModule.sol";
 import {ITokenRegistry} from "../../interfaces/ITokenRegistry.sol";
 import {IAggregatorV3} from "../../interfaces/chainlink/IAggregatorV3.sol";
-import {GasRefundLib} from "../../libraries/GasRefundLib.sol";
 import {Errors} from "../../Errors.sol";
 
 /// @title GasRefundAction
@@ -20,6 +19,18 @@ contract GasRefundAction is ActionBase {
     IAggregatorV3 public immutable ETH_USD_ORACLE;
     address public immutable FEE_RECIPIENT;
     IEip712TypedDataSafeModule public immutable EIP712_MODULE;
+
+    // Constants specific to refund calculation and oracle safety
+    uint256 private constant GAS_OVERHEAD = 21000;
+    uint256 private constant ORACLE_STALENESS_THRESHOLD = 1 hours;
+
+    // Local enum for readability within the action
+    enum RefundRecipient {
+        EXECUTOR,
+        FEE_RECIPIENT
+    }
+
+    event GasRefundProcessed(address indexed safe, address indexed refundToken, uint256 refundAmount, address indexed recipient);
 
     struct Params {
         address refundToken;
@@ -41,10 +52,16 @@ contract GasRefundAction is ActionBase {
         EIP712_MODULE = IEip712TypedDataSafeModule(_eip712Module);
     }
 
+    /// @notice Validate a refundRecipient value
+    /// @dev Allows external callers (e.g., module) to validate typed-data value against action semantics
+    function isValidRefundRecipient(uint8 value) external pure returns (bool) {
+        return value == uint8(RefundRecipient.EXECUTOR) || value == uint8(RefundRecipient.FEE_RECIPIENT);
+    }
+
     function executeAction(bytes memory _callData, uint16 /* _strategyId */) public payable override {
         Params memory p = abi.decode(_callData, (Params));
 
-        if (p.refundRecipient > uint8(GasRefundLib.RefundRecipient.FEE_RECIPIENT)) {
+        if (p.refundRecipient > uint8(RefundRecipient.FEE_RECIPIENT)) {
             revert Errors.EIP712TypedDataSafeModule_InvalidRefundRecipient(p.refundRecipient);
         }
 
@@ -61,14 +78,7 @@ contract GasRefundAction is ActionBase {
             return; // skip silently if not approved
         }
 
-        // Compute gas used and refund amount
-        uint256 endGas = gasleft();
-        uint256 gasUsed = startGas > endGas ? (startGas - endGas + GasRefundLib.GAS_OVERHEAD) : 0;
-        if (gasUsed == 0) {
-            return;
-        }
-
-        // Fetch ETH price
+        // Fetch ETH price and validate staleness
         (
             ,
             int256 answer,
@@ -79,15 +89,27 @@ contract GasRefundAction is ActionBase {
         if (answer <= 0) {
             return;
         }
-        if (block.timestamp - updatedAt > GasRefundLib.ORACLE_STALENESS_THRESHOLD) {
+        if (block.timestamp - updatedAt > ORACLE_STALENESS_THRESHOLD) {
             return;
         }
 
-        uint256 ethPriceUsd = uint256(answer); // 8 decimals
-        uint256 tokenDecimals = IERC20Metadata(p.refundToken).decimals();
-        // refund = gasUsed * gasPrice * ethPriceUsd / 10^(18+8-tokenDecimals)
-        uint256 numerator = gasUsed * tx.gasprice;
-        uint256 refundAmount = (numerator * ethPriceUsd) / (10 ** (18 + 8 - tokenDecimals));
+        // Compute gas used just-in-time to include action overhead
+        uint256 gasUsed = startGas > gasleft() ? (startGas - gasleft() + GAS_OVERHEAD) : 0;
+        if (gasUsed == 0) {
+            return;
+        }
+
+        uint256 refundAmount;
+        {
+            uint8 od = ETH_USD_ORACLE.decimals();
+            uint8 td = IERC20Metadata(p.refundToken).decimals();
+            if (uint256(td) > 18 + uint256(od)) {
+                return; // avoid underflow in exponent calculation
+            }
+            uint256 denomExp = 18 + uint256(od) - uint256(td);
+            refundAmount = ((gasUsed * tx.gasprice) * uint256(answer)) / (10 ** denomExp);
+        }
+
         if (p.maxRefundAmount > 0 && refundAmount > p.maxRefundAmount) {
             refundAmount = p.maxRefundAmount;
         }
@@ -95,7 +117,7 @@ contract GasRefundAction is ActionBase {
             return;
         }
 
-        address recipient = p.refundRecipient == uint8(GasRefundLib.RefundRecipient.EXECUTOR)
+        address recipient = p.refundRecipient == uint8(RefundRecipient.EXECUTOR)
             ? executor
             : FEE_RECIPIENT;
         if (recipient == address(0)) {
@@ -106,7 +128,9 @@ contract GasRefundAction is ActionBase {
         (bool success, ) = p.refundToken.call(
             abi.encodeWithSelector(IERC20.transfer.selector, recipient, refundAmount)
         );
-        success; // ignore result
+        if (success) {
+            emit GasRefundProcessed(address(this), p.refundToken, refundAmount, recipient);
+        }
     }
 
     function actionType() public pure override returns (uint8) {
