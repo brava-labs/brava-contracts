@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
 pragma solidity =0.8.28;
 
 import {CompoundV2SupplyBase} from "../common/CompoundV2Supply.sol";
