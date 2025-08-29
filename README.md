@@ -162,13 +162,13 @@ Execution flow:
 - The module verifies the domain, expiry, signer ownership, and sequence nonce.
 - If `deploySafe` is true, the module uses `SafeDeployment` to deploy the user’s Safe deterministically.
 - The module calls `SequenceExecutor.executeSequence(...)` from the Safe via delegatecall to run each action.
-- If enabled, the Gas Refund action reimburses gas to the executor or fee recipient.
+- If enabled, the Gas Refund action reimburses gas to the executor or fee recipient and logs the result via the centralized `Logger`.
 
 #### SafeDeployment and deterministic Safe addresses
 - `SafeDeployment` and related contracts support deterministic deployment (Create2-based proxies) so users can have the same Safe address across chains and be deployed on-demand.
 - See `contracts/auth/SafeDeployment.sol` and `contracts/auth/SafeSetupRegistry.sol` for details.
 
-🔗 This project relies on the brava-ts-client.
+🔗 Active development is done in the monorepo; this repository mirrors public-facing deployments. For integration helpers, see the brava-ts-client.
 
 ## 📜 Contract Overview
 
@@ -182,7 +182,7 @@ Our smart contract architecture is built on the Safe (formerly Gnosis Safe) smar
 
 - **AdminVault** 🔐: A central registry contract that keeps track of all action contracts and controls which actions are available, allowing for easy updates and management of the system.
 
-- **Logger** 📝: A dedicated logger contract responsible for emitting all events, providing a centralized and consistent approach to event handling.
+- **Logger** 📝: A centralized logger contract used by actions to record structured events for analytics and traceability. Specialized actions like gas refund also log via the `Logger`.
 
 ### Execution Model 🔄
 

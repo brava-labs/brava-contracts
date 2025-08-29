@@ -21,15 +21,14 @@ ChainSequence {
 
 ## Execution Flow
 
-- Module records `gasStart` before executing the sequence.
+- Module records `gasStart` and the executor before executing the sequence. The executor is the EOA captured as `tx.origin`.
 - Refunds are executed by a dedicated `GasRefundAction` appended near the end of the sequence.
 - The module enforces that when `enableGasRefund=true`, at least one `FEE_ACTION` is present; when `false`, no `FEE_ACTION` may be present.
 - The action consumes context via `consumeGasContext()` and transfers tokens from the Safe. Refund failures do not affect the main flow.
 
 ## Calculation
 
-Refunds are calculated in the action using on-chain oracle pricing and the
-module’s parameters, then capped by `maxRefundAmount`.
+Refunds are calculated in the action using on-chain oracle pricing, action callData parameters, and module-supplied context, then capped by `maxRefundAmount`.
 
 Key inputs:
 
@@ -38,13 +37,14 @@ Key inputs:
 - `executor` and `feeRecipient`
 - `TokenRegistry` and `ETH_USD` oracle
 - Oracle decimals are read from the configured feed
+- Oracle safeguards: non-positive prices are ignored; updates older than 1 hour are ignored; an additional 21,000 gas overhead is included in the calculation
 
-## Events
+## Events / Logging
 
-- `GasRefundProcessed(safe, refundToken, refundAmount, recipient)` is emitted by `GasRefundAction` after a successful transfer.
+- Gas refund results are logged via the centralized `Logger` using `LogType.GAS_REFUND` with payload `(safe, refundToken, refundAmount, recipient)`.
 
 ## Guidance
 
 - Prefer stablecoins as `refundToken`.
 - Set reasonable `maxRefundAmount` per chain to limit exposure.
-- Monitor `GasRefundProcessed` to track refund spend and recipients.
+- Monitor `LogType.GAS_REFUND` action logs to track refund spend and recipients.

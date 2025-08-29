@@ -52,7 +52,8 @@ abstract contract ActionBase {
         UPGRADE_ACTION,
         WITHDRAWAL_REQUEST,
         BUY_COVER_WITH_PREMIUM,
-        ZERO_EX_SWAP
+        ZERO_EX_SWAP,
+        GAS_REFUND
     }
 
     /// @notice Initializes the ActionBase contract

@@ -30,8 +30,6 @@ contract GasRefundAction is ActionBase {
         FEE_RECIPIENT
     }
 
-    event GasRefundProcessed(address indexed safe, address indexed refundToken, uint256 refundAmount, address indexed recipient);
-
     struct Params {
         address refundToken;
         uint256 maxRefundAmount;
@@ -129,7 +127,10 @@ contract GasRefundAction is ActionBase {
             abi.encodeWithSelector(IERC20.transfer.selector, recipient, refundAmount)
         );
         if (success) {
-            emit GasRefundProcessed(address(this), p.refundToken, refundAmount, recipient);
+            LOGGER.logActionEvent(
+                LogType.GAS_REFUND,
+                abi.encode(address(this), p.refundToken, refundAmount, recipient)
+            );
         }
     }
 

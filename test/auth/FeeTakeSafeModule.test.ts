@@ -1,5 +1,5 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
-import { executeSafeTransaction } from 'brava-ts-client';
+import { AbiCoder, ZeroAddress, ZeroHash } from 'ethers';
 import { expect } from 'chai';
 import { BytesLike } from 'ethers';
 import { ethers } from '..';
@@ -120,7 +120,11 @@ describe('FeeTakeSafeModule', function () {
       const payload = safe.interface.encodeFunctionData('enableModule', [
         await feeTakeSafeModule.getAddress(),
       ]);
-      await executeSafeTransaction(safeAddr, safeAddr, 0, payload, 0, admin as any);
+      const signature =
+        new AbiCoder().encode(['address', 'bytes32'], [admin.address, ZeroHash]) + '01';
+      await safe
+        .connect(admin)
+        .execTransaction(safeAddr, 0, payload, 0, 0, 0, 0, ZeroAddress, ZeroAddress, signature);
       expect(await safe.isModuleEnabled(await feeTakeSafeModule.getAddress())).to.be.true;
     });
   });
@@ -131,7 +135,11 @@ describe('FeeTakeSafeModule', function () {
       const payload = safe.interface.encodeFunctionData('enableModule', [
         await feeTakeSafeModule.getAddress(),
       ]);
-      await executeSafeTransaction(safeAddr, safeAddr, 0, payload, 0, admin as any);
+      const signature =
+        new AbiCoder().encode(['address', 'bytes32'], [admin.address, ZeroHash]) + '01';
+      await safe
+        .connect(admin)
+        .execTransaction(safeAddr, 0, payload, 0, 0, 0, 0, ZeroAddress, ZeroAddress, signature);
       expect(await safe.isModuleEnabled(await feeTakeSafeModule.getAddress())).to.be.true;
 
       // Take local snapshot before running tests

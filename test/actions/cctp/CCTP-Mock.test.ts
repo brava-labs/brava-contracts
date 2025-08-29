@@ -440,25 +440,31 @@ describe('CCTP Mock Infrastructure Tests', function () {
       try {
         const receiveTx = await mockMessageTransmitter.receiveMessage(cctpMessage, cctpAttestation);
         const receiveReceipt = await receiveTx.wait();
+        console.log('✅ CCTP message processed through hook mechanism');
 
         // Check nonce progression to see if hook executed any sequences
         const nonceAfterHook = await eip712Module.getSequenceNonce(safeAddress);
         const sequencesExecutedInHook = nonceAfterHook - nonceBeforeHook;
+        console.log(`Sequences executed via CCTP hook: ${sequencesExecutedInHook}`);
 
         // Check if Fluid deposit occurred
         const fluidBalanceAfterHook = await fUSDC.balanceOf(safeAddress);
         const fluidDepositAmount = fluidBalanceAfterHook - fluidBalanceBeforeReceive;
+        console.log(`Fluid balance change: ${ethers.formatUnits(fluidDepositAmount, 6)} USDC`);
 
         // Check USDC balance changes from receive
         const usdcBalanceAfterReceive = await USDC.balanceOf(safeAddress);
         const usdcReceived = usdcBalanceAfterReceive - usdcBalanceBeforeReceive;
+        console.log(`USDC received via CCTP: ${ethers.formatUnits(usdcReceived, 6)} USDC`);
 
         // If hook executed successfully, expect sequence 3 to have run
         if (sequencesExecutedInHook > 0) {
-          // logging removed
+          console.log(
+            `🎉 Hook execution successful! ${sequencesExecutedInHook} sequence(s) executed`
+          );
           expect(fluidDepositAmount).to.be.gt(0); // Fluid deposit should have occurred
         } else {
-          // logging removed
+          console.log(`⚠️  Hook called but no sequences executed (might be nonce mismatch)`);
         }
       } catch (error) {
         log('❌ Stored CCTP message failed:', (error as Error).message);

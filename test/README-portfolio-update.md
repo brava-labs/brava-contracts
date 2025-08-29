@@ -21,22 +21,14 @@ The portfolio update functionality allows users to:
 
 ### Files Created
 
-- **`tests/portfolio-update.test.ts`**: Main test file demonstrating portfolio
+- **`test/portfolio-update.test.ts`**: Main test file demonstrating portfolio
   update functionality
-- **`scripts/install-local-ts-client.sh`**: Script to build and install the
-  local brava-ts-client package
 
 ### Key Components
 
-1. **Package Management Script** (`scripts/install-local-ts-client.sh`):
 
-   ```bash
-   #!/bin/bash
-   # Builds the ts-client from adjacent folder and installs it locally
-   # Handles the npm pack → install → cleanup workflow
-   ```
 
-2. **Portfolio Update Test** (`tests/portfolio-update.test.ts`):
+1. **Portfolio Update Test** (`test/portfolio-update.test.ts`):
    ```typescript
    // Demonstrates:
    // - Using portfolioUpdateToSequenceWithTokenAmounts()
@@ -100,9 +92,6 @@ Based on the test output, the portfolio update generates:
 ## Running the Tests
 
 ```bash
-# Install the local ts-client package
-./scripts/install-local-ts-client.sh
-
 # Run the portfolio update tests
 npm test -- --grep "Portfolio Update"
 
