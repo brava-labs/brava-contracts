@@ -81,8 +81,8 @@ describe('ZeroExSwap tests', () => {
     // Approve test tokens in registry
     const TOKENS_TO_TEST = ['USDC', 'DAI', 'USDT'];
     for (const token of TOKENS_TO_TEST) {
-      await tokenRegistry.proposeToken(tokenConfig[token].address);
-      await tokenRegistry.approveToken(tokenConfig[token].address);
+      await tokenRegistry.proposeToken(tokenConfig[token as keyof typeof tokenConfig].address);
+      await tokenRegistry.approveToken(tokenConfig[token as keyof typeof tokenConfig].address);
     }
 
     log('ZeroExSwap action added to admin vault');
