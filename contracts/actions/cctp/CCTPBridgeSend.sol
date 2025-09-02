@@ -63,19 +63,7 @@ contract CCTPBridgeSend is ActionBase, IActionWithBundleContext {
         return "CCTP_V2";
     }
 
-    /// @notice Event emitted when CCTP bridge is executed
-    /// @param safeAddress Safe that initiated the bridge
-    /// @param amount Amount of USDC bridged
-    /// @param destinationDomain Destination domain ID
-    /// @param destinationCaller Who can execute on destination
-    /// @param hasBundle Whether bundle data was included
-    event CCTPBridgeExecuted(
-        address indexed safeAddress,
-        uint256 amount,
-        uint32 destinationDomain,
-        bytes32 destinationCaller,
-        bool hasBundle
-    );
+    
 
     constructor(address _adminVault, address _logger, address _tokenMessenger) ActionBase(_adminVault, _logger) {
         require(_tokenMessenger != address(0), "Invalid TokenMessenger address");
@@ -161,30 +149,30 @@ contract CCTPBridgeSend is ActionBase, IActionWithBundleContext {
         // Call CCTP V2 depositForBurnWithHook
         // Use low-level call to capture exact revert reason
         
-        bytes memory cctpCallData = abi.encodeWithSelector(
-            ITokenMessengerV2.depositForBurnWithHook.selector,
-            cctpParams.amount,
-            cctpParams.destinationDomain,
-            mintRecipient,
-            cctpParams.usdcToken,
-            cctpParams.destinationCaller,
-            cctpParams.maxFee,
-            cctpParams.minFinalityThreshold,
-            hookData
-        );
-        
-        (bool success, bytes memory returnData) = address(TOKEN_MESSENGER).call(cctpCallData);
-        
-        if (success) {
-            // CCTP call succeeded
-        } else {
-        // CCTP call failed - forward the revert reason if available
-            if (returnData.length > 0) {
-                assembly {
-                    revert(add(returnData, 0x20), mload(returnData))
+        {
+            bytes memory cctpCallData = abi.encodeWithSelector(
+                ITokenMessengerV2.depositForBurnWithHook.selector,
+                cctpParams.amount,
+                cctpParams.destinationDomain,
+                mintRecipient,
+                cctpParams.usdcToken,
+                cctpParams.destinationCaller,
+                cctpParams.maxFee,
+                cctpParams.minFinalityThreshold,
+                hookData
+            );
+            
+            (bool success, bytes memory returnData) = address(TOKEN_MESSENGER).call(cctpCallData);
+            
+            if (!success) {
+                // CCTP call failed - forward the revert reason if available
+                if (returnData.length > 0) {
+                    assembly {
+                        revert(add(returnData, 0x20), mload(returnData))
+                    }
+                } else {
+                    revert("CCTP bridge failed");
                 }
-            } else {
-                revert("CCTP bridge failed");
             }
         }
 
@@ -196,13 +184,15 @@ contract CCTPBridgeSend is ActionBase, IActionWithBundleContext {
             "Unexpected balance change"
         );
 
-        // Emit event
-        emit CCTPBridgeExecuted(
-            address(this),
-            cctpParams.amount,
-            cctpParams.destinationDomain,
-            cctpParams.destinationCaller,
-            true // Always has bundle
+        LOGGER.logActionEvent(
+            LogType.CCTP_BRIDGE_SEND,
+            abi.encode(
+                address(this),
+                cctpParams.amount,
+                cctpParams.destinationDomain,
+                cctpParams.destinationCaller,
+                true
+            )
         );
     }
 

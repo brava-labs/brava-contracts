@@ -53,7 +53,8 @@ abstract contract ActionBase {
         WITHDRAWAL_REQUEST,
         BUY_COVER_WITH_PREMIUM,
         ZERO_EX_SWAP,
-        GAS_REFUND
+        GAS_REFUND,
+        CCTP_BRIDGE_SEND
     }
 
     /// @notice Initializes the ActionBase contract
