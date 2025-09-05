@@ -36,14 +36,14 @@ contract CCTPBridgeSend is ActionBase, IActionWithBundleContext {
     /// @param usdcToken Address of the USDC token to bridge
     /// @param amount Amount of USDC to bridge (in USDC units, e.g. 1000000 = $1 USDC)
     /// @param destinationDomain Destination domain ID for CCTP (3 = Arbitrum, 6 = Base, etc.)
-    /// @param destinationCaller The destination receiver contract authorized by Circle's MessageTransmitter
+    /// @param destinationCaller The destination receiver (address(this) of CCTPBundleReceiver) authorized by Circle
     /// @param maxFee Maximum fee in USDC units (1000000 = $1 for fast, 0 = free for standard)
     /// @param minFinalityThreshold Minimum finality threshold (1000 = fast ~8s, 2000 = standard ~13-19min)
     struct CCTPParamsV2 {
         address usdcToken;
         uint256 amount;
         uint32 destinationDomain;
-        bytes32 destinationCaller;      // Who can call receiveMessage (typically TypedDataModule)
+        bytes32 destinationCaller;      // Must equal bytes32(uint256(uint160(CCTPBundleReceiver)))
         uint256 maxFee;                 // Fee for fast transfer (1000000 = $1 USDC)
         uint32 minFinalityThreshold;    // Finality threshold (1000 = fast, 2000 = standard)
     }

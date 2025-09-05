@@ -10,9 +10,9 @@ interface IMessageTransmitterV2 {
 
 /**
  * @title CCTPBundleReceiver
- * @notice Receives CCTP callbacks and forwards encoded executeBundle to the EIP712 module
- * @dev MessageTransmitter invokes this contract with the hook payload as messageBody
- *      The payload is expected to be ABI-encoded executeBundle(safe, bundle, signature)
+ * @notice Submits attested CCTP messages and provides a permissionless hook executor for the EIP712 module
+ * @dev Design favors minimal surface and non-atomic receive: USDC mint is independent from hook execution.
+ *      Off-chain infra or any relayer may call `executeHook` with the same hook payload to complete execution.
  */
 contract CCTPBundleReceiver {
     
@@ -22,10 +22,11 @@ contract CCTPBundleReceiver {
     // EIP712TypedDataSafeModule address for forwarding bundle execution
     address public immutable EIP712_MODULE;
     
-
+    
     // Events for monitoring and debugging
-    event MessageReceived(bytes32 indexed messageHash, address indexed destinationCaller, uint256 hookDataLength);
     event RelaySubmitted(bytes32 indexed messageHash, bool success);
+    event HookExecutionAttempt(bytes32 indexed hookHash, address indexed safe);
+    event HookExecutionResult(bytes32 indexed hookHash, bool success);
     
     /**
      * @notice Constructor sets the MessageTransmitter and EIP712TypedDataSafeModule addresses
@@ -41,8 +42,8 @@ contract CCTPBundleReceiver {
     
     /**
      * @notice Relay function to submit a CCTP V2 message and attestation to MessageTransmitter
-     * @dev Only the destinationCaller may call receiveMessage on the transmitter. Since destinationCaller
-     *      is set to this receiver, calling through this function ensures msg.sender is correct.
+     * @dev Permissionless. If successful, USDC is minted to the message's mint recipient. This function does
+     *      not attempt to decode or execute hook data. Use `executeHook` to run the EIP712 bundle.
      * @param message The CCTP V2 message bytes
      * @param attestation The attestation bytes provided by Circle
      * @return success True if the transmitter accepted the message
@@ -54,59 +55,34 @@ contract CCTPBundleReceiver {
     }
     
     /**
-     * @notice CCTP V2 hook entry point called by Circle's MessageTransmitter after minting
-     * @param _sourceDomain Source domain (unused)
-     * @param _sender Sender as bytes32 (unused)
-     * @param _finalityThresholdExecuted Finality threshold (unused)
-     * @param messageBody Hook payload containing ABI-encoded executeBundle
-     * @return success True if forwarded successfully
+     * @notice Execute an encoded EIP712 bundle hook payload against the configured module
+     * @dev Permissionless helper. The expected encoding is
+     *      abi.encode(IEip712TypedDataSafeModule.executeBundle.selector, safe, bundle, signature)
+     * @param hookData ABI-encoded payload for executeBundle
+     * @return success True if the bundle executed successfully
      */
-    function handleReceiveFinalizedMessage(
-        uint32 _sourceDomain,
-        bytes32 _sender,
-        uint32 _finalityThresholdExecuted,
-        bytes calldata messageBody
-    ) external returns (bool success) {
-        // Silence unused parameters while preserving NatSpec names
-        (_sourceDomain);
-        (_sender);
-        (_finalityThresholdExecuted);
-        require(msg.sender == MESSAGE_TRANSMITTER, "CCTPBundleReceiver: Only MessageTransmitter can call");
-        
-        // Generate message hash for attestation storage (use messageBody since that's what we have)
-        bytes32 messageHash = keccak256(messageBody);
-        
-        // The messageBody is the hook payload provided by MessageTransmitter
-        bytes memory hookData = messageBody;
-        require(hookData.length > 0, "CCTPBundleReceiver: No hook data found");
-        
-        emit MessageReceived(messageHash, msg.sender, hookData.length);
-        
-        
-        // Decode the executeBundle call from hook data
-        (bytes4 selector, address safeAddr, IEip712TypedDataSafeModule.Bundle memory bundle, bytes memory signature) = 
-            abi.decode(hookData, (bytes4, address, IEip712TypedDataSafeModule.Bundle, bytes));
-        
+    function executeHook(bytes calldata hookData) external returns (bool success) {
+        require(hookData.length > 4, "CCTPBundleReceiver: empty hook");
 
-        
-        // Verify this is an executeBundle call
-        require(selector == IEip712TypedDataSafeModule.executeBundle.selector, "CCTPBundleReceiver: Invalid function selector");
-        
-        // Sanity check safe address
+        (bytes4 selector, address safeAddr, IEip712TypedDataSafeModule.Bundle memory bundle, bytes memory signature) =
+            abi.decode(hookData, (bytes4, address, IEip712TypedDataSafeModule.Bundle, bytes));
+
+        require(selector == IEip712TypedDataSafeModule.executeBundle.selector, "CCTPBundleReceiver: bad selector");
         require(safeAddr != address(0), "CCTPBundleReceiver: invalid safe");
 
-        // Use low-level call to capture error details
+        bytes32 hookHash = keccak256(hookData);
+        emit HookExecutionAttempt(hookHash, safeAddr);
+
         bytes memory callData = abi.encodeWithSelector(
             IEip712TypedDataSafeModule.executeBundle.selector,
             safeAddr,
             bundle,
             signature
         );
-        
-        
+
         (bool callSuccess, bytes memory returnData) = EIP712_MODULE.call(callData);
         if (!callSuccess) {
-            // Bubble revert data from the module if present
+            emit HookExecutionResult(hookHash, false);
             if (returnData.length > 0) {
                 assembly {
                     revert(add(returnData, 0x20), mload(returnData))
@@ -114,33 +90,8 @@ contract CCTPBundleReceiver {
             }
             revert("CCTPBundleReceiver: executeBundle failed");
         }
-        
-        // Successfully handled the message
+
+        emit HookExecutionResult(hookHash, true);
         return true;
     }
-    
-    /**
-     * @notice Handles receiving unfinalized CCTP messages (not implemented)
-     * @dev This implements the IMessageHandlerV2 interface but we don't support unfinalized messages
-     * @param _sourceDomain The source domain of the message
-     * @param _sender The sender of the message as bytes32
-     * @param _finalityThresholdExecuted The finality threshold executed
-     * @param _messageBody The message body containing hook data
-     * @return success Always false since we don't support unfinalized messages
-     */
-    function handleReceiveUnfinalizedMessage(
-        uint32 _sourceDomain,
-        bytes32 _sender,
-        uint32 _finalityThresholdExecuted,
-        bytes calldata _messageBody
-    ) external pure returns (bool success) {
-        // Silence unused parameters while preserving NatSpec names
-        (_sourceDomain);
-        (_sender);
-        (_finalityThresholdExecuted);
-        (_messageBody);
-        // We don't support unfinalized messages for bundle execution
-        return false;
-    }
-    
-} 
+}

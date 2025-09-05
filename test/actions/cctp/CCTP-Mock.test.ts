@@ -374,6 +374,7 @@ describe('CCTP Mock Infrastructure Tests', function () {
     let latestNonce: bigint;
     let cctpMessage: string = '';
     let cctpAttestation: string = '';
+    let storedHookData: string = '0x';
 
     log('🔍 Checking MockMessageTransmitter for stored messages...');
 
@@ -396,6 +397,7 @@ describe('CCTP Mock Infrastructure Tests', function () {
           [1, 1, 1, ethers.zeroPadValue(ethers.toBeHex(latestNonce), 32)] // version, sourceDomain, destinationDomain, nonce
         );
         cctpAttestation = '0x'; // Empty attestation for mock
+        storedHookData = hookData;
 
         log('✅ CCTP message retrieved from MockMessageTransmitter');
         log(`Message length: ${cctpMessage.length}, Attestation length: ${cctpAttestation.length}`);
@@ -414,16 +416,17 @@ describe('CCTP Mock Infrastructure Tests', function () {
     // We know from debug logs that MockMessageTransmitter was called, so message should exist
     expect(cctpMessage).to.not.equal('');
     expect(cctpAttestation).to.not.equal('');
+    expect(storedHookData).to.not.equal('0x');
 
-    // PHASE 4: Execute Sequence 3 (Fluid Deposit) via CCTP receive
-    log('🌊 Using the actual stored CCTP message for receive...');
+    // PHASE 4: Execute Sequence 3 (Fluid Deposit) via CCTP receive + explicit hook
+    log('🌊 Relaying message to mint USDC, then executing hook...');
 
     // Let's try to use the actual hook data from the stored CCTP message and see what it contains
     log('🔍 Inspecting the stored CCTP message hook data...');
 
     if (cctpMessage && cctpAttestation && cctpMessage !== '' && cctpAttestation !== '') {
-      // Try to execute the stored CCTP message to see what the hook data actually contains
-      log('💫 Executing stored CCTP message to see what hook data it contains...');
+      // 1) Relay the attested message via our receiver (permissionless)
+      log('💫 Relaying attested CCTP message via CCTPBundleReceiver.relayReceive...');
 
       // Check the Safe's sequence nonce before hook execution
       const nonceBeforeHook = await eip712Module.getSequenceNonce(safeAddress);
@@ -438,18 +441,23 @@ describe('CCTP Mock Infrastructure Tests', function () {
       const fluidBalanceBeforeReceive = await fUSDC.balanceOf(safeAddress);
 
       try {
-        const receiveTx = await mockMessageTransmitter.receiveMessage(cctpMessage, cctpAttestation);
-        const receiveReceipt = await receiveTx.wait();
-        console.log('✅ CCTP message processed through hook mechanism');
+        const receiveTx = await mockCctpBundleReceiver.relayReceive(cctpMessage, cctpAttestation);
+        await receiveTx.wait();
+        console.log('✅ CCTP message relayed (USDC minted)');
 
-        // Check nonce progression to see if hook executed any sequences
-        const nonceAfterHook = await eip712Module.getSequenceNonce(safeAddress);
-        const sequencesExecutedInHook = nonceAfterHook - nonceBeforeHook;
-        console.log(`Sequences executed via CCTP hook: ${sequencesExecutedInHook}`);
+        // 2) Execute the hook explicitly (best-effort)
+        const execTx = await mockCctpBundleReceiver.executeHook(storedHookData);
+        await execTx.wait();
+        console.log('✅ Hook executed via CCTPBundleReceiver.executeHook');
 
-        // Check if Fluid deposit occurred
-        const fluidBalanceAfterHook = await fUSDC.balanceOf(safeAddress);
-        const fluidDepositAmount = fluidBalanceAfterHook - fluidBalanceBeforeReceive;
+        // Check nonce progression to see Sequence 3 executed
+        const nonceAfter = await eip712Module.getSequenceNonce(safeAddress);
+        const sequencesExecuted = nonceAfter - nonceBeforeHook;
+        console.log(`Sequences executed via explicit hook: ${sequencesExecuted}`);
+
+        // Check Fluid deposit
+        const fluidBalanceAfter = await fUSDC.balanceOf(safeAddress);
+        const fluidDepositAmount = fluidBalanceAfter - fluidBalanceBeforeReceive;
         console.log(`Fluid balance change: ${ethers.formatUnits(fluidDepositAmount, 6)} USDC`);
 
         // Check USDC balance changes from receive
@@ -457,15 +465,8 @@ describe('CCTP Mock Infrastructure Tests', function () {
         const usdcReceived = usdcBalanceAfterReceive - usdcBalanceBeforeReceive;
         console.log(`USDC received via CCTP: ${ethers.formatUnits(usdcReceived, 6)} USDC`);
 
-        // If hook executed successfully, expect sequence 3 to have run
-        if (sequencesExecutedInHook > 0) {
-          console.log(
-            `🎉 Hook execution successful! ${sequencesExecutedInHook} sequence(s) executed`
-          );
-          expect(fluidDepositAmount).to.be.gt(0); // Fluid deposit should have occurred
-        } else {
-          console.log(`⚠️  Hook called but no sequences executed (might be nonce mismatch)`);
-        }
+        expect(sequencesExecuted).to.be.gt(0);
+        expect(fluidDepositAmount).to.be.gt(0);
       } catch (error) {
         log('❌ Stored CCTP message failed:', (error as Error).message);
         log('   Full error:', error);
