@@ -166,6 +166,7 @@ describe('CCTP Real Contract Integration Tests', function () {
           amount: BRIDGE_AMOUNT.toString(),
           destinationDomain: DESTINATION_DOMAIN,
           destinationCaller: '0xc3cd4f2e31f9b4c64fc54bc5e20281ec7e869941',
+          hookTarget: await eip712Module.getAddress(),
           maxFee: 0,
           minFinalityThreshold: 2000,
         },
@@ -192,6 +193,7 @@ describe('CCTP Real Contract Integration Tests', function () {
           amount: BRIDGE_AMOUNT.toString(),
           destinationDomain: DESTINATION_DOMAIN,
           destinationCaller: await eip712Module.getAddress(),
+          hookTarget: await eip712Module.getAddress(),
           maxFee: 0, // Use 0 fee like the working test
           minFinalityThreshold: 1000, // Fast threshold
         })
@@ -205,6 +207,7 @@ describe('CCTP Real Contract Integration Tests', function () {
         BRIDGE_AMOUNT,
         DESTINATION_DOMAIN,
         await eip712Module.getAddress(),
+        await eip712Module.getAddress(),
         ethers.parseUnits('5', 6) // Custom $5 fee
       );
 
@@ -216,6 +219,7 @@ describe('CCTP Real Contract Integration Tests', function () {
         await USDC.getAddress(),
         BRIDGE_AMOUNT,
         DESTINATION_DOMAIN,
+        await eip712Module.getAddress(),
         await eip712Module.getAddress()
       );
 
@@ -257,6 +261,7 @@ describe('CCTP Real Contract Integration Tests', function () {
           amount: BRIDGE_AMOUNT.toString(),
           destinationDomain: DESTINATION_DOMAIN,
           destinationCaller: await eip712Module.getAddress(),
+          hookTarget: await eip712Module.getAddress(),
           maxFee: 0,
           minFinalityThreshold: 2000,
         })

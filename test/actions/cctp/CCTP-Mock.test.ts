@@ -242,6 +242,7 @@ describe('CCTP Mock Infrastructure Tests', function () {
         amount: CCTP_BRIDGE_AMOUNT,
         destinationDomain: DESTINATION_DOMAIN,
         destinationCaller: await mockCctpBundleReceiver.getAddress(),
+        hookTarget: await eip712Module.getAddress(),
         maxFee: 0,
         minFinalityThreshold: 2000,
       }),
@@ -391,11 +392,8 @@ describe('CCTP Mock Infrastructure Tests', function () {
         const [amount, mintRecipient, destinationCaller, hookData] =
           await mockMessageTransmitter.getStoredMessage(latestNonce);
 
-        // Create a minimal message for receiveMessage (just needs the nonce at the right position)
-        cctpMessage = ethers.solidityPacked(
-          ['uint32', 'uint32', 'uint32', 'bytes32'],
-          [1, 1, 1, ethers.zeroPadValue(ethers.toBeHex(latestNonce), 32)] // version, sourceDomain, destinationDomain, nonce
-        );
+        // Ask the mock to build a message that embeds the stored hookData in the tail
+        cctpMessage = await mockMessageTransmitter.buildMessageWithHook(latestNonce);
         cctpAttestation = '0x'; // Empty attestation for mock
         storedHookData = hookData;
 
@@ -426,7 +424,7 @@ describe('CCTP Mock Infrastructure Tests', function () {
 
     if (cctpMessage && cctpAttestation && cctpMessage !== '' && cctpAttestation !== '') {
       // 1) Relay the attested message via our receiver (permissionless)
-      log('💫 Relaying attested CCTP message via CCTPBundleReceiver.relayReceive...');
+      log('💫 Relaying attested CCTP message via CCTPBundleReceiver.relay...');
 
       // Check the Safe's sequence nonce before hook execution
       const nonceBeforeHook = await eip712Module.getSequenceNonce(safeAddress);
@@ -441,14 +439,12 @@ describe('CCTP Mock Infrastructure Tests', function () {
       const fluidBalanceBeforeReceive = await fUSDC.balanceOf(safeAddress);
 
       try {
-        const receiveTx = await mockCctpBundleReceiver.relayReceive(cctpMessage, cctpAttestation);
-        await receiveTx.wait();
-        console.log('✅ CCTP message relayed (USDC minted)');
-
-        // 2) Execute the hook explicitly (best-effort)
-        const execTx = await mockCctpBundleReceiver.executeHook(storedHookData);
-        await execTx.wait();
-        console.log('✅ Hook executed via CCTPBundleReceiver.executeHook');
+        const [relayOk, hookOk] = await mockCctpBundleReceiver.callStatic.relay(cctpMessage, cctpAttestation);
+        expect(relayOk).to.equal(true);
+        expect(hookOk).to.equal(true);
+        const rx = await mockCctpBundleReceiver.relay(cctpMessage, cctpAttestation);
+        await rx.wait();
+        console.log('✅ CCTP message relayed + hook attempted');
 
         // Check nonce progression to see Sequence 3 executed
         const nonceAfter = await eip712Module.getSequenceNonce(safeAddress);
@@ -500,7 +496,7 @@ describe('CCTP Mock Infrastructure Tests', function () {
     const finalFluidBalance = await fUSDC.balanceOf(safeAddress);
     const finalNonce = await getSequenceNonce(safeAddress);
 
-    // Verify nonce progression: 3 sequences executed (Aave deposit + Aave withdraw/CCTP send + Fluid deposit via hook)
+    // Verify nonce progression: expect +3 (deposit, withdraw+send, deposit via hook)
     expect(finalNonce).to.equal(currentNonce + BigInt(3));
 
     // Verify balance changes align with operations that actually occurred

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
 pragma solidity =0.8.28;
 
-import {IEip712TypedDataSafeModule} from "../../interfaces/IEip712TypedDataSafeModule.sol";
+// Hook target and calldata are provided inside the attested message
+import {Errors} from "../../Errors.sol";
 
 // Minimal external interface for Circle MessageTransmitter V2
 interface IMessageTransmitterV2 {
@@ -10,23 +11,23 @@ interface IMessageTransmitterV2 {
 
 /**
  * @title CCTPBundleReceiver
- * @notice Submits attested CCTP messages and provides a permissionless hook executor for the EIP712 module
- * @dev Design favors minimal surface and non-atomic receive: USDC mint is independent from hook execution.
- *      Off-chain infra or any relayer may call `executeHook` with the same hook payload to complete execution.
+ * @notice Relays attested CCTP messages and best‑effort executes the embedded hook target
+ * @dev Minimal surface and non‑atomic design: USDC mint is independent from hook execution.
+ *      Permissionless by intent: any executor may call relay. If a low‑gas caller consumes the nonce
+ *      without executing the hook, the bundle can still be executed directly on the module; in that case
+ *      USDC has already been minted to the intended recipient.
  */
 contract CCTPBundleReceiver {
     
     // MessageTransmitter contract - configurable for testing
     address public immutable MESSAGE_TRANSMITTER;
     
-    // EIP712TypedDataSafeModule address for forwarding bundle execution
+    // EIP712TypedDataSafeModule address recorded for observability; relay executes the attested hook target directly
     address public immutable EIP712_MODULE;
     
     
     // Events for monitoring and debugging
-    event RelaySubmitted(bytes32 indexed messageHash, bool success);
-    event HookExecutionAttempt(bytes32 indexed hookHash, address indexed safe);
-    event HookExecutionResult(bytes32 indexed hookHash, bool success);
+    event RelayAndHook(bytes32 indexed messageHash, bool relaySuccess, bool hookSuccess);
     
     /**
      * @notice Constructor sets the MessageTransmitter and EIP712TypedDataSafeModule addresses
@@ -48,50 +49,82 @@ contract CCTPBundleReceiver {
      * @param attestation The attestation bytes provided by Circle
      * @return success True if the transmitter accepted the message
      */
-    function relayReceive(bytes calldata message, bytes calldata attestation) external returns (bool success) {
-        bool ok = IMessageTransmitterV2(MESSAGE_TRANSMITTER).receiveMessage(message, attestation);
-        emit RelaySubmitted(keccak256(message), ok);
-        return ok;
-    }
-    
     /**
-     * @notice Execute an encoded EIP712 bundle hook payload against the configured module
-     * @dev Permissionless helper. The expected encoding is
-     *      abi.encode(IEip712TypedDataSafeModule.executeBundle.selector, safe, bundle, signature)
-     * @param hookData ABI-encoded payload for executeBundle
-     * @return success True if the bundle executed successfully
+     * @notice Relay a CCTP message and then attempt to execute the attested hook target with its calldata
+     * @dev Permissionless by design: any caller can relay and trigger the best‑effort hook.
+     *      - USDC mint is performed by Circle’s transmitter if attestation is valid.
+     *      - Hook execution is non‑atomic and not relied upon for fund safety.
+     *        If a low‑gas caller consumes the nonce without executing the hook, the bundle can still
+     *        be executed directly on the module; in such a case, USDC has already been minted.
+     * @dev Minimal validation: checks version (first 4 bytes) equals 1 and message has header.
+     *      Hook data format: [20‑byte target][raw calldata]. Bytes after the 44‑byte header
+     *      (version, sourceDomain, destinationDomain, nonce) are treated as hook data.
+     *      Hook execution is best‑effort and does not revert on failure.
+     * @param message Full CCTP message bytes
+     * @param attestation Circle attestation bytes
+     * @return relaySuccess True if receiveMessage succeeded
+     * @return hookSuccess True if the hook call succeeded (false if no hook or call failed)
+     * @return hookReturnData Return data from hook target
      */
-    function executeHook(bytes calldata hookData) external returns (bool success) {
-        require(hookData.length > 4, "CCTPBundleReceiver: empty hook");
+    function relay(
+        bytes calldata message,
+        bytes calldata attestation
+    ) external returns (
+        bool relaySuccess,
+        bool hookSuccess,
+        bytes memory hookReturnData
+    ) {
+        // Minimal format validation (version + header presence)
+        if (message.length < 44) revert Errors.CCTPReceiver_BadMessage();
+        uint32 version;
+        assembly {
+            version := calldataload(message.offset)
+        }
+        if (version != 1) revert Errors.CCTPReceiver_BadVersion(version);
 
-        (bytes4 selector, address safeAddr, IEip712TypedDataSafeModule.Bundle memory bundle, bytes memory signature) =
-            abi.decode(hookData, (bytes4, address, IEip712TypedDataSafeModule.Bundle, bytes));
+        // Relay to Circle MessageTransmitter
+        relaySuccess = IMessageTransmitterV2(MESSAGE_TRANSMITTER).receiveMessage(message, attestation);
+        if (!relaySuccess) revert Errors.CCTPReceiver_RelayFailed();
 
-        require(selector == IEip712TypedDataSafeModule.executeBundle.selector, "CCTPBundleReceiver: bad selector");
-        require(safeAddr != address(0), "CCTPBundleReceiver: invalid safe");
-
-        bytes32 hookHash = keccak256(hookData);
-        emit HookExecutionAttempt(hookHash, safeAddr);
-
-        bytes memory callData = abi.encodeWithSelector(
-            IEip712TypedDataSafeModule.executeBundle.selector,
-            safeAddr,
-            bundle,
-            signature
-        );
-
-        (bool callSuccess, bytes memory returnData) = EIP712_MODULE.call(callData);
-        if (!callSuccess) {
-            emit HookExecutionResult(hookHash, false);
-            if (returnData.length > 0) {
-                assembly {
-                    revert(add(returnData, 0x20), mload(returnData))
-                }
-            }
-            revert("CCTPBundleReceiver: executeBundle failed");
+        // Extract hook data from message tail and execute if present
+        bytes memory hookData = _extractHookDataFromMessage(message);
+        if (hookData.length >= 20) {
+            address hookTarget = _bytesToAddress(hookData);
+            bytes memory hookCall = _slice(hookData, 20, hookData.length - 20);
+            (hookSuccess, hookReturnData) = hookTarget.call(hookCall);
         }
 
-        emit HookExecutionResult(hookHash, true);
-        return true;
+        emit RelayAndHook(keccak256(message), relaySuccess, hookSuccess);
+    }
+
+    // ========================= INTERNAL HELPERS =========================
+    function _extractHookDataFromMessage(bytes calldata message) internal pure returns (bytes memory) {
+        // Expect: [4 bytes version][4 bytes src][4 bytes dst][32 bytes nonce][hookData...]
+        if (message.length <= 44) return bytes("");
+        // Copy tail after 44-byte header
+        bytes memory out = new bytes(message.length - 44);
+        assembly {
+            calldatacopy(add(out, 32), add(message.offset, 44), sub(message.length, 44))
+        }
+        return out;
+    }
+
+    function _bytesToAddress(bytes memory data) internal pure returns (address addr) {
+        if (data.length < 20) revert Errors.CCTPReceiver_ShortHook();
+        assembly {
+            addr := shr(96, mload(add(data, 32)))
+        }
+    }
+
+    function _slice(bytes memory data, uint256 start, uint256 len) internal pure returns (bytes memory out) {
+        if (data.length < start + len) revert Errors.CCTPReceiver_OutOfBounds();
+        out = new bytes(len);
+        assembly {
+            let src := add(add(data, 32), start)
+            let dst := add(out, 32)
+            for { let i := 0 } lt(i, len) { i := add(i, 32) } {
+                mstore(add(dst, i), mload(add(src, i)))
+            }
+        }
     }
 }

@@ -113,4 +113,17 @@ error ZeroEx__TokenNotApproved(address token);
 
     // TokenRegistry errors
     error TokenRegistry_TokenNotApproved();
+
+    // CCTPBundleReceiver errors
+    error CCTPReceiver_BadMessage();
+    error CCTPReceiver_BadVersion(uint32 provided);
+    error CCTPReceiver_RelayFailed();
+    error CCTPReceiver_ShortHook();
+    error CCTPReceiver_OutOfBounds();
+
+    // CCTPBridgeSend errors
+    error CCTPBridgeSend_InsufficientBalance(uint256 balance, uint256 amount);
+    error CCTPBridgeSend_DepositFailed();
+    error CCTPBridgeSend_BalanceMismatch(uint256 beforeBalance, uint256 afterBalance, uint256 expectedDelta);
+    error CCTPBridgeSend_BundleContextRequired();
 }

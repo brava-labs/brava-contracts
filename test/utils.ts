@@ -617,11 +617,12 @@ export async function encodeActionWithTypedData(args: ActionArgs): Promise<Encod
       mergedArgs.amount,
       mergedArgs.destinationDomain,
       ethers.zeroPadValue(mergedArgs.destinationCaller, 32),
+      mergedArgs.hookTarget,
       mergedArgs.maxFee,
       mergedArgs.minFinalityThreshold,
     ];
     const directTuple = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'uint256', 'uint32', 'bytes32', 'uint256', 'uint32'],
+      ['address', 'uint256', 'uint32', 'bytes32', 'address', 'uint256', 'uint32'],
       cctpParams
     );
     const callData = directTuple;

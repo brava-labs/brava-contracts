@@ -50,7 +50,10 @@ curl "https://iris-api.circle.com/v2/messages/{sourceDomain}?transactionHash={tx
 - The CCTP message embeds `destinationCaller` (an address). Only that address
   is authorized by Circle to successfully call `receiveMessage` for the message.
 - Hook data is embedded in the CCTP message. Circle does not call the hook
-  receiver. Your app must decode and execute the hook separately.
+  receiver. The receiver decodes and executes the hook best‑effort.
+  - Format: `[20-byte target][raw calldata]`
+    - `target`: destination contract to call (e.g., EIP712 module)
+    - `raw calldata`: ABI‑encoded function arguments (e.g., `executeBundle`)
 - Contract addresses (CCTP v2) are chain-constant:
   - `MessageTransmitter`: `0x81D40F21F12A8F0E3252Bccb954D722d4c464B64`
   - `TokenMessenger`: `0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d`
@@ -62,11 +65,10 @@ curl "https://iris-api.circle.com/v2/messages/{sourceDomain}?transactionHash={tx
 - Set `destinationCaller` to the deployed `CCTPBundleReceiver` on the
   destination chain. This address will submit `receiveMessage`.
 - Off-chain infra fetches attestation and calls
-  `CCTPBundleReceiver.relayReceive(message, attestation)` to mint USDC.
-- To execute the bundle, call `CCTPBundleReceiver.executeHook(hookData)` with
-  the original hook payload:
-  `abi.encode(IEip712TypedDataSafeModule.executeBundle.selector, safe, bundle, signature)`.
-  Execution is permissionless and non-atomic with mint.
+  `CCTPBundleReceiver.relay(message, attestation)` which:
+  - Relays the attested message (USDC minted to `mintRecipient`), then
+  - Extracts hook data from the message tail and best-effort calls the target from the message.
+  - Execution is permissionless and non-atomic with mint.
 
 ## Considerations
 
