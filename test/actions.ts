@@ -280,6 +280,7 @@ export interface CCTPBridgeSendArgs extends BaseActionArgs {
   amount: string | bigint;
   destinationDomain: number;
   destinationCaller: string;
+  hookTarget?: string; // optional in type, provided in tests for bundle path
   maxFee: number;
   minFinalityThreshold: number;
   cctpParams?: any; // For encoding

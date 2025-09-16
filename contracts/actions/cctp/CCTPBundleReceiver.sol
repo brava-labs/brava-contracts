@@ -78,7 +78,8 @@ contract CCTPBundleReceiver {
         if (message.length < 44) revert Errors.CCTPReceiver_BadMessage();
         uint32 version;
         assembly {
-            version := calldataload(message.offset)
+            // load first 32 bytes and shift right by 224 bits to keep only the first 4 bytes
+            version := shr(224, calldataload(message.offset))
         }
         if (version != 1) revert Errors.CCTPReceiver_BadVersion(version);
 
