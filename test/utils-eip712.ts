@@ -13,14 +13,16 @@ export function createEIP712Domain(verifyingContract: string, chainId?: number) 
 }
 
 // Enum for refund recipient options (matches contract enum)
-export enum RefundRecipient {
+export enum RefundRecipientEnum {
   EXECUTOR = 0, // msg.sender (transaction executor)
   FEE_RECIPIENT = 1, // AdminVault's fee recipient
 }
 
+// Allow raw number to test invalid values too
+export type RefundRecipient = RefundRecipientEnum | number;
+
 // Gas refund execution context (matches contract struct)
 export interface GasRefundContext {
-  refundToken: string; // Token to use for refunds (must be approved in TokenRegistry)
   maxRefundAmount: bigint; // Maximum refund amount (optional cap)
 }
 
@@ -35,7 +37,6 @@ export const EIP712_TYPES = {
     { name: 'sequenceNonce', type: 'uint256' },
     { name: 'deploySafe', type: 'bool' },
     { name: 'enableGasRefund', type: 'bool' },
-    { name: 'refundToken', type: 'address' },
     { name: 'maxRefundAmount', type: 'uint256' },
     { name: 'refundRecipient', type: 'uint8' },
     { name: 'sequence', type: 'Sequence' },
@@ -70,9 +71,8 @@ export interface ChainSequence {
   sequenceNonce: bigint;
   deploySafe: boolean;
   enableGasRefund: boolean;
-  refundToken: string;
   maxRefundAmount: bigint;
-  refundRecipient: number; // 0=executor, 1=fee recipient
+  refundRecipient: RefundRecipient; // 0=executor, 1=fee recipient, others invalid
   sequence: Sequence;
 }
 
@@ -110,9 +110,8 @@ export async function signBundle(
  * @param options.sequenceName Name for the sequence (default: 'Sequence')
  * @param options.deploySafe Whether to deploy Safe for this sequence (default: false)
  * @param options.enableGasRefund Whether gas refund is enabled (default: false)
- * @param options.refundToken Token address for gas refund (default: ethers.ZeroAddress)
  * @param options.maxRefundAmount Maximum refund amount (default: 0)
- * @param options.refundRecipient Who should receive the gas refund (default: RefundRecipient.EXECUTOR)
+ * @param options.refundRecipient Who should receive the gas refund (default: RefundRecipientEnum.EXECUTOR)
  * @returns A bundle with the specified or empty actions
  */
 export function createBundle(
@@ -126,7 +125,6 @@ export function createBundle(
     sequenceName?: string;
     deploySafe?: boolean;
     enableGasRefund?: boolean;
-    refundToken?: string;
     maxRefundAmount?: bigint;
     refundRecipient?: RefundRecipient;
   } = {}
@@ -141,9 +139,8 @@ export function createBundle(
     sequenceName = 'Sequence',
     deploySafe = false,
     enableGasRefund = false,
-    refundToken = ethers.ZeroAddress,
     maxRefundAmount = BigInt(0),
-    refundRecipient = RefundRecipient.EXECUTOR,
+    refundRecipient = RefundRecipientEnum.EXECUTOR,
   } = options;
 
   return {
@@ -154,7 +151,6 @@ export function createBundle(
         sequenceNonce,
         deploySafe,
         enableGasRefund,
-        refundToken,
         maxRefundAmount,
         refundRecipient,
         sequence: {

@@ -2,16 +2,20 @@
 pragma solidity =0.8.28;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {EIP712TypedDataLib} from "../libraries/EIP712TypedDataLib.sol";
 import {Errors} from "../Errors.sol";
 import {IAdminVault} from "../interfaces/IAdminVault.sol";
 import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {IOwnerManager} from "../interfaces/safe/IOwnerManager.sol";
 import {ISafeDeployment} from "../interfaces/ISafeDeployment.sol";
 import {ITokenRegistry} from "../interfaces/ITokenRegistry.sol";
-import {IAggregatorV3} from "../interfaces/chainlink/IAggregatorV3.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IGasPriceAdaptor} from "../interfaces/IGasPriceAdaptor.sol";
 import {Enum} from "../libraries/Enum.sol";
 import {ActionBase} from "../actions/ActionBase.sol";
 import {ISequenceExecutor} from "../interfaces/ISequenceExecutor.sol";
+import {IEip712TypedDataSafeModule as ITyped} from "../interfaces/IEip712TypedDataSafeModule.sol";
 
 /// @title EIP712TypedDataSafeModule
 /// @notice Safe module that handles EIP-712 typed data signing for cross-chain bundle execution
@@ -21,48 +25,11 @@ import {ISequenceExecutor} from "../interfaces/ISequenceExecutor.sol";
 /// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
 contract EIP712TypedDataSafeModule {
     using ECDSA for bytes32;
+    using SafeERC20 for IERC20;
 
-    // EIP-712 Type definitions following proven patterns
-    string private constant ACTION_DEFINITION_TYPE = "ActionDefinition(string protocolName,uint8 actionType)";
-    string private constant SEQUENCE_TYPE = "Sequence(string name,ActionDefinition[] actions,bytes4[] actionIds,bytes[] callData)ActionDefinition(string protocolName,uint8 actionType)";
-    string private constant CHAIN_SEQUENCE_TYPE = "ChainSequence(uint256 chainId,uint256 sequenceNonce,bool deploySafe,bool enableGasRefund,address refundToken,uint256 maxRefundAmount,uint8 refundRecipient,Sequence sequence)ActionDefinition(string protocolName,uint8 actionType)Sequence(string name,ActionDefinition[] actions,bytes4[] actionIds,bytes[] callData)";
-    string private constant BUNDLE_TYPE = "Bundle(uint256 expiry,ChainSequence[] sequences)ActionDefinition(string protocolName,uint8 actionType)ChainSequence(uint256 chainId,uint256 sequenceNonce,bool deploySafe,bool enableGasRefund,address refundToken,uint256 maxRefundAmount,uint8 refundRecipient,Sequence sequence)Sequence(string name,ActionDefinition[] actions,bytes4[] actionIds,bytes[] callData)";
-    string private constant DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract,bytes32 salt)";
+    // EIP-712 helpers are provided by a library to reduce bytecode size
 
-    // Computed type hashes
-    bytes32 private constant ACTION_DEFINITION_TYPEHASH = keccak256(abi.encodePacked(ACTION_DEFINITION_TYPE));
-    bytes32 private constant SEQUENCE_TYPEHASH = keccak256(abi.encodePacked(SEQUENCE_TYPE));
-    bytes32 private constant CHAIN_SEQUENCE_TYPEHASH = keccak256(abi.encodePacked(CHAIN_SEQUENCE_TYPE));
-    bytes32 private constant BUNDLE_TYPEHASH = keccak256(abi.encodePacked(BUNDLE_TYPE));
-    bytes32 private constant DOMAIN_TYPEHASH = keccak256(abi.encodePacked(DOMAIN_TYPE));
-
-    struct ActionDefinition {
-        string protocolName;
-        uint8 actionType;
-    }
-
-    struct Sequence {
-        string name;
-        ActionDefinition[] actions;
-        bytes4[] actionIds;
-        bytes[] callData;
-    }
-
-    struct ChainSequence {
-        uint256 chainId;
-        uint256 sequenceNonce;
-        bool deploySafe;
-        bool enableGasRefund;
-        address refundToken;
-        uint256 maxRefundAmount;
-        uint8 refundRecipient; // 0=executor, 1=fee recipient
-        Sequence sequence;
-    }
-
-    struct Bundle {
-        uint256 expiry;
-        ChainSequence[] sequences;
-    }
+    // Struct types provided by interface ITyped
 
     struct ExecutorSequence {
         string name;
@@ -74,8 +41,8 @@ contract EIP712TypedDataSafeModule {
     address public SEQUENCE_EXECUTOR_ADDR;
     ISafeDeployment public SAFE_DEPLOYMENT;
     ITokenRegistry public TOKEN_REGISTRY;
-    IAggregatorV3 public ETH_USD_ORACLE;
     address public FEE_RECIPIENT;
+    address public usdcToken; // set post-deploy to preserve deterministic bytecode
 
     address public immutable CONFIG_SETTER;
 
@@ -88,10 +55,17 @@ contract EIP712TypedDataSafeModule {
 
     mapping(address => uint256) public sequenceNonces;
 
-    mapping(address => uint256) private gasStartBySafe;
-    mapping(address => address) private executorBySafe;
+    // Gas/refund context is computed inline in executeBundle; no persistent storage required
 
     event BundleExecuted(address indexed safe, uint256 indexed expiry, uint256 indexed chainId, uint256 sequenceNonce);
+    event GasRefundProcessed(address indexed safe, address indexed refundToken, uint256 refundAmount, address indexed recipient);
+    // =============================
+    // Gas refund config
+    // =============================
+    // Configurable to preserve deterministic bytecode and allow per-chain setup post-deploy
+    uint256 public gasRefundOverhead; // default 21_000
+    address public gasPriceAdaptor;   // set during initializeConfig
+
     event SignatureVerified(address indexed safe, address indexed signer, bytes32 indexed bundleHash);
     event SafeDeployedForExecution(address indexed signer, address indexed safeAddress);
     event ConfigInitialized(
@@ -99,7 +73,6 @@ contract EIP712TypedDataSafeModule {
         address sequenceExecutor,
         address safeDeployment,
         address tokenRegistry,
-        address oracle,
         address feeRecipient,
         string name,
         string version
@@ -108,6 +81,8 @@ contract EIP712TypedDataSafeModule {
     constructor(address _configSetter) {
         require(_configSetter != address(0), "Invalid input");
         CONFIG_SETTER = _configSetter;
+        // Defaults to preserve deterministic bytecode; can be configured post-deploy
+        gasRefundOverhead = 21000;
     }
 
     /// @notice One-time initializer to set all external references and domain fields
@@ -117,8 +92,9 @@ contract EIP712TypedDataSafeModule {
         address _sequenceExecutor,
         address _safeDeployment,
         address _tokenRegistry,
-        address _ethUsdOracle,
         address _feeRecipient,
+        address _usdcToken,
+        address _gasPriceAdaptor,
         string memory _domainName,
         string memory _domainVersion
     ) external {
@@ -129,8 +105,9 @@ contract EIP712TypedDataSafeModule {
             _sequenceExecutor != address(0) &&
             _safeDeployment != address(0) &&
             _tokenRegistry != address(0) &&
-            _ethUsdOracle != address(0) &&
-            _feeRecipient != address(0),
+            _feeRecipient != address(0) &&
+            _usdcToken != address(0) &&
+            _gasPriceAdaptor != address(0),
             "Invalid input"
         );
 
@@ -138,8 +115,9 @@ contract EIP712TypedDataSafeModule {
         SEQUENCE_EXECUTOR_ADDR = _sequenceExecutor;
         SAFE_DEPLOYMENT = ISafeDeployment(_safeDeployment);
         TOKEN_REGISTRY = ITokenRegistry(_tokenRegistry);
-        ETH_USD_ORACLE = IAggregatorV3(_ethUsdOracle);
         FEE_RECIPIENT = _feeRecipient;
+        usdcToken = _usdcToken;
+        gasPriceAdaptor = _gasPriceAdaptor;
         domainName = _domainName;
         domainVersion = _domainVersion;
         isInitialized = true;
@@ -149,7 +127,6 @@ contract EIP712TypedDataSafeModule {
             _sequenceExecutor,
             _safeDeployment,
             _tokenRegistry,
-            _ethUsdOracle,
             _feeRecipient,
             _domainName,
             _domainVersion
@@ -164,12 +141,14 @@ contract EIP712TypedDataSafeModule {
     /// @param _signature EIP-712 signature from a Safe owner
     function executeBundle(
         address _safeAddr,
-        Bundle calldata _bundle,
+        ITyped.Bundle calldata _bundle,
         bytes calldata _signature
     ) external payable {
-        // Record gas at the beginning and the executor for the refund action to consume later
-        gasStartBySafe[_safeAddr] = gasleft();
-        executorBySafe[_safeAddr] = tx.origin;
+        // Record gas and executor at entry
+        uint256 gasStart = gasleft();
+
+        // Guard: config set during initializeConfig(); a single check is enough
+        require(address(ADMIN_VAULT) != address(0), "Config not initialized");
 
         // Verify bundle hasn't expired
         if (_bundle.expiry <= block.timestamp) {
@@ -177,7 +156,7 @@ contract EIP712TypedDataSafeModule {
         }
 
         // Verify EIP-712 signature using Safe address as verifying contract
-        bytes32 digest = hashBundleForSigning(_safeAddr, _bundle);
+        bytes32 digest = EIP712TypedDataLib.hashBundleForSigning(domainName, domainVersion, _safeAddr, _bundle);
         address signer = digest.recover(_signature);
         
         if (signer == address(0)) {
@@ -189,7 +168,7 @@ contract EIP712TypedDataSafeModule {
         // Find the sequence for current chain and next nonce
         uint256 expectedSequenceNonce = sequenceNonces[_safeAddr];
         
-        ChainSequence memory targetSequence = _findChainSequence(
+        ITyped.ChainSequence memory targetSequence = _findChainSequence(
             _bundle.sequences,
             block.chainid,
             expectedSequenceNonce
@@ -236,41 +215,54 @@ contract EIP712TypedDataSafeModule {
         sequenceNonces[_safeAddr] = expectedSequenceNonce + 1;
 
         // Execute the sequence via Safe module transaction
-        if (!ISafe(_safeAddr).execTransactionFromModule(
-            SEQUENCE_EXECUTOR_ADDR,
-            0, // DelegateCall ignores value; pass 0 for clarity
-            abi.encodeWithSelector(
-                EXECUTE_SEQUENCE_SELECTOR,
-                ExecutorSequence({
-                    name: targetSequence.sequence.name,
-                    callData: targetSequence.sequence.callData,
-                    actionIds: actionIds
-                }),
-                _bundle,
-                _signature,
-                uint16(0) // strategyId = 0 for EIP712 executions
-            ),
-            Enum.Operation.DelegateCall
-        )) {
+        bool ok = _execThroughSafe(
+            _safeAddr,
+            ExecutorSequence({
+                name: targetSequence.sequence.name,
+                callData: targetSequence.sequence.callData,
+                actionIds: actionIds
+            }),
+            _bundle,
+            _signature
+        );
+        if (!ok) {
             revert Errors.EIP712TypedDataSafeModule_ExecutionFailed();
         }
 
-        // Gas refund is handled by a dedicated action that consumes context from this module
+        // Perform gas refund within module scope if enabled
+        if (targetSequence.enableGasRefund) {
+            _executeGasRefund(
+                _safeAddr,
+                targetSequence.maxRefundAmount,
+                targetSequence.refundRecipient,
+                gasStart
+            );
+        }
 
         emit BundleExecuted(_safeAddr, _bundle.expiry, block.chainid, expectedSequenceNonce);
     }
 
-    /// @notice Returns and clears the gas refund context for the calling Safe
-    /// @dev Must be called by the Safe that executed the sequence (msg.sender is the Safe)
-    /// @return startGas The gas recorded at the beginning of module execution
-    /// @return executor The externally-owned account that initiated execution on the module
-    function consumeGasContext() external returns (uint256 startGas, address executor) {
-        address safe = msg.sender;
-        startGas = gasStartBySafe[safe];
-        executor = executorBySafe[safe];
-        delete gasStartBySafe[safe];
-        delete executorBySafe[safe];
+    function _execThroughSafe(
+        address safeAddr,
+        ExecutorSequence memory execSeq,
+        ITyped.Bundle calldata bundle,
+        bytes calldata signature
+    ) private returns (bool) {
+        return ISafe(safeAddr).execTransactionFromModule(
+            SEQUENCE_EXECUTOR_ADDR,
+            0,
+            abi.encodeWithSelector(
+                EXECUTE_SEQUENCE_SELECTOR,
+                execSeq,
+                bundle,
+                signature,
+                uint16(0)
+            ),
+            Enum.Operation.DelegateCall
+        );
     }
+
+    // Gas context is handled inline in executeBundle
 
     /// @notice Gets the next expected sequence nonce for a Safe
     /// @param _safeAddr Address of the Safe
@@ -284,30 +276,65 @@ contract EIP712TypedDataSafeModule {
     /// @return The domain separator
     /// @dev Uses hardcoded chainID 1 for cross-chain compatibility as part of cross-chain domain design
     function getDomainSeparator(address _safeAddr) external view returns (bytes32) {
-        return keccak256(abi.encode(
-            DOMAIN_TYPEHASH,
-            keccak256(bytes(domainName)),
-            keccak256(bytes(domainVersion)),
-            1, // Hardcoded chainID 1 for cross-chain compatibility
-            _safeAddr,
-            keccak256("BravaSafe")
-        ));
+        return EIP712TypedDataLib.domainSeparator(domainName, domainVersion, _safeAddr);
     }
 
     /// @notice Computes the EIP-712 hash for a bundle (view function for external verification)
     /// @param _safeAddr The Safe address to use as verifying contract
     /// @param _bundle The bundle to hash
     /// @return The EIP-712 hash that should be signed
-    function getBundleHash(address _safeAddr, Bundle calldata _bundle) external view returns (bytes32) {
-        return hashBundleForSigning(_safeAddr, _bundle);
+    function getBundleHash(address _safeAddr, ITyped.Bundle calldata _bundle) external view returns (bytes32) {
+        return EIP712TypedDataLib.hashBundleForSigning(domainName, domainVersion, _safeAddr, _bundle);
     }
 
     /// @notice Computes the raw bundle hash (for testing purposes)
     /// @param _bundle The bundle to hash
     /// @return The raw bundle hash (before EIP-712 domain separator)
-    function getRawBundleHash(Bundle calldata _bundle) external pure returns (bytes32) {
-        return hashBundle(_bundle);
+    function getRawBundleHash(ITyped.Bundle calldata _bundle) external pure returns (bytes32) {
+        return EIP712TypedDataLib.hashBundle(_bundle);
     }
+
+    // =============================
+    // Internal: Gas refund
+    // =============================
+    function _executeGasRefund(
+        address safe,
+        uint256 maxRefundAmount,
+        uint8 refundRecipient,
+        uint256 gasStart
+    ) internal {
+
+        uint256 refundAmount = IGasPriceAdaptor(gasPriceAdaptor).refundAmountInToken(
+            gasStart > gasleft() ? (gasStart - gasleft() + gasRefundOverhead) : 0,
+            usdcToken,
+            msg.data
+        );
+        if (maxRefundAmount > 0 && refundAmount > maxRefundAmount) {
+            refundAmount = maxRefundAmount;
+        }
+        if (refundAmount == 0) return;
+
+        IERC20 token = IERC20(usdcToken);
+        uint256 moduleDeposit = token.balanceOf(address(this));
+        if (moduleDeposit == 0) return;
+
+        uint256 payAmount = refundAmount <= moduleDeposit ? refundAmount : moduleDeposit;
+        if (payAmount == 0) return;
+
+        address recipient = refundRecipient == 0 ? tx.origin : FEE_RECIPIENT;
+        if (recipient == address(0)) return;
+
+        // Pay refund from module-held deposit and return any remainder to the Safe
+        token.safeTransfer(recipient, payAmount);
+        uint256 remainder = token.balanceOf(address(this));
+        if (remainder > 0) {
+            token.safeTransfer(safe, remainder);
+        }
+
+        emit GasRefundProcessed(safe, usdcToken, payAmount, recipient);
+    }
+
+    // Oracle math is implemented in the adaptor
 
     /// @notice Finds the chain sequence for the current chain and expected nonce
     /// @param _sequences Array of chain sequences
@@ -315,10 +342,10 @@ contract EIP712TypedDataSafeModule {
     /// @param _expectedNonce Expected sequence nonce
     /// @return The matching chain sequence
     function _findChainSequence(
-        ChainSequence[] memory _sequences,
+        ITyped.ChainSequence[] memory _sequences,
         uint256 _chainId,
         uint256 _expectedNonce
-    ) internal pure returns (ChainSequence memory) {
+    ) internal pure returns (ITyped.ChainSequence memory) {
         for (uint256 i = 0; i < _sequences.length; i++) {
             if (_sequences[i].chainId == _chainId && _sequences[i].sequenceNonce == _expectedNonce) {
                 return _sequences[i];
@@ -331,7 +358,7 @@ contract EIP712TypedDataSafeModule {
     /// @param _sequence The sequence to validate
     /// @return actionIds Array of action IDs from the sequence
     /// @return hasRefundAction True if a GasRefundAction is present in the sequence
-    function _validateSequenceActionsAndDetectRefund(Sequence memory _sequence, uint8 _refundRecipient)
+    function _validateSequenceActionsAndDetectRefund(ITyped.Sequence memory _sequence, uint8 _refundRecipient)
         internal
         view
         returns (bytes4[] memory actionIds, bool hasRefundAction)
@@ -361,7 +388,7 @@ contract EIP712TypedDataSafeModule {
             uint8 actualActionType = action.actionType();
             
             // Compare with expected values from typed data
-            ActionDefinition memory expectedAction = _sequence.actions[idx];
+            ITyped.ActionDefinition memory expectedAction = _sequence.actions[idx];
             
             if (
                 keccak256(bytes(actualProtocolName)) != keccak256(bytes(expectedAction.protocolName)) ||
@@ -378,114 +405,22 @@ contract EIP712TypedDataSafeModule {
 
             // Detect GasRefundAction via ActionType.FEE_ACTION
             if (!hasRefundAction && actualActionType == uint8(ActionBase.ActionType.FEE_ACTION)) {
-                // Ask the action if the provided typed-data value is valid (capability probe)
-                (bool ok, bytes memory ret) = actionAddr.staticcall(
-                    abi.encodeWithSignature("isValidRefundRecipient(uint8)", _refundRecipient)
-                );
-                if (ok && ret.length >= 32) {
-                    bool valid = abi.decode(ret, (bool));
-                    if (!valid) {
-                        revert Errors.EIP712TypedDataSafeModule_InvalidRefundRecipient(_refundRecipient);
-                    }
+                // Enforce valid refund recipient at module-level: 0=executor, 1=fee recipient
+                if (!(_refundRecipient == 0 || _refundRecipient == 1)) {
+                    revert Errors.EIP712TypedDataSafeModule_InvalidRefundRecipient(_refundRecipient);
                 }
                 hasRefundAction = true;
             }
         }
     }
 
-    // Gas refunds are handled by a dedicated action that consumes context via consumeGasContext()
-    // that consumes context via consumeGasContext() for clear separation of responsibilities.
+    // Gas refunds are processed by this module when enabled; a fee action deposits the refund token before execution.
+
 
     // =============================================================
     //                    EIP-712 HASHING HELPERS
     // =============================================================
 
     /// @notice Hash an ActionDefinition following proven EIP-712 patterns
-    function hashActionDefinition(ActionDefinition memory action) private pure returns (bytes32) {
-        return keccak256(abi.encode(
-            ACTION_DEFINITION_TYPEHASH,
-            keccak256(bytes(action.protocolName)),
-            action.actionType
-        ));
-    }
-
-    /// @notice Hash a Sequence following proven EIP-712 patterns
-    function hashSequence(Sequence memory sequence) private pure returns (bytes32) {
-        // Hash all actions
-        bytes32[] memory actionHashes = new bytes32[](sequence.actions.length);
-        for (uint256 i = 0; i < sequence.actions.length; i++) {
-            actionHashes[i] = hashActionDefinition(sequence.actions[i]);
-        }
-
-        // Hash all callData elements individually
-        bytes32[] memory callDataHashes = new bytes32[](sequence.callData.length);
-        for (uint256 i = 0; i < sequence.callData.length; i++) {
-            callDataHashes[i] = keccak256(sequence.callData[i]);
-        }
-
-        // Canonical EIP-712 encoding for bytes4[] requires 32-byte element encoding per entry
-        bytes32[] memory actionIdWords = new bytes32[](sequence.actionIds.length);
-        for (uint256 i = 0; i < sequence.actionIds.length; i++) {
-            actionIdWords[i] = bytes32(sequence.actionIds[i]);
-        }
-
-        return keccak256(abi.encode(
-            SEQUENCE_TYPEHASH,
-            keccak256(bytes(sequence.name)),
-            keccak256(abi.encodePacked(actionHashes)),
-            keccak256(abi.encodePacked(actionIdWords)),
-            keccak256(abi.encodePacked(callDataHashes))
-        ));
-    }
-
-    /// @notice Hash a ChainSequence following proven EIP-712 patterns
-    function hashChainSequence(ChainSequence memory chainSequence) private pure returns (bytes32) {
-        return keccak256(abi.encode(
-            CHAIN_SEQUENCE_TYPEHASH,
-            chainSequence.chainId,
-            chainSequence.sequenceNonce,
-            chainSequence.deploySafe,
-            chainSequence.enableGasRefund,
-            chainSequence.refundToken,
-            chainSequence.maxRefundAmount,
-            chainSequence.refundRecipient,
-            hashSequence(chainSequence.sequence)
-        ));
-    }
-
-    /// @notice Hash a Bundle following proven EIP-712 patterns
-    function hashBundle(Bundle memory bundle) private pure returns (bytes32) {
-        // Hash all chain sequences
-        bytes32[] memory chainSequenceHashes = new bytes32[](bundle.sequences.length);
-        for (uint256 i = 0; i < bundle.sequences.length; i++) {
-            chainSequenceHashes[i] = hashChainSequence(bundle.sequences[i]);
-        }
-
-        return keccak256(abi.encode(
-            BUNDLE_TYPEHASH,
-            bundle.expiry,
-            keccak256(abi.encodePacked(chainSequenceHashes))
-        ));
-    }
-
-    /// @notice Create the final EIP-712 v4 hash for signing
-    /// @param _safeAddr The Safe address to use as verifying contract in domain
-    /// @param bundle The bundle to hash
-    /// @dev Uses hardcoded chainID 1 for cross-chain compatibility as part of cross-chain domain design
-    function hashBundleForSigning(address _safeAddr, Bundle memory bundle) public view returns (bytes32) {
-        bytes32 domainSeparator = keccak256(abi.encode(
-            DOMAIN_TYPEHASH,
-            keccak256(bytes(domainName)),
-            keccak256(bytes(domainVersion)),
-            1, // Hardcoded chainID 1 for cross-chain compatibility
-            _safeAddr, // Safe address as verifying contract
-            keccak256("BravaSafe") // Fixed salt for domain separation
-        ));
-        
-        return keccak256(abi.encodePacked(
-            "\x19\x01",
-            domainSeparator,
-            hashBundle(bundle)
-        ));
-    }
+    // Hash helpers are implemented in the library
 } 

@@ -13,6 +13,7 @@ import {
   EIP712TypedDataSafeModule,
 } from '../../../typechain-types';
 import { ISafe } from '../../../typechain-types';
+import { tokenConfig } from '../../constants';
 
 // Operation enum from the contract
 enum Operation {
@@ -93,8 +94,9 @@ describe('UpgradeAction', () => {
       await sequenceExecutor.getAddress(),
       safeDeploymentAddress,
       tokenRegistryAddress,
-      '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', // mainnet ETH/USD oracle
       await deployer.getAddress(),
+      tokenConfig.USDC.address,
+      (await (await ethers.getContractFactory('Eip1559GasPriceAdaptor', deployer)).deploy(ethers.parseUnits('1', 9), '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419')).target,
       'TestDomain',
       '1.0'
     );
@@ -221,8 +223,14 @@ describe('UpgradeAction', () => {
         await sequenceExecutor.getAddress(),
         safeDeploymentAddress,
         tokenRegistryAddress,
-        '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
         await deployer.getAddress(),
+        tokenConfig.USDC.address,
+        (await (
+          await ethers.getContractFactory('Eip1559GasPriceAdaptor', deployer)
+        ).deploy(
+          ethers.parseUnits('1', 9),
+          '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419'
+        )).target,
         'TestDomain2',
         '1.0'
       );
@@ -288,8 +296,14 @@ describe('UpgradeAction', () => {
         await sequenceExecutor.getAddress(),
         safeDeploymentAddress,
         tokenRegistryAddress,
-        '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
         await deployer.getAddress(),
+        tokenConfig.USDC.address,
+        (await (
+          await ethers.getContractFactory('Eip1559GasPriceAdaptor', deployer)
+        ).deploy(
+          ethers.parseUnits('1', 9),
+          '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419'
+        )).target,
         'TestDomain3',
         '1.0'
       );
@@ -304,8 +318,14 @@ describe('UpgradeAction', () => {
         await sequenceExecutor.getAddress(),
         safeDeploymentAddress,
         tokenRegistryAddress,
-        '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
         await deployer.getAddress(),
+        tokenConfig.USDC.address,
+        (await (
+          await ethers.getContractFactory('Eip1559GasPriceAdaptor', deployer)
+        ).deploy(
+          ethers.parseUnits('1', 9),
+          '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419'
+        )).target,
         'TestDomain4',
         '1.0'
       );

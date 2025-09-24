@@ -6,6 +6,8 @@
   "scripts": {
     "hardhat-run": "hardhat run",
     "test": "hardhat test",
+    "test:arbitrum": "FORK_NETWORK=arbitrum FORK_URL=$(node -r dotenv/config -e \"if(!process.env.ARBITRUM_RPC_URL){process.stderr.write('ARBITRUM_RPC_URL missing\\n'); process.exit(1);} process.stdout.write(process.env.ARBITRUM_RPC_URL)\") hardhat test test/gas/OpArbAdaptors.test.ts",
+    "test:base": "FORK_NETWORK=base FORK_URL=$(node -r dotenv/config -e \"if(!process.env.BASE_RPC_URL){process.stderr.write('BASE_RPC_URL missing\\n'); process.exit(1);} process.stdout.write(process.env.BASE_RPC_URL)\") hardhat test test/gas/OpArbAdaptors.test.ts",
     "test:logging": "ENABLE_LOGGING=true hardhat test",
     "test:sdk": "USE_BRAVA_SDK=true hardhat test",
     "coverage": "hardhat coverage",

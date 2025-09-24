@@ -157,11 +157,11 @@ export async function deploy<T extends BaseContract>(
   ...args: unknown[]
 ): Promise<T> {
   log(`Deploying ${contractName} with args:`, ...args);
-  const factory = await ethers.getContractFactory(contractName, signer);
   const feeData = await ethers.provider.getFeeData();
 
   // Special case for Logger contract - use direct deployment
   if (contractName === 'Logger') {
+    const factory = await ethers.getContractFactory('Logger', signer);
     const gasOverrides = {
       maxFeePerGas: feeData.maxFeePerGas
         ? (feeData.maxFeePerGas * BigInt(120)) / BigInt(100)
@@ -190,7 +190,20 @@ export async function deploy<T extends BaseContract>(
       ? (feeData.maxPriorityFeePerGas * BigInt(120)) / BigInt(100)
       : undefined,
   };
-  const deployed = await factory.deploy(...(args as any), gasOverrides);
+  // Link libraries when needed
+  let deployFactory;
+  if (contractName === 'EIP712TypedDataSafeModule') {
+    const lib = await (await ethers.getContractFactory('EIP712TypedDataLib', signer)).deploy();
+    await lib.waitForDeployment();
+    const libAddr = await lib.getAddress();
+    deployFactory = await ethers.getContractFactory('EIP712TypedDataSafeModule', {
+      signer,
+      libraries: { EIP712TypedDataLib: libAddr },
+    } as any);
+  } else {
+    deployFactory = await ethers.getContractFactory(contractName, signer);
+  }
+  const deployed = await deployFactory.deploy(...(args as any), gasOverrides);
   await deployed.waitForDeployment();
   const addr = await deployed.getAddress();
   log(`${contractName} deployed (direct) at:`, addr);
@@ -361,8 +374,9 @@ export async function deployBaseSetup(signer?: HardhatEthersSigner): Promise<Bas
     await sequenceExecutor.getAddress(),
     await safeDeployment.getAddress(),
     await tokenRegistry.getAddress(),
-    CHAINLINK_ETH_USD_ORACLE,
     feeRecipient,
+    tokenConfig.USDC.address,
+    (await (await ethers.getContractFactory('Eip1559GasPriceAdaptor', deploySigner)).deploy(ethers.parseUnits('1', 9), CHAINLINK_ETH_USD_ORACLE)).target,
     'BravaSafeModule',
     '1.0.0'
   );

@@ -26,7 +26,6 @@ interface IEip712TypedDataSafeModule {
         uint256 sequenceNonce;
         bool deploySafe;
         bool enableGasRefund;
-        address refundToken;
         uint256 maxRefundAmount;
         uint8 refundRecipient; // 0=executor, 1=fee recipient
         Sequence sequence;
@@ -68,5 +67,14 @@ interface IEip712TypedDataSafeModule {
     event BundleExecuted(address indexed safe, uint256 indexed expiry, uint256 indexed chainId, uint256 sequenceNonce);
     event SignatureVerified(address indexed safe, address indexed signer, bytes32 indexed bundleHash);
     event SafeDeployedForExecution(address indexed signer, address indexed safeAddress);
+    event ConfigInitialized(
+        address adminVault,
+        address sequenceExecutor,
+        address safeDeployment,
+        address tokenRegistry,
+        address feeRecipient,
+        string name,
+        string version
+    );
     event GasRefundProcessed(address indexed safe, address indexed refundToken, uint256 refundAmount, address indexed recipient);
 } 

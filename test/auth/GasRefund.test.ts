@@ -22,14 +22,10 @@ import {
 const GAS_REFUND_ACTION_ABI = ['function executeAction(bytes,uint16) external payable'];
 
 // Helper to encode GasRefundAction params and callData
-function encodeGasRefundActionCall(params: {
-  refundToken: string;
-  maxRefundAmount: bigint;
-  refundRecipient: number; // 0 executor, 1 fee recipient
-}) {
+function encodeGasRefundActionCall(params: { maxRefundAmount: bigint }) {
   const paramsTuple = ethers.AbiCoder.defaultAbiCoder().encode(
-    ['tuple(address,uint256,uint8)'],
-    [[params.refundToken, params.maxRefundAmount, params.refundRecipient]]
+    ['tuple(uint256)'],
+    [[params.maxRefundAmount]]
   );
   const iface = new ethers.Interface(GAS_REFUND_ACTION_ABI);
   // strategyId not relevant for refund action; pass 0
@@ -39,7 +35,7 @@ function encodeGasRefundActionCall(params: {
 // Helper to build a sequence that includes only the GasRefundAction
 async function buildRefundOnlySequence(
   gasRefundActionAddress: string,
-  params: { refundToken: string; maxRefundAmount: bigint; refundRecipient: number }
+  params: { maxRefundAmount: bigint }
 ) {
   const callData = encodeGasRefundActionCall(params);
   // actionId convention in tests: bytes4(keccak256(address)) helper
@@ -79,7 +75,6 @@ describe('Gas Refund via GasRefundAction', function () {
   // Test configuration
   const REFUND_AMOUNT = ethers.parseUnits('1000', 6); // 1000 USDC
   const HIGH_GAS_PRICE = ethers.parseUnits('100', 9); // 100 Gwei
-  const LOW_GAS_PRICE = ethers.parseUnits('10', 9); // 10 Gwei
 
   before(async function () {
     // Get signers
@@ -117,18 +112,14 @@ describe('Gas Refund via GasRefundAction', function () {
       await tokenRegistry.connect(admin).approveToken(tokenAddress);
     }
 
-    // Funding happens per test case to ensure isolation
-
     // Deploy GasRefundAction and register
     const logger = (await utils.getGlobalSetup()).logger;
     const factory = await ethers.getContractFactory('GasRefundAction', admin);
-    const contract = await factory.deploy(
+    const contract = await (factory as any).deploy(
       await adminVault.getAddress(),
       await logger.getAddress(),
-      await tokenRegistry.getAddress(),
-      await ethUsdOracle.getAddress(),
-      adminAddress,
-      await eip712Module.getAddress()
+      await eip712Module.getAddress(),
+      tokenConfig.USDC.address
     );
     await contract.waitForDeployment();
     gasRefundActionAddress = await contract.getAddress();
@@ -155,12 +146,11 @@ describe('Gas Refund via GasRefundAction', function () {
   }
 
   async function executeBundleWithRefund(params: {
-    refundToken: string;
     maxRefundAmount: bigint;
-    refundRecipient: number;
+    refundRecipient?: number;
   }) {
     // Ensure nonzero gas price so refunds compute > 0
-    await setGasPrice(ethers.parseUnits('100', 9));
+    await setGasPrice(HIGH_GAS_PRICE);
 
     const currentNonce = await eip712Module.getSequenceNonce(aliceSafeAddress);
     const { actions, actionIds, callData } = await buildRefundOnlySequence(
@@ -176,9 +166,8 @@ describe('Gas Refund via GasRefundAction', function () {
       sequenceNonce: currentNonce,
       sequenceName: 'Gas Refund',
       enableGasRefund: true,
-      refundToken: params.refundToken,
       maxRefundAmount: params.maxRefundAmount,
-      refundRecipient: params.refundRecipient,
+      refundRecipient: params.refundRecipient ?? 0,
     });
 
     const signature = await eip712Utils.signBundle(alice, bundle, aliceSafeAddress);
@@ -194,9 +183,7 @@ describe('Gas Refund via GasRefundAction', function () {
     const balanceBefore = await usdc.balanceOf(bobAddress);
 
     await executeBundleWithRefund({
-      refundToken: tokenConfig.USDC.address,
       maxRefundAmount: ethers.parseUnits('50', 6),
-      refundRecipient: eip712Utils.RefundRecipient.EXECUTOR,
     });
 
     const balanceAfter = await usdc.balanceOf(bobAddress);
@@ -205,50 +192,32 @@ describe('Gas Refund via GasRefundAction', function () {
   });
 
   it('refunds to fee recipient when selected', async function () {
-    // Fund Safe with DAI
-    const fundAmount = ethers.parseUnits('500', 18);
-    await fundAccountWithToken(aliceSafeAddress, 'DAI', fundAmount);
+    // Fund Safe with USDC (refund token)
+    const fundAmount = ethers.parseUnits('500', 6);
+    await fundAccountWithToken(aliceSafeAddress, 'USDC', fundAmount);
 
     const feeRecipient = adminAddress; // set in constructor
-    const balanceBefore = await dai.balanceOf(feeRecipient);
+    const balanceBefore = await usdc.balanceOf(feeRecipient);
 
     await executeBundleWithRefund({
-      refundToken: tokenConfig.DAI.address,
-      maxRefundAmount: ethers.parseUnits('25', 18),
-      refundRecipient: eip712Utils.RefundRecipient.FEE_RECIPIENT,
+      maxRefundAmount: ethers.parseUnits('25', 6),
+      refundRecipient: 1, // send to fee recipient
     });
 
-    const balanceAfter = await dai.balanceOf(feeRecipient);
+    const balanceAfter = await usdc.balanceOf(feeRecipient);
     expect(balanceAfter).to.be.gt(balanceBefore);
-    expect(balanceAfter - balanceBefore).to.be.lte(ethers.parseUnits('25', 18));
+    expect(balanceAfter - balanceBefore).to.be.lte(ethers.parseUnits('25', 6));
   });
 
   it('does not revert if Safe lacks funds; refund is skipped', async function () {
     const balanceBefore = await usdc.balanceOf(bobAddress);
 
     await executeBundleWithRefund({
-      refundToken: tokenConfig.USDC.address,
       maxRefundAmount: ethers.parseUnits('10', 6),
-      refundRecipient: eip712Utils.RefundRecipient.EXECUTOR,
     });
 
     const balanceAfter = await usdc.balanceOf(bobAddress);
     expect(balanceAfter).to.equal(balanceBefore);
-  });
-
-  it('does not revert for unapproved token; refund is skipped', async function () {
-    // Use a random address as token (will fail metadata/registry checks)
-    const randomToken = ethers.Wallet.createRandom().address;
-    const executorBefore = await usdc.balanceOf(bobAddress);
-
-    await executeBundleWithRefund({
-      refundToken: randomToken,
-      maxRefundAmount: ethers.parseUnits('10', 6),
-      refundRecipient: eip712Utils.RefundRecipient.EXECUTOR,
-    });
-
-    const executorAfter = await usdc.balanceOf(bobAddress);
-    expect(executorAfter).to.equal(executorBefore);
   });
 
   it('no refund if refund action not included', async function () {
@@ -268,9 +237,8 @@ describe('Gas Refund via GasRefundAction', function () {
       sequenceNonce: currentNonce,
       sequenceName: 'No Refund',
       enableGasRefund: false,
-      refundToken: tokenConfig.USDC.address,
       maxRefundAmount: ethers.parseUnits('50', 6),
-      refundRecipient: eip712Utils.RefundRecipient.EXECUTOR,
+      refundRecipient: 0,
     });
 
     const balanceBefore = await usdc.balanceOf(bobAddress);
@@ -280,5 +248,124 @@ describe('Gas Refund via GasRefundAction', function () {
 
     const balanceAfter = await usdc.balanceOf(bobAddress);
     expect(balanceAfter).to.equal(balanceBefore);
+  });
+
+  it('caps refund at typed max and returns remainder to Safe', async function () {
+    // Fund Safe with a lot of USDC and deposit a large amount via action
+    await fundAccountWithToken(aliceSafeAddress, 'USDC', ethers.parseUnits('1000', 6));
+
+    // Push gas price very high so computed refund > typed max
+    await setGasPrice(ethers.parseUnits('1000', 9));
+
+    const typedMax = ethers.parseUnits('10', 6);
+
+    const executorBefore = await usdc.balanceOf(bobAddress);
+    const safeBefore = await usdc.balanceOf(aliceSafeAddress);
+
+    const currentNonce = await eip712Module.getSequenceNonce(aliceSafeAddress);
+    const { actions, actionIds, callData } = await buildRefundOnlySequence(
+      gasRefundActionAddress,
+      { maxRefundAmount: ethers.parseUnits('100', 6) } // deposit up to 100 USDC
+    );
+
+    const bundle = eip712Utils.createBundle({
+      actions,
+      actionIds,
+      callData,
+      chainId: BigInt(31337),
+      sequenceNonce: currentNonce,
+      sequenceName: 'Refund Cap Test',
+      enableGasRefund: true,
+      maxRefundAmount: typedMax,
+      refundRecipient: 0,
+    });
+
+    const signature = await eip712Utils.signBundle(alice, bundle, aliceSafeAddress);
+    await eip712Module.connect(bob).executeBundle(aliceSafeAddress, bundle, signature).then(r => r.wait());
+
+    const executorAfter = await usdc.balanceOf(bobAddress);
+    const safeAfter = await usdc.balanceOf(aliceSafeAddress);
+    const moduleBal = await usdc.balanceOf(await eip712Module.getAddress());
+
+    // Executor should receive exactly typed max (refund capped)
+    expect(executorAfter - executorBefore).to.equal(typedMax);
+    // Safe net decrease equals the amount paid to executor (remainder returned)
+    expect(safeBefore - safeAfter).to.equal(typedMax);
+    // Module should not retain any funds
+    expect(moduleBal).to.equal(0n);
+  });
+
+  it('reverts if enableGasRefund=true but refund action missing', async function () {
+    const currentNonce = await eip712Module.getSequenceNonce(aliceSafeAddress);
+    const emptyActions: eip712Utils.ActionDefinition[] = [];
+    const emptyIds: string[] = [];
+    const emptyCalldata: string[] = [];
+
+    const bundle = eip712Utils.createBundle({
+      actions: emptyActions,
+      actionIds: emptyIds,
+      callData: emptyCalldata,
+      chainId: BigInt(31337),
+      sequenceNonce: currentNonce,
+      sequenceName: 'Missing Refund Action',
+      enableGasRefund: true,
+      maxRefundAmount: ethers.parseUnits('5', 6),
+      refundRecipient: 0,
+    });
+
+    const signature = await eip712Utils.signBundle(alice, bundle, aliceSafeAddress);
+    await expect(
+      eip712Module.connect(bob).executeBundle(aliceSafeAddress, bundle, signature)
+    ).to.be.revertedWithCustomError(eip712Module, 'EIP712TypedDataSafeModule_RefundActionRequired');
+  });
+
+  it('reverts if enableGasRefund=false but refund action is present', async function () {
+    const currentNonce = await eip712Module.getSequenceNonce(aliceSafeAddress);
+    const { actions, actionIds, callData } = await buildRefundOnlySequence(
+      gasRefundActionAddress,
+      { maxRefundAmount: ethers.parseUnits('5', 6) }
+    );
+
+    const bundle = eip712Utils.createBundle({
+      actions,
+      actionIds,
+      callData,
+      chainId: BigInt(31337),
+      sequenceNonce: currentNonce,
+      sequenceName: 'Refund Not Allowed',
+      enableGasRefund: false,
+      maxRefundAmount: ethers.parseUnits('5', 6),
+      refundRecipient: 0,
+    });
+
+    const signature = await eip712Utils.signBundle(alice, bundle, aliceSafeAddress);
+    await expect(
+      eip712Module.connect(bob).executeBundle(aliceSafeAddress, bundle, signature)
+    ).to.be.revertedWithCustomError(eip712Module, 'EIP712TypedDataSafeModule_RefundActionNotAllowed');
+  });
+
+  it('reverts on invalid refund recipient value', async function () {
+    const currentNonce = await eip712Module.getSequenceNonce(aliceSafeAddress);
+    const { actions, actionIds, callData } = await buildRefundOnlySequence(
+      gasRefundActionAddress,
+      { maxRefundAmount: ethers.parseUnits('5', 6) }
+    );
+
+    const bundle = eip712Utils.createBundle({
+      actions,
+      actionIds,
+      callData,
+      chainId: BigInt(31337),
+      sequenceNonce: currentNonce,
+      sequenceName: 'Invalid Refund Recipient',
+      enableGasRefund: true,
+      maxRefundAmount: ethers.parseUnits('5', 6),
+      refundRecipient: 2, // invalid, only 0 or 1 allowed
+    });
+
+    const signature = await eip712Utils.signBundle(alice, bundle, aliceSafeAddress);
+    await expect(
+      eip712Module.connect(bob).executeBundle(aliceSafeAddress, bundle, signature)
+    ).to.be.revertedWithCustomError(eip712Module, 'EIP712TypedDataSafeModule_InvalidRefundRecipient');
   });
 });
