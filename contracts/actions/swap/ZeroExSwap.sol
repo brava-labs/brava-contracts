@@ -92,8 +92,10 @@ contract ZeroExSwap is ActionBase {
         IERC20 tokenOut = IERC20(_params.tokenOut);
 
         // Approve input only to the canonical 0x Allowance Holder (spender)
-        // Use safeIncreaseAllowance like other actions in the codebase
-        tokenIn.safeIncreaseAllowance(ALLOWANCE_TARGET, _params.fromAmount);
+        // Use strict set-and-reset because 0x routes can be exact-out: the router may not consume
+        // the full approved input. Setting to fromAmount and clearing to 0 prevents residual
+        // allowances and remains compatible with tokens that require zero-reset (e.g., USDT).
+        tokenIn.forceApprove(ALLOWANCE_TARGET, _params.fromAmount);
 
         // Record balance before swap
         uint256 balanceBefore = tokenOut.balanceOf(address(this));
@@ -117,6 +119,9 @@ contract ZeroExSwap is ActionBase {
             amountReceived >= _params.minToAmount,
             Errors.ZeroEx__InsufficientOutput(amountReceived, _params.minToAmount)
         );
+
+        // Clear allowance after the swap to remove any leftover approval from exact-out execution
+        tokenIn.forceApprove(ALLOWANCE_TARGET, 0);
 
         LOGGER.logActionEvent(
             LogType.ZERO_EX_SWAP,
