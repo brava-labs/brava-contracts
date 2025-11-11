@@ -92,7 +92,7 @@ contract FeeTakeSafeModule is Roles {
             sequence.callData[i] = callData;
         }
 
-        // encode the sequence data with empty bundle for legacy compatibility
+        // Create empty bundle since executeSequence requires bundle parameter
         IEip712TypedDataSafeModule.Bundle memory emptyBundle = IEip712TypedDataSafeModule.Bundle({
             expiry: 0,
             sequences: new IEip712TypedDataSafeModule.ChainSequence[](0)
