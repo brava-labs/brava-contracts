@@ -25,6 +25,10 @@ contract TokenRegistry is Multicall, Roles, ITokenRegistry {
     /// @notice Mapping of token addresses to their proposal timestamps
     mapping(address => uint256) public tokenProposals;
 
+    /// @notice Canonical gas refund token (should be USD-pegged, e.g. USDC)
+    /// @dev Set directly by OWNER_ROLE for simplicity; no delay since it's operational and chain-specific
+    address public gasRefundToken;
+
     /// @notice Initializes the TokenRegistry
     /// @param _adminVault The address of the AdminVault contract
     /// @param _logger The address of the Logger contract
@@ -99,5 +103,14 @@ contract TokenRegistry is Multicall, Roles, ITokenRegistry {
     /// @return bool True if the token is approved, false otherwise
     function isApprovedToken(address _token) external view returns (bool) {
         return approvedTokens[_token];
+    }
+
+    /// @notice Set the canonical gas refund token (USD-pegged recommended)
+    /// @dev OWNER_ROLE only; overwrites previous value
+    function setGasRefundToken(address _token) external onlyRole(Roles.OWNER_ROLE) {
+        require(_token != address(0), Errors.InvalidInput("TokenRegistry", "setGasRefundToken"));
+        gasRefundToken = _token;
+        // 205 = Grant (generic) used here to log update of refund token
+        LOGGER.logAdminVaultEvent(205, abi.encode(_token));
     }
 } 

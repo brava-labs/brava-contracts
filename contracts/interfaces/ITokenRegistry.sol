@@ -24,4 +24,9 @@ interface ITokenRegistry {
     /// @param _token The address of the token contract to check
     /// @return bool True if the token is approved, false otherwise
     function isApprovedToken(address _token) external view returns (bool);
+
+    /// @notice Canonical gas refund token used by GasRefundAction
+    function gasRefundToken() external view returns (address);
+    /// @notice Set the canonical gas refund token (OWNER_ROLE only)
+    function setGasRefundToken(address _token) external;
 } 
