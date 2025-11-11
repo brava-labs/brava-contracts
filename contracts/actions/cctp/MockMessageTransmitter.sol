@@ -28,7 +28,7 @@ contract MockMessageTransmitter {
 	
 	/// @notice Simulates CCTP receiveMessage
 	/// @dev Mints stored amount to recipient and returns true on success
-	function receiveMessage(bytes calldata message, bytes calldata /* attestation */) external returns (bool) {
+    function receiveMessage(bytes calldata message, bytes calldata /* attestation */) external returns (bool) {
 		bytes32 nonceBytes;
 		assembly {
 			nonceBytes := calldataload(add(message.offset, 12))
@@ -41,16 +41,16 @@ contract MockMessageTransmitter {
 	}
 	
 	/// @notice Simulates TokenMessenger.depositForBurnWithHook - captures data for later receive
-	function depositForBurnWithHook(
-		uint256 amount,
-		uint32 destinationDomain,
-		bytes32 mintRecipient,
-		address burnToken,
-		bytes32 destinationCaller,
-		uint256 /* maxFee */, 
-		uint32 /* minFinalityThreshold */, 
-		bytes calldata hookData
-	) external returns (uint64 nonce) {
+    function depositForBurnWithHook(
+        uint256 amount,
+        uint32 /* destinationDomain */,
+        bytes32 mintRecipient,
+        address burnToken,
+        bytes32 destinationCaller,
+        uint256 /* maxFee */, 
+        uint32 /* minFinalityThreshold */, 
+        bytes calldata hookData
+    ) external returns (uint64 nonce) {
 		require(burnToken == USDC, "MockMessageTransmitter: USDC only");
 		require(amount > 0, "MockMessageTransmitter: amount=0");
 		IERC20(USDC).transferFrom(msg.sender, address(this), amount);
@@ -66,12 +66,27 @@ contract MockMessageTransmitter {
 		latestStoredNonce = nonce;
 	}
 	
-	/// @notice Helper: build a minimal CCTP message with header and embedded stored hookData
-	function buildMessageWithHook(uint64 nonce) external view returns (bytes memory) {
+	/// @notice Helper: build a minimal CCTP V2 message with correct structure for CCTPBundleReceiver
+	/// @dev CCTPBundleReceiver expects: 148-byte header + 228-byte BurnMessageV2 + hookData (total 376 bytes before hook)
+	function buildMessageWithHook(uint64 nonce) external view returns (bytes memory message) {
 		StoredMessage memory m = storedMessages[nonce];
 		require(m.exists, "MockMessageTransmitter: No message");
-		bytes memory header = abi.encodePacked(uint32(1), uint32(m.sourceDomain), uint32(1), bytes32(uint256(nonce)));
-		return bytes.concat(header, m.hookData);
+		// CCTP V2 Message Header (148 bytes)
+		bytes memory header = abi.encodePacked(
+			uint32(1),                    // version (4 bytes)
+			uint32(m.sourceDomain),       // sourceDomain (4 bytes)
+			uint32(1),                    // destinationDomain (4 bytes)
+			bytes32(uint256(nonce))       // nonce (32 bytes)
+		); // = 44 bytes
+		// Pad to 148 bytes (header size)
+		bytes memory paddedHeader = new bytes(148);
+		for (uint i = 0; i < 44 && i < 148; i++) {
+			paddedHeader[i] = header[i];
+		}
+		// BurnMessageV2 fixed fields (228 bytes) - all zeros is fine for mock
+		bytes memory burnMessage = new bytes(228);
+		// Concatenate: 148-byte header + 228-byte burn message + hookData
+		return bytes.concat(paddedHeader, burnMessage, m.hookData);
 	}
 	
 	function getStoredMessage(uint64 nonce) external view returns (uint256, address, address, bytes memory) {

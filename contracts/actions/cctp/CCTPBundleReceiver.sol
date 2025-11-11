@@ -42,25 +42,18 @@ contract CCTPBundleReceiver {
     }
     
     /**
-     * @notice Relay function to submit a CCTP V2 message and attestation to MessageTransmitter
-     * @dev Permissionless. If successful, USDC is minted to the message's mint recipient. This function does
-     *      not attempt to decode or execute hook data. Use `executeHook` to run the EIP712 bundle.
-     * @param message The CCTP V2 message bytes
-     * @param attestation The attestation bytes provided by Circle
-     * @return success True if the transmitter accepted the message
-     */
-    /**
-     * @notice Relay a CCTP message and then attempt to execute the attested hook target with its calldata
+     * @notice Relay a CCTP V2 message and then attempt to execute the attested hook target with its calldata
      * @dev Permissionless by design: any caller can relay and trigger the best‑effort hook.
-     *      - USDC mint is performed by Circle’s transmitter if attestation is valid.
+     *      - USDC mint is performed by Circle's transmitter if attestation is valid.
      *      - Hook execution is non‑atomic and not relied upon for fund safety.
      *        If a low‑gas caller consumes the nonce without executing the hook, the bundle can still
      *        be executed directly on the module; in such a case, USDC has already been minted.
-     * @dev Minimal validation: checks version (first 4 bytes) equals 1 and message has header.
-     *      Hook data format: [20‑byte target][raw calldata]. Bytes after the 44‑byte header
-     *      (version, sourceDomain, destinationDomain, nonce) are treated as hook data.
-     *      Hook execution is best‑effort and does not revert on failure.
-     * @param message Full CCTP message bytes
+     * @dev CCTP V2 message structure per Circle's BurnMessageV2.sol:
+     *      - 148-byte header + BurnMessageV2 (228 fixed bytes: version, burnToken, mintRecipient, amount,
+     *        messageSender, maxFee, feeExecuted, expirationBlock) + hookData (dynamic).
+     *      - Hook data starts at byte 376 and format is: [20‑byte target][raw calldata].
+     *      - Hook execution is best‑effort and does not revert on failure.
+     * @param message Full CCTP V2 message bytes
      * @param attestation Circle attestation bytes
      * @return relaySuccess True if receiveMessage succeeded
      * @return hookSuccess True if the hook call succeeded (false if no hook or call failed)
@@ -74,8 +67,9 @@ contract CCTPBundleReceiver {
         bool hookSuccess,
         bytes memory hookReturnData
     ) {
-        // Minimal format validation (version + header presence)
-        if (message.length < 44) revert Errors.CCTPReceiver_BadMessage();
+        // Minimal format validation (version + minimum CCTP V2 message size)
+        uint256 MIN_MESSAGE_SIZE = 376; // 148 header + 228 BurnMessageV2 fixed fields
+        if (message.length < MIN_MESSAGE_SIZE) revert Errors.CCTPReceiver_BadMessage();
         uint32 version;
         assembly {
             // load first 32 bytes and shift right by 224 bits to keep only the first 4 bytes
@@ -100,12 +94,26 @@ contract CCTPBundleReceiver {
 
     // ========================= INTERNAL HELPERS =========================
     function _extractHookDataFromMessage(bytes calldata message) internal pure returns (bytes memory) {
-        // Expect: [4 bytes version][4 bytes src][4 bytes dst][32 bytes nonce][hookData...]
-        if (message.length <= 44) return bytes("");
-        // Copy tail after 44-byte header
-        bytes memory out = new bytes(message.length - 44);
+        // CCTP V2 Message Format (per Circle's BurnMessageV2.sol):
+        // Message Header: 148 bytes
+        //   - version (4) + sourceDomain (4) + destinationDomain (4) + nonce (32)
+        //   - sender (32) + recipient (32) + destinationCaller (32)
+        //   - minFinalityThreshold (4) + finalityThresholdExecuted (4)
+        // BurnMessageV2 (starts at byte 148): 228 fixed bytes + hookData
+        //   - version (4) + burnToken (32) + mintRecipient (32) + amount (32)
+        //   - messageSender (32) + maxFee (32) + feeExecuted (32) + expirationBlock (32)
+        //   - hookData (dynamic, starts at byte 228 within BurnMessageV2)
+        // Total offset: 148 + 228 = 376 bytes
+        uint256 CCTP_HEADER_SIZE = 148;
+        uint256 BURN_MESSAGE_FIXED_SIZE = 228;
+        uint256 HOOK_DATA_OFFSET = CCTP_HEADER_SIZE + BURN_MESSAGE_FIXED_SIZE; // 376
+        
+        if (message.length <= HOOK_DATA_OFFSET) return bytes("");
+        
+        // Copy hook data from offset 376 (no length prefix, just raw [target][calldata])
+        bytes memory out = new bytes(message.length - HOOK_DATA_OFFSET);
         assembly {
-            calldatacopy(add(out, 32), add(message.offset, 44), sub(message.length, 44))
+            calldatacopy(add(out, 32), add(message.offset, HOOK_DATA_OFFSET), sub(message.length, HOOK_DATA_OFFSET))
         }
         return out;
     }
