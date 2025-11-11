@@ -3,22 +3,19 @@ pragma solidity =0.8.28;
 
 /// @title IGasPriceAdaptor
 /// @notice Chain-specific adaptor interface for pricing gas usage
-/// @dev Adaptor returns the total wei cost given gasUsed and optional outer calldata context
+/// @dev Provides gas pricing rate that allows caller to measure gas consumption accurately
 interface IGasPriceAdaptor {
-    /// @notice Returns the total wei cost for a transaction given gasUsed and optional outer tx calldata
-    /// @param gasUsed Gas units consumed
-    /// @param outerTxCalldata Calldata of the outermost L2 transaction, if available for L1 fee calc
-    function totalWeiCost(uint256 gasUsed, bytes calldata outerTxCalldata) external view returns (uint256 totalWei);
-
-    /// @notice Returns the refund amount in the specified token for a given gas usage
-    /// @param gasUsed Gas units consumed (should include any desired overhead already)
-    /// @param refundToken ERC-20 token to denominate the refund in (e.g., USDC)
-    /// @param outerTxCalldata Calldata of the outermost transaction for L1 fee calc on rollups
-    function refundAmountInToken(
-        uint256 gasUsed,
+    /// @notice Get the refund rate per gas unit in token terms
+    /// @dev Rate is scaled by 1e18 for precision: actualRefund = (gasUsed * ratePerGas) / 1e18 + fixedFee
+    /// @dev Caller measures gas after obtaining rate to ensure accurate measurement
+    /// @param refundToken Token to calculate rate for (e.g., USDC)
+    /// @param outerTxCalldata The calldata of the outer transaction (for L1 fee estimation on L2s)
+    /// @return ratePerGas Token units per gas (scaled by 1e18)
+    /// @return fixedFee Fixed cost component in token units (e.g., L1 data fee on OP Stack)
+    function getRefundRate(
         address refundToken,
         bytes calldata outerTxCalldata
-    ) external view returns (uint256 amount);
+    ) external view returns (uint256 ratePerGas, uint256 fixedFee);
 }
 
 
