@@ -7,9 +7,8 @@ import {AaveSupplyBase} from "../common/AaveSupply.sol";
 contract AaveV2Supply is AaveSupplyBase {
     constructor(
         address _adminVault,
-        address _logger,
-        address _poolAddress
-    ) AaveSupplyBase(_adminVault, _logger, _poolAddress) {}
+        address _logger
+    ) AaveSupplyBase(_adminVault, _logger) {}
 
     function protocolName() public pure override returns (string memory) {
         return "AaveV2";

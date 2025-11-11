@@ -7,9 +7,8 @@ import {AaveWithdrawBase} from "../common/AaveWithdraw.sol";
 contract AaveV2Withdraw is AaveWithdrawBase {
     constructor(
         address _adminVault,
-        address _logger,
-        address _poolAddress
-    ) AaveWithdrawBase(_adminVault, _logger, _poolAddress) {}
+        address _logger
+    ) AaveWithdrawBase(_adminVault, _logger) {}
 
     function protocolName() public pure override returns (string memory) {
         return "AaveV2";
