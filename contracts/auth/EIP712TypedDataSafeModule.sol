@@ -62,9 +62,8 @@ contract EIP712TypedDataSafeModule {
     // =============================
     // Gas refund config
     // =============================
-    // Configurable to preserve deterministic bytecode and allow per-chain setup post-deploy
-    uint256 public gasRefundOverhead; // default 21_000
-    address public gasPriceAdaptor;   // set during initializeConfig
+    uint256 public gasRefundOverhead;
+    address public gasPriceAdaptor;
 
     event SignatureVerified(address indexed safe, address indexed signer, bytes32 indexed bundleHash);
     event SafeDeployedForExecution(address indexed signer, address indexed safeAddress);
@@ -81,12 +80,11 @@ contract EIP712TypedDataSafeModule {
     constructor(address _configSetter) {
         require(_configSetter != address(0), "Invalid input");
         CONFIG_SETTER = _configSetter;
-        // Defaults to preserve deterministic bytecode; can be configured post-deploy
-        gasRefundOverhead = 21000;
     }
 
     /// @notice One-time initializer to set all external references and domain fields
-    /// @dev Callable only once by CONFIG_SETTER to keep deployment deterministic across chains
+    /// @dev Callable only once by CONFIG_SETTER for deterministic deployment across chains
+    /// @param _gasRefundOverhead Gas consumed after measurement point (transfers, events, return path)
     function initializeConfig(
         address _adminVault,
         address _sequenceExecutor,
@@ -95,6 +93,7 @@ contract EIP712TypedDataSafeModule {
         address _feeRecipient,
         address _usdcToken,
         address _gasPriceAdaptor,
+        uint256 _gasRefundOverhead,
         string memory _domainName,
         string memory _domainVersion
     ) external {
@@ -118,6 +117,7 @@ contract EIP712TypedDataSafeModule {
         FEE_RECIPIENT = _feeRecipient;
         usdcToken = _usdcToken;
         gasPriceAdaptor = _gasPriceAdaptor;
+        gasRefundOverhead = _gasRefundOverhead;
         domainName = _domainName;
         domainVersion = _domainVersion;
         isInitialized = true;
@@ -303,35 +303,64 @@ contract EIP712TypedDataSafeModule {
         uint8 refundRecipient,
         uint256 gasStart
     ) internal {
-
-        uint256 refundAmount = IGasPriceAdaptor(gasPriceAdaptor).refundAmountInToken(
-            gasStart > gasleft() ? (gasStart - gasleft() + gasRefundOverhead) : 0,
-            usdcToken,
-            msg.data
-        );
-        if (maxRefundAmount > 0 && refundAmount > maxRefundAmount) {
-            refundAmount = maxRefundAmount;
-        }
-        if (refundAmount == 0) return;
-
         IERC20 token = IERC20(usdcToken);
         uint256 moduleDeposit = token.balanceOf(address(this));
+        
+        // If no deposit, nothing to do
         if (moduleDeposit == 0) return;
-
-        uint256 payAmount = refundAmount <= moduleDeposit ? refundAmount : moduleDeposit;
-        if (payAmount == 0) return;
-
-        address recipient = refundRecipient == 0 ? tx.origin : FEE_RECIPIENT;
-        if (recipient == address(0)) return;
-
-        // Pay refund from module-held deposit and return any remainder to the Safe
-        token.safeTransfer(recipient, payAmount);
+        
+        // Calculate refund amount - use zero values if any step fails
+        uint256 refundAmount = 0;
+        address recipient = address(0);
+        
+        // Try to get gas pricing rate
+        (uint256 ratePerGas, uint256 fixedFee) = _safeGetRefundRate();
+        
+        if (ratePerGas > 0) {
+            // Measure gas consumption including overhead
+            uint256 gasUsed = gasStart > gasleft() ? (gasStart - gasleft() + gasRefundOverhead) : 0;
+            
+            if (gasUsed > 0) {
+                // Calculate refund amount in USDC
+                refundAmount = (gasUsed * ratePerGas) / 1e18 + fixedFee;
+                
+                // Cap at max if specified
+                if (maxRefundAmount > 0 && refundAmount > maxRefundAmount) {
+                    refundAmount = maxRefundAmount;
+                }
+                
+                // Determine recipient
+                recipient = refundRecipient == 0 ? tx.origin : FEE_RECIPIENT;
+            }
+        }
+        
+        // Pay refund if we calculated a valid amount
+        uint256 paidAmount = 0;
+        if (refundAmount > 0 && recipient != address(0)) {
+            uint256 payAmount = refundAmount <= moduleDeposit ? refundAmount : moduleDeposit;
+            token.safeTransfer(recipient, payAmount);
+            paidAmount = payAmount;
+        }
+        
+        // ALWAYS return any remaining balance to the Safe
         uint256 remainder = token.balanceOf(address(this));
         if (remainder > 0) {
             token.safeTransfer(safe, remainder);
         }
 
-        emit GasRefundProcessed(safe, usdcToken, payAmount, recipient);
+        emit GasRefundProcessed(safe, usdcToken, paidAmount, recipient != address(0) ? recipient : safe);
+    }
+
+    /// @notice Safely get refund rate from gas price adaptor
+    /// @dev Returns (0, 0) if the call fails instead of reverting
+    function _safeGetRefundRate() internal view returns (uint256 ratePerGas, uint256 fixedFee) {
+        try IGasPriceAdaptor(gasPriceAdaptor).getRefundRate(usdcToken, msg.data) 
+            returns (uint256 rate, uint256 fee) 
+        {
+            return (rate, fee);
+        } catch {
+            return (0, 0);
+        }
     }
 
     // Oracle math is implemented in the adaptor
