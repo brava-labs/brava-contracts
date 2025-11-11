@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {IYearnVault} from "../../interfaces/yearn-v2/IYearnVault.sol";
@@ -6,7 +6,7 @@ import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title ERC4626Supply - Supplies tokens to YearnV2 vault
 /// @notice This contract allows users to supply tokens to a YearnV2 vault
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract YearnV2Supply is ERC4626Supply {
     /// @notice Initializes the YearnV2Supply contract
     /// @param _adminVault Address of the admin vault

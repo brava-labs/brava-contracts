@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {Errors} from "../Errors.sol";
@@ -12,7 +12,7 @@ import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {ISafeSetup} from "../interfaces/safe/ISafeSetup.sol";
 /// @title SafeDeployment
 /// @notice Deploys Safe accounts with current configuration from registry
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract SafeDeployment is Initializable, Multicall, ISafeDeployment {
     /// @notice The AdminVault contract that manages permissions

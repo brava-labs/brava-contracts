@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title SparkV1Supply - Supplies DAI to Spark V1 (Sky) vault
 /// @notice This contract allows users to supply DAI to a Spark V1 vault
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract SparkV1Supply is ERC4626Supply {
     /// @notice Initializes the SparkV1Supply contract
     /// @param _adminVault Address of the admin vault

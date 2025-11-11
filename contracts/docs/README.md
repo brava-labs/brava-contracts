@@ -194,7 +194,7 @@ await eip712Module.executeBundle(safeAddress, bundle, signature);
 
 ## 📞 Support
 
-- **Security Issues**: security@bravalabs.xyz
+- **Security Issues**: security@brava.finance
 - **Documentation**: Comprehensive guides in this `/docs` folder
 - **Examples**: Reference implementations in `/tests` folder
 - **Community**: [Brava Labs GitHub](https://github.com/brava-labs)

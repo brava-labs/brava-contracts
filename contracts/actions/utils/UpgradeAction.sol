@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {ActionBase} from "../ActionBase.sol";
@@ -8,7 +8,7 @@ import {ISafe} from "../../interfaces/safe/ISafe.sol";
 
 /// @title UpgradeAction - An action for upgrading Safe configuration to match registry
 /// @notice This contract upgrades Safe configuration by comparing current state with SafeSetupRegistry target
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract UpgradeAction is ActionBase {
     /// @notice The Safe setup registry contract
     ISafeSetupRegistry public immutable SAFE_SETUP_REGISTRY;

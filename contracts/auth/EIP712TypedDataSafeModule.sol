@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -22,7 +22,7 @@ import {IEip712TypedDataSafeModule as ITyped} from "../interfaces/IEip712TypedDa
 /// @notice Verifies signatures against Safe owners and forwards validated sequences to the sequence executor
 /// @notice Includes optional gas refund functionality with economic protections
 /// @dev Designed for 1-of-1 Safes: this module verifies the signer is an owner but does not enforce Safe threshold
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract EIP712TypedDataSafeModule {
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;

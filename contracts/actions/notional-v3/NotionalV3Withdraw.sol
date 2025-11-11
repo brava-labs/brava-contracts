@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {ShareBasedWithdraw} from "../common/ShareBasedWithdraw.sol";
@@ -10,7 +10,7 @@ import {Errors} from "../../Errors.sol";
 
 /// @title NotionalV3Withdraw - Withdraws tokens from Notional V3 vault
 /// @notice This contract allows users to withdraw tokens from a Notional V3 vault
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract NotionalV3Withdraw is ShareBasedWithdraw {
     using SafeERC20 for IERC20;
 

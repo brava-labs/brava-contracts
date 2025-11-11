@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 /// @title ISafeSetupRegistry
 /// @notice Interface for managing the current Safe setup configuration
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 interface ISafeSetupRegistry {
     /// @notice Safe setup configuration structure

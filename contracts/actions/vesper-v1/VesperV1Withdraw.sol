@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -9,7 +9,7 @@ import {IVesperPool} from "../../interfaces/vesper-v1/IVesperPool.sol";
 
 /// @title VesperV1Withdraw - Withdraws tokens from VesperV1 Pool
 /// @notice This contract allows users to withdraw tokens from VesperV1 Pool
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract VesperV1Withdraw is ShareBasedWithdraw {
     using SafeERC20 for IERC20;
 

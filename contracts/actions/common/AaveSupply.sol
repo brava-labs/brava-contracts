@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -11,7 +11,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title AaveSupplyBase - Base contract for Aave supply actions
 /// @notice This contract provides base functionality for supplying to Aave-style lending pools
 /// @dev To be inherited by specific Aave version implementations
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 abstract contract AaveSupplyBase is ActionBase {
     using SafeERC20 for IERC20;
 

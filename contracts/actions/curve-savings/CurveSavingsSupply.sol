@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {ERC4626Supply} from "../common/ERC4626Supply.sol";
 
 /// @title CurveSavingsSupply - Supplies tokens to Curve Savings vault
 /// @notice This contract allows users to supply tokens to a Curve Savings vault
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract CurveSavingsSupply is ERC4626Supply {
     /// @notice Initializes the CurveSavingsSupply contract
     /// @param _adminVault Address of the admin vault

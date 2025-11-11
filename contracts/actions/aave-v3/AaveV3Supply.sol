@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {AaveSupplyBase} from "../common/AaveSupply.sol";
 import {IPool} from "../../interfaces/aave-v3/IPoolInstance.sol";
 
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract AaveV3Supply is AaveSupplyBase {
     constructor(
         address _adminVault,

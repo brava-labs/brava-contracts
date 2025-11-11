@@ -209,7 +209,15 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Business Source License 1.1 (BUSL-1.1)](LICENSE.md) with an [MIT License](LICENSE-MIT.md) as the Change License.
+
+### What This Means
+
+- **Development & Testing**: Free to use, modify, and test
+- **Production Use**: Permitted with the Additional Use Grant (see [LICENSE.md](LICENSE.md))
+- **Future**: Automatically converts to MIT License on the Change Date (4 years from first public release of each version)
+
+The BUSL-1.1 license allows us to keep the protocol open and accessible while ensuring sustainable development. After the Change Date, each version becomes fully open source under MIT.
 
 ## 📞 Contact
 

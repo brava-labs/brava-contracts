@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -8,7 +8,7 @@ import {IOwnerManager} from "../../interfaces/safe/IOwnerManager.sol";
 import {ActionBase} from "../ActionBase.sol";
 
 /// @title Helper action to send a token to the specified address
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract SendToken is ActionBase {
     using SafeERC20 for IERC20;
 

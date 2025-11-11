@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
@@ -8,7 +8,7 @@ import {AccessControlDelayed} from "./AccessControlDelayed.sol";
 /// @title AdminVault
 /// @notice A stateful contract that manages global variables and permissions for the protocol.
 /// @notice Part of the Brava protocol.
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract AdminVault is AccessControlDelayed, Multicall {
     /// @notice The maximum fee basis points.

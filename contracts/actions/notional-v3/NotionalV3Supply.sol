@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {ERC4626Supply} from "../common/ERC4626Supply.sol";
@@ -9,7 +9,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 
 /// @title NotionalV3Supply - Supplies tokens into Notional V3 vaults
 /// @notice This contract allows users to supply tokens into Notional V3 vaults
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract NotionalV3Supply is ERC4626Supply {
     using SafeERC20 for IERC20;
 

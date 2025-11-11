@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 
 pragma solidity =0.8.28;
 
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract Logger is Initializable {
     /// @notice Events to match the ILogger interface
     event ActionEvent(address caller, uint8 logId, bytes data);

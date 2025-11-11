@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
 import {Errors} from "../Errors.sol";
@@ -10,7 +10,7 @@ import {Roles} from "./Roles.sol";
 
 /// @title TokenRegistry
 /// @notice Manages token approvals with a delay mechanism
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract TokenRegistry is Multicall, Roles, ITokenRegistry {
     /// @notice The AdminVault contract that manages permissions

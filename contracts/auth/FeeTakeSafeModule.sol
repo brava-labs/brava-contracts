@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {ActionBase} from "../actions/ActionBase.sol";
@@ -13,7 +13,7 @@ import {ISequenceExecutor} from "../interfaces/ISequenceExecutor.sol";
 /// @title FeeTakeSafeModule
 /// @notice This is a safe module that will allow a bot (as permissioned by the admin vault) to take fees from the pools
 /// @notice It creates a sequence of deposit actions with 0 amounts to trigger the fee taking mechanism
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract FeeTakeSafeModule is Roles {
     struct Sequence {
         string name;
