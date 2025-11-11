@@ -12,8 +12,6 @@ import {ActionBase} from "../ActionBase.sol";
 /// @dev To be inherited by specific Aave version implementations
 /// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 abstract contract AaveWithdrawBase is ActionBase {
-    /// @notice Address of the Aave lending pool
-    address public immutable POOL;
 
     /// @notice Parameters for the withdraw action
     struct Params {
@@ -22,9 +20,7 @@ abstract contract AaveWithdrawBase is ActionBase {
         uint256 withdrawAmount;
     }
 
-    constructor(address _adminVault, address _logger, address _poolAddress) ActionBase(_adminVault, _logger) {
-        POOL = _poolAddress;
-    }
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     ///  -----  Core logic -----  ///
 
@@ -84,7 +80,7 @@ abstract contract AaveWithdrawBase is ActionBase {
     /// @param _underlyingAsset Address of the underlying asset
     /// @param _amount Amount to withdraw
     function _withdraw(address _underlyingAsset, uint256 _amount) internal virtual {
-        IAavePool(POOL).withdraw(_underlyingAsset, _amount, address(this));
+        IAavePool(_configAddress()).withdraw(_underlyingAsset, _amount, address(this));
     }
 
     /// @inheritdoc ActionBase

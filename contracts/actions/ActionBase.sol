@@ -159,4 +159,12 @@ abstract contract ActionBase {
     /// @notice Returns the name of the protocol
     /// @return string The name of the protocol
     function protocolName() public pure virtual returns (string memory);
+
+    /// @notice Reads a chain-specific configuration address for this action from AdminVault
+    /// @return configAddress The configured on-chain address for this action on the current chain
+    /// @notice Reads this action's chain-specific configuration address from AdminVault
+    function _configAddress() internal view returns (address configAddress) {
+        configAddress = ADMIN_VAULT.getActionConfig(protocolName(), actionType());
+        require(configAddress != address(0), Errors.InvalidInput(protocolName(), "config"));
+    }
 }

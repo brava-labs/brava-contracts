@@ -14,9 +14,6 @@ import {ITokenRegistry} from "../../interfaces/ITokenRegistry.sol";
 contract ZeroExSwap is ActionBase {
     using SafeERC20 for IERC20;
 
-    /// @notice The 0x allowance target (spender) address used for ERC20 approvals
-    address public immutable ALLOWANCE_TARGET;
-
     /// @notice The TokenRegistry contract for verifying allowed tokens
     ITokenRegistry public immutable TOKEN_REGISTRY;
 
@@ -41,19 +38,9 @@ contract ZeroExSwap is ActionBase {
     /// @notice Initializes the ZeroExSwap contract
     /// @param _adminVault Address of the admin vault
     /// @param _logger Address of the logger contract
-    /// @param _allowanceTarget Address of the 0x allowance target (spender)
     /// @param _tokenRegistry Address of the TokenRegistry contract
-    constructor(
-        address _adminVault, 
-        address _logger, 
-        address _allowanceTarget,
-        address _tokenRegistry
-    ) ActionBase(_adminVault, _logger) {
-        require(
-            _allowanceTarget != address(0) && _tokenRegistry != address(0), 
-            Errors.InvalidInput("ZeroExSwap", "constructor")
-        );
-        ALLOWANCE_TARGET = _allowanceTarget;
+    constructor(address _adminVault, address _logger, address _tokenRegistry) ActionBase(_adminVault, _logger) {
+        require(_tokenRegistry != address(0), Errors.InvalidInput("ZeroExSwap", "constructor"));
         TOKEN_REGISTRY = ITokenRegistry(_tokenRegistry);
     }
 
@@ -63,7 +50,6 @@ contract ZeroExSwap is ActionBase {
         // _strategyId is ignored, as this action is not strategy-specific
         _strategyId;
 
-        // Verify the destination token is approved in the registry
         require(
             TOKEN_REGISTRY.isApprovedToken(params.tokenOut),
             Errors.ZeroEx__TokenNotApproved(params.tokenOut)
@@ -91,16 +77,16 @@ contract ZeroExSwap is ActionBase {
         IERC20 tokenIn = IERC20(_params.tokenIn);
         IERC20 tokenOut = IERC20(_params.tokenOut);
 
+        // Resolve the 0x Allowance Holder (spender) via AdminVault per-action config
+        address allowanceTarget = _configAddress();
         // Approve input only to the canonical 0x Allowance Holder (spender)
         // Use strict set-and-reset because 0x routes can be exact-out: the router may not consume
         // the full approved input. Setting to fromAmount and clearing to 0 prevents residual
         // allowances and remains compatible with tokens that require zero-reset (e.g., USDT).
-        tokenIn.forceApprove(ALLOWANCE_TARGET, _params.fromAmount);
+        tokenIn.forceApprove(allowanceTarget, _params.fromAmount);
 
-        // Record balance before swap
         uint256 balanceBefore = tokenOut.balanceOf(address(this));
 
-        // Execute swap through 0x exchange contract
         // Ensure forwarded ETH matches parameters for consistency
         require(msg.value == _params.callValue, Errors.InvalidInput("ZeroExSwap", "callValueMismatch"));
         require(_params.swapCallData.length > 0, Errors.InvalidInput("ZeroExSwap", "swapCallData"));
@@ -110,18 +96,16 @@ contract ZeroExSwap is ActionBase {
             revert Errors.ZeroEx__SwapFailed();
         }
 
-        // Calculate received amount
         uint256 balanceAfter = tokenOut.balanceOf(address(this));
         uint256 amountReceived = balanceAfter - balanceBefore;
 
-        // Verify minimum amount received
         require(
             amountReceived >= _params.minToAmount,
             Errors.ZeroEx__InsufficientOutput(amountReceived, _params.minToAmount)
         );
 
         // Clear allowance after the swap to remove any leftover approval from exact-out execution
-        tokenIn.forceApprove(ALLOWANCE_TARGET, 0);
+        tokenIn.forceApprove(allowanceTarget, 0);
 
         LOGGER.logActionEvent(
             LogType.ZERO_EX_SWAP,

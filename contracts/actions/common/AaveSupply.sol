@@ -15,9 +15,6 @@ import {ActionBase} from "../ActionBase.sol";
 abstract contract AaveSupplyBase is ActionBase {
     using SafeERC20 for IERC20;
 
-    /// @notice Address of the Aave lending pool
-    address public immutable POOL;
-
     /// @notice Parameters for the supply action
     struct Params {
         bytes4 assetId;
@@ -25,9 +22,7 @@ abstract contract AaveSupplyBase is ActionBase {
         uint256 amount;
     }
 
-    constructor(address _adminVault, address _logger, address _poolAddress) ActionBase(_adminVault, _logger) {
-        POOL = _poolAddress;
-    }
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     ///  -----  Core logic -----  ///
 
@@ -72,7 +67,8 @@ abstract contract AaveSupplyBase is ActionBase {
 
             require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
-            underlyingAsset.safeIncreaseAllowance(POOL, amountToDeposit);
+            address pool = _configAddress();
+            underlyingAsset.safeIncreaseAllowance(pool, amountToDeposit);
             _supply(underlyingAssetAddress, amountToDeposit);
         }
 
@@ -101,7 +97,7 @@ abstract contract AaveSupplyBase is ActionBase {
     /// @param _underlyingAsset Address of the underlying asset
     /// @param _amount Amount to supply
     function _supply(address _underlyingAsset, uint256 _amount) internal virtual {
-        ILendingPool(POOL).deposit(_underlyingAsset, _amount, address(this), 0);
+        ILendingPool(_configAddress()).deposit(_underlyingAsset, _amount, address(this), 0);
     }
 
     /// @inheritdoc ActionBase

@@ -12,18 +12,15 @@ contract GasRefundAction is ActionBase {
     using SafeERC20 for IERC20;
 
     IEip712TypedDataSafeModule public immutable EIP712_MODULE;
-    address public immutable USDC;
 
     struct Params { uint256 maxRefundAmount; }
 
     constructor(
         address _adminVault,
         address _logger,
-        address _eip712Module,
-        address _usdc
+        address _eip712Module
     ) ActionBase(_adminVault, _logger) {
         EIP712_MODULE = IEip712TypedDataSafeModule(_eip712Module);
-        USDC = _usdc;
     }
 
     function executeAction(bytes memory _callData, uint16 /* _strategyId */) public payable override {
@@ -32,15 +29,17 @@ contract GasRefundAction is ActionBase {
         if (p.maxRefundAmount == 0) return;
 
         // Delegatecall context means address(this) is the Safe
-        uint256 balance = IERC20(USDC).balanceOf(address(this));
+        // Resolve the refund token for this action from AdminVault configuration
+        address refundToken = _configAddress();
+        uint256 balance = IERC20(refundToken).balanceOf(address(this));
         if (balance == 0) return;
         uint256 amount = balance < p.maxRefundAmount ? balance : p.maxRefundAmount;
         if (amount == 0) return;
-        IERC20(USDC).safeTransfer(address(EIP712_MODULE), amount);
+        IERC20(refundToken).safeTransfer(address(EIP712_MODULE), amount);
 
         LOGGER.logActionEvent(
             LogType.GAS_REFUND,
-            abi.encode(USDC, address(EIP712_MODULE), amount)
+            abi.encode(refundToken, address(EIP712_MODULE), amount)
         );
     }
 
