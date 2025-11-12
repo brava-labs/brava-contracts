@@ -10,10 +10,10 @@ Licensor:             Brava Labs Ltd
 Licensed Work:        Brava Protocol Smart Contracts
                       The Licensed Work is (c) 2025 Brava Labs Ltd
 
-Additional Use Grant: You may deploy and use the Licensed Work in production
-                      provided that you do not remove, disable, bypass, or
-                      redirect the designated Brava fee wallet addresses as
-                      published at https://license.brava.finance
+Additional Use Grant: Commercial (production) use of the Licensed Work requires
+                      obtaining a commercial license from Brava Labs Ltd via
+                      https://brava.finance and is subject to the platform fee
+                      schedule published there at the time of agreement.
 
 Change Date:          The earlier of (i) four years from the first public
                       release of a specific version of the Licensed Work, or

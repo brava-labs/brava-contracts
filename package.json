@@ -4,14 +4,7 @@
   "description": "Brava smart contracts",
   "main": "index.js",
   "scripts": {
-    "hardhat-run": "hardhat run",
-    "test": "hardhat test",
-    "test:arbitrum": "FORK_NETWORK=arbitrum FORK_URL=$(node -r dotenv/config -e \"if(!process.env.ARBITRUM_RPC_URL){process.stderr.write('ARBITRUM_RPC_URL missing\\n'); process.exit(1);} process.stdout.write(process.env.ARBITRUM_RPC_URL)\") hardhat test test/gas/OpArbAdaptors.test.ts",
-    "test:base": "FORK_NETWORK=base FORK_URL=$(node -r dotenv/config -e \"if(!process.env.BASE_RPC_URL){process.stderr.write('BASE_RPC_URL missing\\n'); process.exit(1);} process.stdout.write(process.env.BASE_RPC_URL)\") hardhat test test/gas/OpArbAdaptors.test.ts",
-    "test:logging": "ENABLE_LOGGING=true hardhat test",
-    "test:sdk": "USE_BRAVA_SDK=true hardhat test",
-    "coverage": "hardhat coverage",
-    "lint": "hardhat check"
+    "compile": "hardhat compile"
   },
   "repository": {
     "type": "git",
@@ -24,18 +17,11 @@
   },
   "homepage": "https://github.com/brava-labs/brava-contracts#readme",
   "devDependencies": {
-    "@nexusmutual/sdk": "1.0.0-rc.1",
-    "@nomicfoundation/hardhat-ledger": "1.0.3",
     "@nomicfoundation/hardhat-toolbox": "5.0.0",
-    "@openzeppelin/hardhat-upgrades": "3.5.0",
-    "@tenderly/hardhat-tenderly": "2.5.1",
     "hardhat": "2.22.16"
   },
   "dependencies": {
-    "@nomiclabs/hardhat-solhint": "4.0.1",
     "@openzeppelin/contracts": "5.1.0",
-    "brava-ts-client": "^0.0.83",
-    "dotenv": "16.4.5",
     "ethers": "6.13.4"
   }
 }
