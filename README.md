@@ -1,218 +1,95 @@
-# Brava Smart Contracts 🏛️
+# Brava Smart Contracts
 
-Welcome to the Brava smart contract repository! 🚀 This project houses the smart contracts powering the Brava system. We're currently in an exciting early stage of development.
+This repository contains the smart contracts for the Brava protocol - a composable DeFi execution system built on Safe smart accounts.
 
-## 🛠️ Setup
+> **Note:** Active development occurs in our private monorepo. This repository serves as a public mirror, updated after significant releases and security audits to maintain transparency with the community.
 
-1. Clone the repository
+## Overview
 
-   ```
-   git clone https://github.com/brava-labs/brava-smart-contracts.git
-   ```
+Brava enables complex, multi-step DeFi operations to be executed atomically in a single transaction through user-owned Safe smart wallets. The architecture provides secure, non-custodial portfolio management with composable actions across multiple DeFi protocols.
 
-2. Install dependencies:
+### Key Features
 
-   ```
-   npm install
-   ```
+- **Non-Custodial**: All operations execute within user-owned Safe wallets
+- **Composable**: Chain multiple DeFi actions into single atomic transactions
+- **Cross-Chain**: Deterministic Safe deployment and cross-chain execution support
+- **Modular**: Extensible action system for integrating new protocols
+- **Secure**: EIP-712 typed data signatures with replay protection
 
-3. Create a `.env` file in the root directory. Tests fork mainnet using `NEXT_PUBLIC_RPC_URL`. Use a provider with historical state at or before block `23096055` (archive/backfilled).
+## Architecture
 
-   Minimal variables:
-   ```
-   # Used by tests for mainnet forking
-   NEXT_PUBLIC_RPC_URL=https://your.archive.mainnet.rpc
-   ```
-   Optional variables (used only by specific tests or tooling):
-   ```
-   ZERO_EX_API_KEY=your_zero_ex_api_key
-   ETHERSCAN_API_KEY=your_etherscan_api_key
-   ENABLE_LOGGING=false
-   # Tenderly variables may be used by some scripts but are not required for tests
-   TENDERLY_API_KEY=your_tenderly_api_key
-   TENDERLY_VIRTUAL_MAINNET_RPC=https://virtual.mainnet.rpc.if.used
-   TENDERLY_PROJECT=your_tenderly_project
-   TENDERLY_USERNAME=your_tenderly_username
-   LEDGER_ACCOUNT=your_ledger_eth_address
-   ```
+The Brava protocol is built on several key components:
 
-4. 🔗 Visit the [brava-ts-client repository](https://github.com/brava-labs/brava-ts-client.git) and follow the installation instructions.
+- **SequenceExecutor**: Orchestrates the execution of multi-step action sequences
+- **Actions**: Protocol-specific contracts for interacting with DeFi protocols (deposits, withdrawals, swaps, etc.)
+- **AdminVault**: Central registry managing available actions and system configuration
+- **EIP712TypedDataSafeModule**: Safe module for validating and executing signed bundles
+- **SafeDeployment**: Deterministic Safe deployment system for consistent cross-chain addresses
+- **Logger**: Centralized event logging for analytics and traceability
 
-## 🧪 Running Tests
+For detailed architectural information, see the [Architecture Documentation](contracts/docs/ARCHITECTURE.md).
 
-Run tests using npm:
+### Execution Flow
+
+1. Users sign EIP-712 typed data bundles off-chain containing action sequences
+2. Relayers or dApps submit signed bundles to the EIP712TypedDataSafeModule
+3. The module verifies signatures, expiry, and nonce validity
+4. SequenceExecutor executes the action sequence via delegatecall from the user's Safe
+5. Optional gas refund mechanism reimburses transaction costs
+
+## Contract Structure
 
 ```
-npm run test
+contracts/
+├── actions/              # Protocol-specific action implementations
+│   ├── aave-v2/         # Aave V2 integration
+│   ├── aave-v3/         # Aave V3 integration
+│   ├── across-v3/       # Across bridge integration
+│   ├── cctp/            # Circle CCTP integration
+│   ├── common/          # Shared actions (SendToken, WrapETH, etc.)
+│   ├── swap/            # DEX aggregator integrations
+│   └── ...              # Additional protocol integrations
+├── auth/                # Access control and Safe-related contracts
+├── interfaces/          # Contract interfaces
+├── libraries/           # Shared libraries and utilities
+└── SequenceExecutor.sol # Core execution engine
 ```
 
-For verbose logging:
+## Documentation
 
-```
-npm run test:logging
-```
+Detailed documentation is available in the [`contracts/docs/`](contracts/docs/) directory:
 
-To run specific action tests, append `-- --grep` and the name of the action:
+- [Architecture Overview](contracts/docs/ARCHITECTURE.md)
+- [Action Base Documentation](contracts/docs/ACTION_BASE.md)
+- [AdminVault Documentation](contracts/docs/ADMIN_VAULT.md)
+- [EIP-712 Typed Data Module](contracts/docs/TYPED_DATA_MODULE.md)
+- [Safe Deployment System](contracts/docs/SAFE_DEPLOYMENT.md)
+- [Gas Refund System](contracts/docs/GAS_REFUND_SYSTEM.md)
+- [Token Registry](contracts/docs/TOKEN_REGISTRY.md)
 
-```
-npm run test -- --grep Curve
-```
+## Security Audits
 
-## 🚀 Development
+Security audit reports are available in the [`audits/`](audits/) directory. We prioritize security and transparency, working with leading audit firms to ensure the safety of user funds.
 
-This project uses Hardhat for Ethereum development. The main configuration can be found in `hardhat.config.ts`.
+## License
 
-Notes:
-- The local Hardhat network forks mainnet at block `23096055`. Configure `NEXT_PUBLIC_RPC_URL` to a mainnet RPC with historical state at that block.
-- Most tests do not require optional credentials. Some integration tests (e.g., ZeroEx) will use the corresponding keys if provided.
+This project is dual-licensed:
 
-### EIP-712 Typed Data Execution
+- **Primary License**: [Business Source License 1.1 (BUSL-1.1)](LICENSE.md)
+- **Change License**: [MIT License](LICENSE-MIT.md)
 
-The primary execution path is off-chain signing of a typed-data Bundle by a Safe owner. The signed Bundle is submitted to the `EIP712TypedDataSafeModule`, which validates and executes the sequence on the Safe via the `SequenceExecutor`.
+### License Summary
 
-Example typed data (Domain + Types + Value):
+- Development and testing are freely permitted
+- Production use requires a commercial license subject to the platform fee schedule (see LICENSE.md and https://brava.finance)
+- Each version automatically converts to MIT License 4 years after its first public release
 
-```json
-{
-  "domain": {
-    "name": "BravaSafeModule",
-    "version": "1.0.0",
-    "chainId": 1,
-    "verifyingContract": "0xUserSafeAddress",
-    "salt": "0x" // keccak256("BravaSafe")
-  },
-  "primaryType": "Bundle",
-  "types": {
-    "Bundle": [
-      { "name": "expiry", "type": "uint256" },
-      { "name": "sequences", "type": "ChainSequence[]" }
-    ],
-    "ChainSequence": [
-      { "name": "chainId", "type": "uint256" },
-      { "name": "sequenceNonce", "type": "uint256" },
-      { "name": "deploySafe", "type": "bool" },
-      { "name": "enableGasRefund", "type": "bool" },
-      { "name": "refundToken", "type": "address" },
-      { "name": "maxRefundAmount", "type": "uint256" },
-      { "name": "refundRecipient", "type": "uint8" },
-      { "name": "sequence", "type": "Sequence" }
-    ],
-    "Sequence": [
-      { "name": "name", "type": "string" },
-      { "name": "actions", "type": "ActionDefinition[]" },
-      { "name": "actionIds", "type": "bytes4[]" },
-      { "name": "callData", "type": "bytes[]" }
-    ],
-    "ActionDefinition": [
-      { "name": "protocolName", "type": "string" },
-      { "name": "actionType", "type": "uint8" }
-    ]
-  },
-  "message": {
-    "expiry": 1735690000,
-    "sequences": [
-      {
-        "chainId": 1,
-        "sequenceNonce": 0,
-        "deploySafe": false,
-        "enableGasRefund": false,
-        "refundToken": "0x0000000000000000000000000000000000000000",
-        "maxRefundAmount": 0,
-        "refundRecipient": 0,
-        "sequence": {
-          "name": "SampleSequence",
-          "actions": [
-            { "protocolName": "FluidV1", "actionType": 0 },
-            { "protocolName": "SendToken", "actionType": 0 }
-          ],
-          "actionIds": [
-            "0x1a2b3c4d",
-            "0x5e6f7a8b"
-          ],
-          "callData": [
-            "0x...", // ABI-encoded action params for first action
-            "0x..."  // ABI-encoded action params for second action
-          ]
-        }
-      }
-    ]
-  }
-}
-```
+The BUSL-1.1 license balances open development with sustainable protocol growth, ensuring all versions eventually become fully open source.
 
-What each field means, at a glance:
-- **domain.name/version**: Human-readable domain for signatures.
-- **domain.chainId**: Fixed to 1 for cross-chain signature reuse.
-- **domain.verifyingContract**: The `Safe` address.
-- **domain.salt**: Domain salt; contracts fix this to `keccak256("BravaSafe")`.
-- **Bundle.expiry**: Unix timestamp after which the Bundle is invalid.
-- **ChainSequence.chainId**: Target chain for this sequence.
-- **ChainSequence.sequenceNonce**: Prevents replay; must match the Safe’s next expected nonce.
-- **ChainSequence.deploySafe**: If true, the module will deploy the Safe before executing.
-- **ChainSequence.enableGasRefund**: Enables optional on-chain gas refund via a refund action.
-- **ChainSequence.refundToken/maxRefundAmount/refundRecipient**: Parameters for the refund action.
-- **Sequence.name**: Free-form label for the sequence.
-- **Sequence.actions**: Array of action descriptors used for analytics/UX.
-- **Sequence.actionIds**: Bytes4 identifiers (AdminVault mapping) for each action.
-- **Sequence.callData**: ABI-encoded params for each action.
+## Contact
 
-Execution flow:
-- User signs the Bundle off-chain (EIP-712) as a Safe owner.
-- A relayer (or the dApp) submits `executeBundle(safeAddr, bundle, signature)` to the `EIP712TypedDataSafeModule`.
-- The module verifies the domain, expiry, signer ownership, and sequence nonce.
-- If `deploySafe` is true, the module uses `SafeDeployment` to deploy the user’s Safe deterministically.
-- The module calls `SequenceExecutor.executeSequence(...)` from the Safe via delegatecall to run each action.
-- If enabled, the Gas Refund action reimburses gas to the executor or fee recipient and logs the result via the centralized `Logger`.
+For questions, issues, or security concerns, please open an issue in this repository.
 
-#### SafeDeployment and deterministic Safe addresses
-- `SafeDeployment` and related contracts support deterministic deployment (Create2-based proxies) so users can have the same Safe address across chains and be deployed on-demand.
-- See `contracts/auth/SafeDeployment.sol` and `contracts/auth/SafeSetupRegistry.sol` for details.
+---
 
-🔗 Active development is done in the monorepo; this repository mirrors public-facing deployments. For integration helpers, see the brava-ts-client.
-
-## 📜 Contract Overview
-
-Our smart contract architecture is built on the Safe (formerly Gnosis Safe) smart account system, providing a secure and flexible foundation for complex DeFi operations. 🛡️
-
-### Structure
-
-- **Sequence Executor** 🔄: The central component that enables the execution of complex, multi-step DeFi operations in a single transaction.
-
-- **Actions** 📁: The `actions` folder contains subfolders for each supported protocol. Within these subfolders, individual contracts represent specific protocol functions (e.g., Deposit, Withdraw, Swap).
-
-- **AdminVault** 🔐: A central registry contract that keeps track of all action contracts and controls which actions are available, allowing for easy updates and management of the system.
-
-- **Logger** 📝: A centralized logger contract used by actions to record structured events for analytics and traceability. Specialized actions like gas refund also log via the `Logger`.
-
-### Execution Model 🔄
-
-Sequences of actions are executed through the Sequence Executor, which uses `delegatecall`s to run actions from an individual user's Safe smart wallet. This architecture allows for:
-
-1. **Composability** 🧩: Multiple actions can be combined within a single transaction.
-2. **Flexibility** 🤸: Complex DeFi operations can be constructed by sequencing simpler actions in any order.
-3. **Gas Efficiency** ⛽: By executing multiple operations in one transaction, gas costs are optimized.
-4. **User Fund Custody** 💼: All operations are executed in the context of the user's Safe wallet, maintaining custody of funds.
-
-### Key Features 🌟
-
-- **Modularity** 🧱: Each action is encapsulated in its own contract, promoting code reusability and easier maintenance.
-- **Upgradability** 🔄: The AdminVault allows for seamless updates to individual action contracts without affecting the overall system.
-- **Extensibility** 🔌: New protocols and actions can be easily added by deploying new contracts and registering them with the AdminVault.
-- **Security** 🛡️: Action types provide fine-grained control over operations, enhancing system security.
-- **Transparency** 🔍: Centralized logging and action type system improve error reporting and traceability.
-
-This architecture enables users to perform sophisticated DeFi strategies efficiently and securely, all within the context of their Safe smart wallet, without Brava taking custody of funds. 🚀💼
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) 🚧UNDER CONSTRUCTION🚧 for more details.
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## 📞 Contact
-
-For any questions or concerns, please open an issue.
-
-Happy coding! 🎉👩‍💻👨‍💻
+Built with ❤️ by Brava Labs

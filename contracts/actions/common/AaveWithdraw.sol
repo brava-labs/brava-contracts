@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -10,10 +10,8 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title AaveWithdrawBase - Base contract for Aave withdraw actions
 /// @notice This contract provides base functionality for withdrawing from Aave-style lending pools
 /// @dev To be inherited by specific Aave version implementations
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 abstract contract AaveWithdrawBase is ActionBase {
-    /// @notice Address of the Aave lending pool
-    address public immutable POOL;
 
     /// @notice Parameters for the withdraw action
     struct Params {
@@ -22,9 +20,7 @@ abstract contract AaveWithdrawBase is ActionBase {
         uint256 withdrawAmount;
     }
 
-    constructor(address _adminVault, address _logger, address _poolAddress) ActionBase(_adminVault, _logger) {
-        POOL = _poolAddress;
-    }
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     ///  -----  Core logic -----  ///
 
@@ -84,7 +80,7 @@ abstract contract AaveWithdrawBase is ActionBase {
     /// @param _underlyingAsset Address of the underlying asset
     /// @param _amount Amount to withdraw
     function _withdraw(address _underlyingAsset, uint256 _amount) internal virtual {
-        IAavePool(POOL).withdraw(_underlyingAsset, _amount, address(this));
+        IAavePool(_configAddress()).withdraw(_underlyingAsset, _amount, address(this));
     }
 
     /// @inheritdoc ActionBase

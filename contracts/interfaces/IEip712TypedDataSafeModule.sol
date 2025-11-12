@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 /// @title IEip712TypedDataSafeModule
 /// @notice Interface for EIP712TypedDataSafeModule contract to enable Bundle execution
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 interface IEip712TypedDataSafeModule {
 
     /// @notice Action definition structure
@@ -26,7 +26,6 @@ interface IEip712TypedDataSafeModule {
         uint256 sequenceNonce;
         bool deploySafe;
         bool enableGasRefund;
-        address refundToken;
         uint256 maxRefundAmount;
         uint8 refundRecipient; // 0=executor, 1=fee recipient
         Sequence sequence;
@@ -68,5 +67,14 @@ interface IEip712TypedDataSafeModule {
     event BundleExecuted(address indexed safe, uint256 indexed expiry, uint256 indexed chainId, uint256 sequenceNonce);
     event SignatureVerified(address indexed safe, address indexed signer, bytes32 indexed bundleHash);
     event SafeDeployedForExecution(address indexed signer, address indexed safeAddress);
+    event ConfigInitialized(
+        address adminVault,
+        address sequenceExecutor,
+        address safeDeployment,
+        address tokenRegistry,
+        address feeRecipient,
+        string name,
+        string version
+    );
     event GasRefundProcessed(address indexed safe, address indexed refundToken, uint256 refundAmount, address indexed recipient);
 } 

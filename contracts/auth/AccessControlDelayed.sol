@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
@@ -9,7 +9,7 @@ import {Roles} from "./Roles.sol";
 /// @title Add delays to granting roles in access control
 /// @dev We should intercept calls to grantRole and implement a proposal system
 ///      to allow for a delay to pass before the role is granted.
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 abstract contract AccessControlDelayed is AccessControl, Roles {
     /// @notice The maximum delay for a role proposal, to avoid costly mistakes
     uint256 public constant MAX_DELAY = 5 days;

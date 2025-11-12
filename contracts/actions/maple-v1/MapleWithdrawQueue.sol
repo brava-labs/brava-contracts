@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {ShareBasedWithdraw} from "../common/ShareBasedWithdraw.sol";
@@ -9,7 +9,7 @@ import {IMapleWithdrawalManager} from "../../interfaces/maple/IMapleWithdrawalMa
 /// @title MapleWithdrawQueue - Withdraws tokens from Maple Finance pools
 /// @notice This contract handles the withdrawal process from Maple Finance pools
 ///         using Queue-based WithdrawalManager (FIFO order)
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract MapleWithdrawQueue is ShareBasedWithdraw {
     constructor(address _adminVault, address _logger) ShareBasedWithdraw(_adminVault, _logger) {}
 

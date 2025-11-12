@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
@@ -8,7 +8,7 @@ import {AccessControlDelayed} from "./AccessControlDelayed.sol";
 /// @title AdminVault
 /// @notice A stateful contract that manages global variables and permissions for the protocol.
 /// @notice Part of the Brava protocol.
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract AdminVault is AccessControlDelayed, Multicall {
     /// @notice The maximum fee basis points.
@@ -49,12 +49,16 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// The sequence executor is only given the actionId, so this mapping limits it to action addresses we've approved.
     mapping(bytes4 => address) public actionAddresses;
 
+    /// @notice Generic configuration for actions that require a single chain-specific address
+    /// @dev Keyed by keccak256(abi.encodePacked(protocolName, actionType)) -> address
+    mapping(bytes32 => address) public actionConfig;
+
     /// @notice Initializes the AdminVault with an initial owner, delay period and logger.
-    /// @param _initialOwner The address to be granted all initial
+    /// @param _initialOwner The address granted all initial roles
     /// @param _delay The required delay period for proposals (in seconds).
     /// @param _logger The address of the Logger contract.
     constructor(address _initialOwner, uint256 _delay, address _logger) AccessControlDelayed(_delay, _logger) {
-        require(_initialOwner != address(0) && _logger != address(0), Errors.InvalidInput("AdminVault", "constructor"));
+        require(_initialOwner != address(0) && _logger != address(0), Errors.AdminVault_InvalidInput());
 
         // Set initial fee configuration
         feeConfig = FeeConfig({recipient: _initialOwner, minBasis: 0, maxBasis: MAX_FEE_BASIS, proposalTime: 0});
@@ -114,7 +118,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _min The minimum fee in basis points
     /// @param _max The maximum fee in basis points
     function proposeFeeConfig(address _recipient, uint256 _min, uint256 _max) external onlyRole(FEE_PROPOSER_ROLE) {
-        require(_recipient != address(0), Errors.InvalidInput("AdminVault", "proposeFeeConfig"));
+        require(_recipient != address(0), Errors.AdminVault_InvalidInput());
         require(_max <= MAX_FEE_BASIS, Errors.AdminVault_FeePercentageOutOfRange(_max, 0, MAX_FEE_BASIS));
         require(_min <= _max, Errors.AdminVault_InvalidFeeRange(_min, _max));
 
@@ -150,7 +154,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
             abi.encode(pendingFeeConfig.recipient, pendingFeeConfig.minBasis, pendingFeeConfig.maxBasis)
         );
 
-        // Update active config (note: proposalTime remains 0 for active config)
+        // Update active config; proposalTime is 0 for active config
         pendingFeeConfig.proposalTime = 0;
         feeConfig = pendingFeeConfig;
         delete pendingFeeConfig;
@@ -166,10 +170,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _protocolName The name of the protocol.
     /// @param _poolAddress The address of the pool.
     function proposePool(string calldata _protocolName, address _poolAddress) external onlyRole(POOL_PROPOSER_ROLE) {
-        require(
-            _poolAddress != address(0) && bytes(_protocolName).length != 0,
-            Errors.InvalidInput("AdminVault", "proposePool")
-        );
+        require(_poolAddress != address(0) && bytes(_protocolName).length != 0, Errors.AdminVault_InvalidInput());
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = _protocolIdFromName(_protocolName);
         require(protocolPools[protocolId][poolId] == address(0), Errors.AdminVault_AlreadyAdded());
@@ -204,10 +205,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
         bytes4 poolId = _poolIdFromAddress(_poolAddress);
         uint256 protocolId = _protocolIdFromName(_protocolName);
         require(protocolPools[protocolId][poolId] == address(0), Errors.AdminVault_AlreadyAdded());
-        require(
-            bytes(_protocolName).length != 0 && _poolAddress != address(0),
-            Errors.InvalidInput("AdminVault", "addPool")
-        );
+        require(bytes(_protocolName).length != 0 && _poolAddress != address(0), Errors.AdminVault_InvalidInput());
 
         bytes32 proposalId = keccak256(abi.encodePacked(_protocolName, poolId, _poolAddress));
         require(poolProposals[proposalId] != 0, Errors.AdminVault_NotProposed());
@@ -240,10 +238,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _actionAddress The address of the action contract.
     function proposeAction(bytes4 _actionId, address _actionAddress) external onlyRole(ACTION_PROPOSER_ROLE) {
         require(actionAddresses[_actionId] == address(0), Errors.AdminVault_AlreadyAdded());
-        require(
-            _actionAddress != address(0) && _actionId != bytes4(0),
-            Errors.InvalidInput("AdminVault", "proposeAction")
-        );
+        require(_actionAddress != address(0) && _actionId != bytes4(0), Errors.AdminVault_InvalidInput());
 
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         actionProposals[proposalId] = _getDelayTimestamp();
@@ -264,7 +259,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @param _actionAddress The address of the action contract to add.
     function addAction(bytes4 _actionId, address _actionAddress) external onlyRole(ACTION_EXECUTOR_ROLE) {
         require(actionAddresses[_actionId] == address(0), Errors.AdminVault_AlreadyAdded());
-        require(_actionAddress != address(0) && _actionId != bytes4(0), Errors.InvalidInput("AdminVault", "addAction"));
+        require(_actionAddress != address(0) && _actionId != bytes4(0), Errors.AdminVault_InvalidInput());
 
         bytes32 proposalId = keccak256(abi.encodePacked(_actionId, _actionAddress));
         require(actionProposals[proposalId] != 0, Errors.AdminVault_NotProposed());
@@ -306,7 +301,7 @@ contract AdminVault is AccessControlDelayed, Multicall {
     function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address) {
         uint256 protocolId = _protocolIdFromName(_protocolName);
         address poolAddress = protocolPools[protocolId][_poolId];
-        require(poolAddress != address(0), Errors.AdminVault_NotFound(_protocolName, _poolId));
+        require(poolAddress != address(0), Errors.AdminVault_PoolNotFound(_poolId));
         return poolAddress;
     }
 
@@ -315,8 +310,30 @@ contract AdminVault is AccessControlDelayed, Multicall {
     /// @return The address of the action contract.
     function getActionAddress(bytes4 _actionId) external view returns (address) {
         address actionAddress = actionAddresses[_actionId];
-        require(actionAddress != address(0), Errors.AdminVault_NotFound("action", _actionId));
+        require(actionAddress != address(0), Errors.AdminVault_ActionNotFound(_actionId));
         return actionAddress;
+    }
+
+    /// @notice Sets a generic per-action configuration address identified by protocol and actionType
+    /// @param _protocolName The name of the protocol (e.g., 'Brava', 'AaveV3')
+    /// @param _actionType The numeric action type (see ActionBase.ActionType)
+    /// @param _configAddress The chain-specific address required by the action
+    function setActionConfig(string calldata _protocolName, uint8 _actionType, address _configAddress)
+        external
+        onlyRole(ROLE_MANAGER_ROLE)
+    {
+        require(bytes(_protocolName).length != 0 && _configAddress != address(0), Errors.AdminVault_InvalidInput());
+        bytes32 key = keccak256(abi.encodePacked(_protocolName, _actionType));
+        actionConfig[key] = _configAddress;
+        LOGGER.logAdminVaultEvent(205, abi.encode(_protocolName, _actionType, _configAddress));
+    }
+
+    /// @notice Reads the generic per-action configuration address
+    function getActionConfig(string calldata _protocolName, uint8 _actionType) external view returns (address) {
+        bytes32 key = keccak256(abi.encodePacked(_protocolName, _actionType));
+        address cfg = actionConfig[key];
+        require(cfg != address(0), Errors.AdminVault_ConfigNotFound(bytes4(keccak256(abi.encodePacked(_actionType)))));
+        return cfg;
     }
 
     /// @notice Retrieves the last fee timestamp for a given pool.

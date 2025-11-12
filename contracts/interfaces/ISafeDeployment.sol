@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 /// @title ISafeDeployment
 /// @notice Interface for deploying Safe accounts with current configuration from registry
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 interface ISafeDeployment {
     /// @notice Emitted when a Safe is successfully deployed and configured

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 interface IAdminVault {
@@ -35,10 +35,12 @@ interface IAdminVault {
     function actionAddresses(bytes4 actionId) external view returns (address);
     function getPoolAddress(string calldata _protocolName, bytes4 _poolId) external view returns (address);
     function getActionAddress(bytes4 _actionId) external view returns (address);
+    function getActionConfig(string calldata _protocolName, uint8 _actionType) external view returns (address);
     function getLastFeeTimestamp(address _vault) external view returns (uint256);
     function checkFeeBasis(uint256 _feeBasis) external view;
     function getPoolProposalTime(string calldata protocolName, address poolAddress) external view returns (uint256);
     function getActionProposalTime(bytes4 actionId, address actionAddress) external view returns (uint256);
+    function setActionConfig(string calldata _protocolName, uint8 _actionType, address _configAddress) external;
 
     // Role Management Functions
     function hasRole(bytes32 role, address account) external view returns (bool);

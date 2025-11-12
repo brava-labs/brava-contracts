@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {Errors} from "../../Errors.sol";
@@ -7,7 +7,7 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title ShareBasedWithdraw - Burns vault shares and receives underlying tokens in return
 /// @notice This contract allows users to withdraw tokens from vaults that require share-based withdrawals
 /// @dev Inherits from ActionBase and implements generic share-based withdraw functionality
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 abstract contract ShareBasedWithdraw is ActionBase {
     /// @notice Parameters for the withdraw action
     /// @param poolId ID of vault contract

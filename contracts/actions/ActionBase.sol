@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -10,7 +10,7 @@ import {Errors} from "../Errors.sol";
 /// @title ActionBase - Base contract for all actions in the protocol
 /// @notice Implements common functionality and interfaces for all actions
 /// @dev This contract should be inherited by all specific action contracts
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 abstract contract ActionBase {
     using SafeERC20 for IERC20;
 
@@ -53,7 +53,8 @@ abstract contract ActionBase {
         WITHDRAWAL_REQUEST,
         BUY_COVER_WITH_PREMIUM,
         ZERO_EX_SWAP,
-        GAS_REFUND
+        GAS_REFUND,
+        CCTP_BRIDGE_SEND
     }
 
     /// @notice Initializes the ActionBase contract
@@ -158,4 +159,12 @@ abstract contract ActionBase {
     /// @notice Returns the name of the protocol
     /// @return string The name of the protocol
     function protocolName() public pure virtual returns (string memory);
+
+    /// @notice Reads a chain-specific configuration address for this action from AdminVault
+    /// @return configAddress The configured on-chain address for this action on the current chain
+    /// @notice Reads this action's chain-specific configuration address from AdminVault
+    function _configAddress() internal view returns (address configAddress) {
+        configAddress = ADMIN_VAULT.getActionConfig(protocolName(), actionType());
+        require(configAddress != address(0), Errors.InvalidInput(protocolName(), "config"));
+    }
 }

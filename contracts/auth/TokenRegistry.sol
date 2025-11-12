@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
 import {Errors} from "../Errors.sol";
@@ -10,7 +10,7 @@ import {Roles} from "./Roles.sol";
 
 /// @title TokenRegistry
 /// @notice Manages token approvals with a delay mechanism
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 /// @author BravaLabs.xyz
 contract TokenRegistry is Multicall, Roles, ITokenRegistry {
     /// @notice The AdminVault contract that manages permissions
@@ -24,6 +24,10 @@ contract TokenRegistry is Multicall, Roles, ITokenRegistry {
 
     /// @notice Mapping of token addresses to their proposal timestamps
     mapping(address => uint256) public tokenProposals;
+
+    /// @notice Canonical gas refund token (should be USD-pegged, e.g. USDC)
+    /// @dev Set directly by OWNER_ROLE for simplicity; no delay since it's operational and chain-specific
+    address public gasRefundToken;
 
     /// @notice Initializes the TokenRegistry
     /// @param _adminVault The address of the AdminVault contract
@@ -99,5 +103,14 @@ contract TokenRegistry is Multicall, Roles, ITokenRegistry {
     /// @return bool True if the token is approved, false otherwise
     function isApprovedToken(address _token) external view returns (bool) {
         return approvedTokens[_token];
+    }
+
+    /// @notice Set the canonical gas refund token (USD-pegged recommended)
+    /// @dev OWNER_ROLE only; overwrites previous value
+    function setGasRefundToken(address _token) external onlyRole(Roles.OWNER_ROLE) {
+        require(_token != address(0), Errors.InvalidInput("TokenRegistry", "setGasRefundToken"));
+        gasRefundToken = _token;
+        // 205 = Grant (generic) used here to log update of refund token
+        LOGGER.logAdminVaultEvent(205, abi.encode(_token));
     }
 } 

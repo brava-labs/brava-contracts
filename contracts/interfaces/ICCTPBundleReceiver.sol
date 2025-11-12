@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 /**
@@ -8,15 +8,7 @@ pragma solidity =0.8.28;
 interface ICCTPBundleReceiver {
     
     /**
-     * @notice Relay wrapper for MessageTransmitter.receiveMessage
-     * @param message The CCTP message bytes
-     * @param attestation The attestation bytes provided by Circle
-     * @return success True if the transmitter accepted the message
+     * @notice Relay a CCTP message and attempt to execute embedded hook
      */
-    function relayReceive(bytes calldata message, bytes calldata attestation) external returns (bool success);
-
-    /**
-     * @notice The EIP712 module address (auto-generated getter from public state)
-     */
-    function EIP712_MODULE() external view returns (address);
+    function relay(bytes calldata message, bytes calldata attestation) external returns (bool relaySuccess, bool hookSuccess, bytes memory hookReturnData);
 }

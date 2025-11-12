@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Enum} from "../libraries/Enum.sol";
 import {ITransactionGuard, IModuleGuard} from "../interfaces/safe/IGuard.sol";
 
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 /**
  * @title BravaGuard - A guard that enforces transaction rules
  * @dev This guard ensures all transactions go through the sequence executor

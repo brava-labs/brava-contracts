@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Brava-Commercial-License-1.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -11,12 +11,9 @@ import {ActionBase} from "../ActionBase.sol";
 /// @title AaveSupplyBase - Base contract for Aave supply actions
 /// @notice This contract provides base functionality for supplying to Aave-style lending pools
 /// @dev To be inherited by specific Aave version implementations
-/// @notice Found a vulnerability? Please contact security@bravalabs.xyz - we appreciate responsible disclosure and reward ethical hackers
+/// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 abstract contract AaveSupplyBase is ActionBase {
     using SafeERC20 for IERC20;
-
-    /// @notice Address of the Aave lending pool
-    address public immutable POOL;
 
     /// @notice Parameters for the supply action
     struct Params {
@@ -25,9 +22,7 @@ abstract contract AaveSupplyBase is ActionBase {
         uint256 amount;
     }
 
-    constructor(address _adminVault, address _logger, address _poolAddress) ActionBase(_adminVault, _logger) {
-        POOL = _poolAddress;
-    }
+    constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     ///  -----  Core logic -----  ///
 
@@ -72,7 +67,8 @@ abstract contract AaveSupplyBase is ActionBase {
 
             require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
 
-            underlyingAsset.safeIncreaseAllowance(POOL, amountToDeposit);
+            address pool = _configAddress();
+            underlyingAsset.safeIncreaseAllowance(pool, amountToDeposit);
             _supply(underlyingAssetAddress, amountToDeposit);
         }
 
@@ -101,7 +97,7 @@ abstract contract AaveSupplyBase is ActionBase {
     /// @param _underlyingAsset Address of the underlying asset
     /// @param _amount Amount to supply
     function _supply(address _underlyingAsset, uint256 _amount) internal virtual {
-        ILendingPool(POOL).deposit(_underlyingAsset, _amount, address(this), 0);
+        ILendingPool(_configAddress()).deposit(_underlyingAsset, _amount, address(this), 0);
     }
 
     /// @inheritdoc ActionBase
