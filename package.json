@@ -1,27 +1,27 @@
 {
   "name": "brava-contracts",
   "version": "1.0.0",
-  "description": "Brava smart contracts",
-  "main": "index.js",
+  "description": "Brava protocol smart contracts",
   "scripts": {
     "compile": "hardhat compile"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/brava-labs/brava-contracts.git"
+    "url": "git+https://github.com/brava-finance/brava-contracts.git"
   },
-  "author": "brava-labs",
-  "license": "ISC",
+  "author": "Brava Labs Ltd",
+  "license": "BUSL-1.1",
   "bugs": {
-    "url": "https://github.com/brava-labs/brava-contracts/issues"
+    "url": "https://github.com/brava-finance/brava-contracts/issues"
   },
-  "homepage": "https://github.com/brava-labs/brava-contracts#readme",
+  "homepage": "https://github.com/brava-finance/brava-contracts#readme",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "5.0.0",
-    "hardhat": "2.22.16"
+    "@types/node": "^22.15.18",
+    "hardhat": "2.22.16",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.7.0"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "5.1.0",
-    "ethers": "6.13.4"
+    "@openzeppelin/contracts": "5.1.0"
   }
 }
