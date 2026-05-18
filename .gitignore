@@ -1,20 +1,23 @@
 node_modules
+package-lock.json
 .env
 
-# compilation artifacts (windows)
-/bin
-
-# Hardhat files
+# Hardhat
 /cache
 /artifacts
 
-# TypeChain files
+# TypeChain
 /typechain
 /typechain-types
 
-# solidity-coverage files
+# Coverage
 /coverage
 /coverage.json
+
+# Build output
+/out
+/dist
+/bin
 
 # Ethers deployments
 deployments
@@ -22,8 +25,12 @@ deployments
 # Local scripts
 scripts/local
 
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
 # CLOC
 .clocignore
-
-# MacOS
-.DS_Store
