@@ -3,22 +3,23 @@ pragma solidity =0.8.28;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {EIP712TypedDataLib} from "../libraries/EIP712TypedDataLib.sol";
-import {Errors} from "../Errors.sol";
-import {IAdminVault} from "../interfaces/IAdminVault.sol";
-import {ISafe} from "../interfaces/safe/ISafe.sol";
-import {IOwnerManager} from "../interfaces/safe/IOwnerManager.sol";
-import {ISafeDeployment} from "../interfaces/ISafeDeployment.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IGasPriceAdaptor} from "../interfaces/IGasPriceAdaptor.sol";
-import {ILogger} from "../interfaces/ILogger.sol";
-import {Enum} from "../libraries/Enum.sol";
-import {ActionBase} from "../actions/ActionBase.sol";
-import {ISequenceExecutor} from "../interfaces/ISequenceExecutor.sol";
+
+import {Errors} from "../Errors.sol";
+import {IActionBase} from "../interfaces/IActionBase.sol";
+import {IAdminVault} from "../interfaces/IAdminVault.sol";
+import {IAuthRegistry} from "../interfaces/IAuthRegistry.sol";
 import {IBravaSafeModule} from "../interfaces/IBravaSafeModule.sol";
 import {IEip712TypedDataSafeModule as ITyped} from "../interfaces/IEip712TypedDataSafeModule.sol";
-import {IAuthRegistry} from "../interfaces/IAuthRegistry.sol";
+import {IGasPriceAdaptor} from "../interfaces/IGasPriceAdaptor.sol";
+import {ILogger} from "../interfaces/ILogger.sol";
+import {IOwnerManager} from "../interfaces/safe/IOwnerManager.sol";
+import {ISafe} from "../interfaces/safe/ISafe.sol";
+import {ISafeDeployment} from "../interfaces/ISafeDeployment.sol";
+import {ISequenceExecutor} from "../interfaces/ISequenceExecutor.sol";
+import {EIP712TypedDataLib} from "../libraries/EIP712TypedDataLib.sol";
+import {Enum} from "../libraries/Enum.sol";
 
 /// @title EIP712TypedDataSafeModule
 /// @author Brava Finance
@@ -34,12 +35,6 @@ import {IAuthRegistry} from "../interfaces/IAuthRegistry.sol";
 contract EIP712TypedDataSafeModule is ERC165 {
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;
-
-    struct ExecutorSequence {
-        string name;
-        bytes[] callData;
-        bytes4[] actionIds;
-    }
 
     // These are effectively immutable (set once in initializeConfig, guarded by `isInitialized`).
     // SCREAMING_CASE signals "treat as constant" despite using the two-step init pattern.
@@ -193,13 +188,10 @@ contract EIP712TypedDataSafeModule is ERC165 {
 
         _applyAuthUpdate(_safeAddr, _bundle.authUpdate, hasOwner, hasManager, signers[0]);
 
-        if (!_hasChainSequence(_bundle.sequences, block.chainid, expectedSequenceNonce)) {
-            return;
-        }
-
-        ITyped.ChainSequence memory targetSeq = _findChainSequence(
+        (bool hasSequence, ITyped.ChainSequence memory targetSeq) = _tryFindChainSequence(
             _bundle.sequences, block.chainid, expectedSequenceNonce
         );
+        if (!hasSequence) return;
 
         if (hasManager && !hasOwner) {
             _enforceManagerRestrictions(_safeAddr, managerAddr, targetSeq.sequence);
@@ -271,10 +263,11 @@ contract EIP712TypedDataSafeModule is ERC165 {
         uint256 _expectedNonce
     ) internal {
         if (_safeAddr.code.length > 0) return;
-        if (!_hasChainSequence(_sequences, block.chainid, _expectedNonce)) return;
 
-        ITyped.ChainSequence memory targetSequence = _findChainSequence(_sequences, block.chainid, _expectedNonce);
-        if (!targetSequence.deploySafe) return;
+        (bool found, ITyped.ChainSequence memory targetSequence) = _tryFindChainSequence(
+            _sequences, block.chainid, _expectedNonce
+        );
+        if (!found || !targetSequence.deploySafe) return;
 
         address owner = _findSignerByPredictedSafe(_safeAddr, _signers);
 
@@ -449,7 +442,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
 
         _execThroughSafeOrRevert(
             _safeAddr,
-            ExecutorSequence({
+            ISequenceExecutor.Sequence({
                 name: targetSequence.sequence.name,
                 callData: targetSequence.sequence.callData,
                 actionIds: actionIds
@@ -479,7 +472,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
     /// @return returnData The raw return data from the call
     function _execThroughSafe(
         address safeAddr,
-        ExecutorSequence memory execSeq,
+        ISequenceExecutor.Sequence memory execSeq,
         ITyped.Bundle calldata bundle,
         bytes memory signatures
     ) private returns (bool success, bytes memory returnData) {
@@ -504,7 +497,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
     /// @param _signatures The packed signatures (passed through to the executor)
     function _execThroughSafeOrRevert(
         address _safeAddr,
-        ExecutorSequence memory _execSeq,
+        ISequenceExecutor.Sequence memory _execSeq,
         ITyped.Bundle calldata _bundle,
         bytes memory _signatures
     ) internal {
@@ -549,22 +542,22 @@ contract EIP712TypedDataSafeModule is ERC165 {
         return EIP712TypedDataLib.hashBundle(_bundle);
     }
 
-    /// @notice Checks whether the bundle contains a sequence for the given chain and nonce.
+    /// @notice Searches for a chain sequence matching the given chain ID and nonce.
     /// @param _sequences All chain sequences in the bundle
     /// @param _chainId The chain ID to look for
     /// @param _expectedNonce The expected sequence nonce
-    /// @return True if a matching sequence exists
-    function _hasChainSequence(
+    /// @return found True if a matching sequence exists
+    /// @return seq The matching ChainSequence (undefined when found=false)
+    function _tryFindChainSequence(
         ITyped.ChainSequence[] memory _sequences,
         uint256 _chainId,
         uint256 _expectedNonce
-    ) internal pure returns (bool) {
+    ) internal pure returns (bool found, ITyped.ChainSequence memory seq) {
         for (uint256 i = 0; i < _sequences.length; ++i) {
             if (_sequences[i].chainId == _chainId && _sequences[i].sequenceNonce == _expectedNonce) {
-                return true;
+                return (true, _sequences[i]);
             }
         }
-        return false;
     }
 
     /// @notice Calculates and executes a gas refund in USDC using the gas price adaptor's rate.
@@ -624,7 +617,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
     /// @param sequenceNonce The consumed sequence nonce
     function _logSequenceComplete(address safe, uint256 expiry, uint256 sequenceNonce) internal {
         ILogger(ADMIN_VAULT.LOGGER()).logActionEvent(
-            ActionBase.LogType.SEQUENCE_COMPLETE,
+            IActionBase.LogType.SEQUENCE_COMPLETE,
             abi.encode(safe, expiry, block.chainid, sequenceNonce)
         );
     }
@@ -635,7 +628,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
     /// @param recipient Address that received the refund
     function _logFinalGasRefund(address safe, uint256 paidAmount, address recipient) internal {
         ILogger(ADMIN_VAULT.LOGGER()).logActionEvent(
-            ActionBase.LogType.GAS_REFUND,
+            IActionBase.LogType.GAS_REFUND,
             abi.encode(safe, usdcToken, paidAmount, recipient)
         );
     }
@@ -645,24 +638,6 @@ contract EIP712TypedDataSafeModule is ERC165 {
     /// @return fixedFee Flat USDC fee added on top of the variable rate
     function _getRefundRate() internal view returns (uint256 ratePerGas, uint256 fixedFee) {
         return IGasPriceAdaptor(gasPriceAdaptor).getRefundRate(usdcToken, msg.data);
-    }
-
-    /// @notice Finds and returns the chain sequence matching the given chain ID and nonce, reverting if not found.
-    /// @param _sequences All chain sequences in the bundle
-    /// @param _chainId The chain ID to search for
-    /// @param _expectedNonce The expected sequence nonce
-    /// @return The matching ChainSequence
-    function _findChainSequence(
-        ITyped.ChainSequence[] memory _sequences,
-        uint256 _chainId,
-        uint256 _expectedNonce
-    ) internal pure returns (ITyped.ChainSequence memory) {
-        for (uint256 i = 0; i < _sequences.length; ++i) {
-            if (_sequences[i].chainId == _chainId && _sequences[i].sequenceNonce == _expectedNonce) {
-                return _sequences[i];
-            }
-        }
-        revert Errors.EIP712TypedDataSafeModule_ChainSequenceNotFound(_chainId, _expectedNonce);
     }
 
     /// @notice Validates each action in a sequence against its on-chain definition and detects gas refund actions.
@@ -691,7 +666,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
                 revert Errors.EIP712TypedDataSafeModule_ActionNotFound(actionId);
             }
 
-            ActionBase action = ActionBase(actionAddr);
+            IActionBase action = IActionBase(actionAddr);
             string memory actualProtocolName = action.protocolName();
             uint8 actualActionType = action.actionType();
 
@@ -710,7 +685,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
                 );
             }
 
-            if (!hasRefundAction && actualActionType == uint8(ActionBase.ActionType.FEE_ACTION)) {
+            if (!hasRefundAction && actualActionType == uint8(IActionBase.ActionType.FEE_ACTION)) {
                 if (!(_refundRecipient == 0 || _refundRecipient == 1)) {
                     revert Errors.EIP712TypedDataSafeModule_InvalidRefundRecipient(_refundRecipient);
                 }
@@ -752,15 +727,10 @@ contract EIP712TypedDataSafeModule is ERC165 {
 
         uint256 expectedSequenceNonce = sequenceNonces[_safeAddr];
 
-        if (!_hasChainSequence(_bundle.sequences, block.chainid, expectedSequenceNonce)) {
-            revert SimulationComplete(0);
-        }
-
-        ITyped.ChainSequence memory targetSequence = _findChainSequence(
-            _bundle.sequences,
-            block.chainid,
-            expectedSequenceNonce
+        (bool hasSequence, ITyped.ChainSequence memory targetSequence) = _tryFindChainSequence(
+            _bundle.sequences, block.chainid, expectedSequenceNonce
         );
+        if (!hasSequence) revert SimulationComplete(0);
 
         if (targetSequence.deploySafe) {
             _deploySafeForEstimation(_safeAddr, msg.sender);
@@ -777,7 +747,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
 
         _execThroughSafeOrRevert(
             _safeAddr,
-            ExecutorSequence({
+            ISequenceExecutor.Sequence({
                 name: targetSequence.sequence.name,
                 callData: targetSequence.sequence.callData,
                 actionIds: actionIds

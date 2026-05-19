@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
-import {Errors} from "../../Errors.sol";
-import {ActionBase} from "../ActionBase.sol";
 import {BravaModuleLookup} from "../../auth/BravaModuleLookup.sol";
+import {Errors} from "../../Errors.sol";
+import {IActionBase} from "../../interfaces/IActionBase.sol";
 import {IBravaSafeModule} from "../../interfaces/IBravaSafeModule.sol";
 import {IEip712TypedDataSafeModule} from "../../interfaces/IEip712TypedDataSafeModule.sol";
 import {ILogger} from "../../interfaces/ILogger.sol";
+import {IMessageTransmitterV2} from "../../interfaces/IMessageTransmitterV2.sol";
 import {ISafe} from "../../interfaces/safe/ISafe.sol";
-
-/// @notice Minimal external interface for Circle MessageTransmitter V2
-interface IMessageTransmitterV2 {
-    function receiveMessage(bytes calldata message, bytes calldata attestation) external returns (bool);
-}
 
 /**
  * @title CCTPBundleReceiver
@@ -68,7 +64,7 @@ contract CCTPBundleReceiver {
     ) private {
         (uint256 amount, bytes32 cctpNonce, uint32 sourceDomain) = _decodeBridgeLogFields(message);
         LOGGER.logActionEvent(
-            ActionBase.LogType.CCTP_BUNDLE_RECEIVE,
+            IActionBase.LogType.CCTP_BUNDLE_RECEIVE,
             abi.encode(safeAddress, amount, bundleSuccess, cctpNonce, sourceDomain)
         );
     }

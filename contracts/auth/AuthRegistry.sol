@@ -2,25 +2,17 @@
 pragma solidity =0.8.28;
 
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {ActionBase} from "../actions/ActionBase.sol";
+
 import {Errors} from "../Errors.sol";
-import {BravaModuleLookup} from "./BravaModuleLookup.sol";
+import {IActionBase} from "../interfaces/IActionBase.sol";
 import {IBravaSafeModule} from "../interfaces/IBravaSafeModule.sol";
 import {IEip712TypedDataSafeModule as ITyped} from "../interfaces/IEip712TypedDataSafeModule.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
+import {IMessageTransmitterV2} from "../interfaces/IMessageTransmitterV2.sol";
 import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {ISafeDeployment} from "../interfaces/ISafeDeployment.sol";
 
-/// @title IMessageTransmitterV2
-/// @author Brava Finance
-/// @notice Minimal external interface for Circle MessageTransmitter V2.
-interface IMessageTransmitterV2 {
-    /// @notice Receives and verifies a Circle-attested cross-chain message.
-    /// @param message Encoded CCTP V2 message.
-    /// @param attestation Circle attestation proving the message was finalized.
-    /// @return success True when the transmitter accepts and consumes the message.
-    function receiveMessage(bytes calldata message, bytes calldata attestation) external returns (bool);
-}
+import {BravaModuleLookup} from "./BravaModuleLookup.sol";
 
 /// @title AuthRegistry
 /// @author Brava Finance
@@ -193,7 +185,7 @@ contract AuthRegistry {
         (module, bundleSuccess, bundleReturnData) = _executeBundleBestEffort(_safe, _bundle, _signatures);
 
         LOGGER.logActionEvent(
-            ActionBase.LogType.CCTP_RELAY_AND_EXECUTE,
+            IActionBase.LogType.CCTP_RELAY_AND_EXECUTE,
             abi.encode(_safe, module, authApplied, bundleSuccess, sourceDomain, cctpNonce)
         );
     }
