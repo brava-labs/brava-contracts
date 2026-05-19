@@ -32,28 +32,28 @@ contract Errors {
     error AdminVault_TransactionAlreadyApproved();
     error AdminVault_MissingRole(bytes32 role, address account);
 
-    // FeeTakeSafeModule errors
-    error FeeTakeSafeModule_SenderNotFeeTaker(address _sender);
-    error FeeTakeSafeModule_InvalidActionType(bytes4 _actionId);
-    error FeeTakeSafeModule_ExecutionFailed();
-    error FeeTakeSafeModule_LengthMismatch();
-
     // Generic Action errors
-    error Action_ZeroAmount(string _protocolName, uint8 _actionType);
+    error Action_ZeroAmount(address _pool, string _protocolName, uint8 _actionType);
     error Action_InsufficientSharesReceived(
+        address _pool,
         string _protocolName,
         uint8 _actionType,
         uint256 _sharesReceived,
         uint256 _minSharesReceived
     );
     error Action_MaxSharesBurnedExceeded(
+        address _pool,
         string _protocolName,
         uint8 _actionType,
         uint256 _sharesBurned,
         uint256 _maxAllowed
     );
     
-    error Action_UnderlyingReceivedLessThanExpected(uint256 _underlyingReceived, uint256 _expected);
+    error Action_UnderlyingReceivedLessThanExpected(
+        address _pool,
+        uint256 _underlyingReceived,
+        uint256 _expected
+    );
     error Action_FeesNotPaid(string _protocolName, uint8 _actionType, address _token);
 
     // CompoundV2Supply errors
@@ -87,11 +87,21 @@ contract Errors {
     error EIP712TypedDataSafeModule_ChainSequenceNotFound(uint256 chainId, uint256 expectedNonce);
     error EIP712TypedDataSafeModule_ActionMismatch(uint256 actionIndex, string expectedProtocol, uint8 expectedType, string actualProtocol, uint8 actualType);
     error EIP712TypedDataSafeModule_ExecutionFailed();
-    error EIP712TypedDataSafeModule_SignerNotOwner(address signer);
+    error EIP712TypedDataSafeModule_SignerNotAuthorised(address signer);
+    error EIP712TypedDataSafeModule_OnlyOwnerCanUpdateAuth(address lowestSigner);
+    error EIP712TypedDataSafeModule_InsufficientCoSignatures(uint256 provided, uint256 required);
+    error EIP712TypedDataSafeModule_DuplicateSigner(address signer);
+    error EIP712TypedDataSafeModule_SignersNotSorted();
+    error EIP712TypedDataSafeModule_InvalidSignaturesLength();
+    error EIP712TypedDataSafeModule_MultipleManagers();
     error EIP712TypedDataSafeModule_LengthMismatch();
     error EIP712TypedDataSafeModule_SafeDeploymentFailed();
     error EIP712TypedDataSafeModule_SafeAddressMismatch(address provided, address predicted);
     error EIP712TypedDataSafeModule_ActionNotFound(bytes4 actionId);
+    error EIP712TypedDataSafeModule_NoAuthorisingPrincipal();
+    error EIP712TypedDataSafeModule_TooManySignatures(uint256 provided, uint256 max);
+    // Manager action type restriction errors
+    error EIP712TypedDataSafeModule_ActionTypeNotAllowedForManager(address manager, uint8 actionType);
     // Gas refund errors
     error EIP712TypedDataSafeModule_InvalidRefundRecipient(uint8 refundTo);
     error EIP712TypedDataSafeModule_RefundActionRequired();
@@ -105,6 +115,30 @@ contract Errors {
     // TokenRegistry errors
     error TokenRegistry_TokenNotApproved();
 
+    // AuthRegistry errors
+    error AuthRegistry_NotEnabledModule(address safe, address caller);
+    error AuthRegistry_StaleVersion(uint256 provided, uint256 current);
+    error AuthRegistry_ConflictingConfig(uint256 version);
+    error AuthRegistry_TooManyManagers(uint256 count, uint256 max);
+    error AuthRegistry_TooManyCoSigners(uint256 count, uint256 max);
+    error AuthRegistry_DuplicateManager(address manager);
+    error AuthRegistry_DuplicateCoSigner(address coSigner);
+    error AuthRegistry_ZeroAddress();
+    error AuthRegistry_InvalidThreshold(uint256 threshold, uint256 maxSigners);
+    error AuthRegistry_CoSignerIsManager(address addr);
+    error AuthRegistry_RestrictionForNonManager(address manager);
+    error AuthRegistry_EmptyRestriction(address manager);
+    error AuthRegistry_BitmapLengthMismatch(uint256 managersLength, uint256 bitmapsLength);
+    error AuthRegistry_DuplicateRestriction(address manager);
+    error AuthRegistry_CCTPRelayFailed();
+    error AuthRegistry_BadHookEnvelope();
+    error AuthRegistry_UnknownHookVersion(uint8 version);
+    error AuthRegistry_HookSafeMismatch(bytes32 burnSender, bytes32 mintRecipient, address hookSafe);
+    error AuthRegistry_HookMessageTooShort();
+    error AuthRegistry_SafeMintRecipientMismatch(address safe, bytes32 mintRecipient);
+    error AuthRegistry_SafeOwnerMismatch(address safe, address ownerAddress, address predicted);
+    error AuthRegistry_VersionZero();
+
     // CCTPBundleReceiver errors
     error CCTPReceiver_BadMessage();
     error CCTPReceiver_BadVersion(uint32 provided);
@@ -114,7 +148,9 @@ contract Errors {
 
     // CCTPBridgeSend errors
     error CCTPBridgeSend_InsufficientBalance(uint256 balance, uint256 amount);
-    error CCTPBridgeSend_DepositFailed();
     error CCTPBridgeSend_BalanceMismatch(uint256 beforeBalance, uint256 afterBalance, uint256 expectedDelta);
-    error CCTPBridgeSend_BundleContextRequired();
+
+    // BravaModuleLookup errors
+    error MultipleBravaModules(address first, address second);
+    error NoBravaModuleEnabled(address safe);
 }

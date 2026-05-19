@@ -32,7 +32,6 @@ interface ITokenMessengerV2 {
     /// @param destinationCaller Address that can call receiveMessage
     /// @param maxFee Maximum fee for fast transfer
     /// @param minFinalityThreshold Minimum finality threshold
-    /// @return nonce The nonce of the burn message
     function depositForBurn(
         uint256 amount,
         uint32 destinationDomain,
@@ -41,7 +40,7 @@ interface ITokenMessengerV2 {
         bytes32 destinationCaller,
         uint256 maxFee,
         uint32 minFinalityThreshold
-    ) external returns (uint64 nonce);
+    ) external;
 
     /// @notice Deposit tokens for burning with hook data
     /// @param amount Amount to burn
@@ -52,7 +51,6 @@ interface ITokenMessengerV2 {
     /// @param maxFee Maximum fee for fast transfer
     /// @param minFinalityThreshold Minimum finality threshold
     /// @param hookData Hook data to embed in CCTP message
-    /// @return nonce The nonce of the burn message
     function depositForBurnWithHook(
         uint256 amount,
         uint32 destinationDomain,
@@ -62,5 +60,5 @@ interface ITokenMessengerV2 {
         uint256 maxFee,
         uint32 minFinalityThreshold,
         bytes calldata hookData
-    ) external returns (uint64 nonce);
+    ) external;
 } 

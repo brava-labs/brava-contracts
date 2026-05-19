@@ -65,7 +65,7 @@ abstract contract AaveSupplyBase is ActionBase {
                 ? underlyingAsset.balanceOf(address(this))
                 : _inputData.amount;
 
-            require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
+            require(amountToDeposit != 0, Errors.Action_ZeroAmount(_aTokenAddress, protocolName(), actionType()));
 
             address pool = _configAddress();
             underlyingAsset.safeIncreaseAllowance(pool, amountToDeposit);

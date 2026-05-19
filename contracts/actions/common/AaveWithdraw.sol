@@ -43,7 +43,7 @@ abstract contract AaveWithdrawBase is ActionBase {
         address _aTokenAddress
     ) internal returns (uint256 balanceBefore, uint256 balanceAfter, uint256 feeInTokens) {
         uint256 amountToWithdraw = _inputData.withdrawAmount;
-        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
+        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(_aTokenAddress, protocolName(), actionType()));
 
         address underlyingAsset = _getUnderlyingAsset(_aTokenAddress);
         balanceBefore = IERC20(_aTokenAddress).balanceOf(address(this));

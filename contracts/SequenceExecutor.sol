@@ -101,7 +101,8 @@ contract SequenceExecutor {
         assembly {
             let succeeded := delegatecall(sub(gas(), 5000), _actionAddress, add(_fullCallData, 0x20), mload(_fullCallData), 0, 0)
             if eq(succeeded, 0) {
-                revert(0, 0)
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
             }
         }
     }

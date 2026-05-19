@@ -68,7 +68,7 @@ contract AcrossV3Supply is ActionBase {
                 ? IERC20(l1Token).balanceOf(address(this))
                 : _inputData.amount;
 
-            require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
+            require(amountToDeposit != 0, Errors.Action_ZeroAmount(l1Token, protocolName(), actionType()));
 
             // Approve and supply
             IERC20(l1Token).safeIncreaseAllowance(address(ACROSS_HUB), amountToDeposit);
@@ -80,6 +80,7 @@ contract AcrossV3Supply is ActionBase {
             require(
                 sharesReceived >= _inputData.minSharesReceived,
                 Errors.Action_InsufficientSharesReceived(
+                    l1Token,
                     protocolName(),
                     uint8(actionType()),
                     sharesReceived,

@@ -60,7 +60,7 @@ abstract contract ERC4626Withdraw is ActionBase {
             ? maxWithdrawAmount
             : _inputData.withdrawRequest;
 
-        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), uint8(actionType())));
+        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(_vaultAddress, protocolName(), uint8(actionType())));
 
         // Perform the withdraw
         uint256 sharesBurned = _executeWithdraw(_vaultAddress, amountToWithdraw);
@@ -69,6 +69,7 @@ abstract contract ERC4626Withdraw is ActionBase {
         require(
             sharesBurned <= _inputData.maxSharesBurned,
             Errors.Action_MaxSharesBurnedExceeded(
+                _vaultAddress,
                 protocolName(),
                 uint8(actionType()),
                 sharesBurned,

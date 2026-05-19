@@ -1,139 +1,173 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
-// Hook target and calldata are provided inside the attested message
 import {Errors} from "../../Errors.sol";
+import {ActionBase} from "../ActionBase.sol";
+import {BravaModuleLookup} from "../../auth/BravaModuleLookup.sol";
+import {IBravaSafeModule} from "../../interfaces/IBravaSafeModule.sol";
+import {IEip712TypedDataSafeModule} from "../../interfaces/IEip712TypedDataSafeModule.sol";
+import {ILogger} from "../../interfaces/ILogger.sol";
+import {ISafe} from "../../interfaces/safe/ISafe.sol";
 
-// Minimal external interface for Circle MessageTransmitter V2
+/// @notice Minimal external interface for Circle MessageTransmitter V2
 interface IMessageTransmitterV2 {
     function receiveMessage(bytes calldata message, bytes calldata attestation) external returns (bool);
 }
 
 /**
  * @title CCTPBundleReceiver
- * @notice Relays attested CCTP messages and best‑effort executes the embedded hook target
- * @dev Minimal surface and non‑atomic design: USDC mint is independent from hook execution.
- *      Permissionless by intent: any executor may call relay. If a low‑gas caller consumes the nonce
- *      without executing the hook, the bundle can still be executed directly on the module; in that case
- *      USDC has already been minted to the intended recipient.
+ * @notice Relays attested CCTP messages and executes bundles passed from tx-orchestrator
+ * @dev Designed for hookless CCTP bridging - bundle data comes from offchain, not from CCTP message
+ *
+ *      Key design principles:
+ *      - USDC mint MUST succeed (reverts if Circle's receiveMessage fails)
+ *      - Bundle execution is BEST EFFORT (does not revert on failure)
+ *      - If bundle fails, USDC is safely in the Safe and can be retried
+ *
+ *      The destination Brava module is discovered at relay time via ERC-165 introspection
+ *      on the Safe's enabled modules (`BravaModuleLookup`). The receiver therefore holds no
+ *      module address and survives Brava module upgrades unchanged. Auth-carrying CCTP
+ *      messages route through `AuthRegistry.relayCCTPAndExecute` instead of this contract.
+ *
+ *      Permissionless by intent: any executor may call relay/relayWithBundle.
  */
 contract CCTPBundleReceiver {
-    
-    // MessageTransmitter contract - configurable for testing
+
+    /// @notice MessageTransmitter contract - configurable for testing
     address public immutable MESSAGE_TRANSMITTER;
-    
-    // EIP712TypedDataSafeModule address recorded for observability; relay executes the attested hook target directly
-    address public immutable EIP712_MODULE;
-    
-    
-    // Events for monitoring and debugging
-    event RelayAndHook(bytes32 indexed messageHash, bool relaySuccess, bool hookSuccess);
-    
-    /**
-     * @notice Constructor sets the MessageTransmitter and EIP712TypedDataSafeModule addresses
-     * @param _messageTransmitter Address of the MessageTransmitter contract (Circle's or mock for testing)
-     * @param _eip712Module Address of the EIP712TypedDataSafeModule to forward bundles to
-     */
-    constructor(address _messageTransmitter, address _eip712Module) {
-        require(_messageTransmitter != address(0), "Invalid MessageTransmitter address");
-        require(_eip712Module != address(0), "Invalid EIP712 module address");
-        MESSAGE_TRANSMITTER = _messageTransmitter;
-        EIP712_MODULE = _eip712Module;
+
+    /// @notice Logger contract for emitting ActionEvent logs consumed by the indexer
+    ILogger public immutable LOGGER;
+
+    /// @notice Byte offset within a CCTP V2 message where the source domain field begins (uint32).
+    uint256 private constant SOURCE_DOMAIN_OFFSET = 4;
+
+    /// @notice Byte offset within a CCTP V2 message where the nonce field begins.
+    ///         Layout: version (4) + sourceDomain (4) + destinationDomain (4) = 12 bytes.
+    uint256 private constant NONCE_OFFSET = 12;
+
+    /// @notice Byte offset within a CCTP V2 message where the BurnMessage amount field begins.
+    ///         Layout: 148-byte message header + 68-byte BurnMessage prefix (version + burnToken + mintRecipient).
+    uint256 private constant AMOUNT_OFFSET = 216;
+
+    /// @notice Minimum valid CCTP V2 message size: 148-byte header + 228-byte BurnMessage fixed fields.
+    uint256 private constant MIN_MESSAGE_SIZE = 376;
+
+    function _decodeBridgeLogFields(
+        bytes calldata message
+    ) private pure returns (uint256 amount, bytes32 cctpNonce, uint32 sourceDomain) {
+        amount = uint256(bytes32(message[AMOUNT_OFFSET:AMOUNT_OFFSET + 32]));
+        sourceDomain = uint32(bytes4(message[SOURCE_DOMAIN_OFFSET:SOURCE_DOMAIN_OFFSET + 4]));
+        cctpNonce = bytes32(message[NONCE_OFFSET:NONCE_OFFSET + 32]);
     }
-    
+
+    function _logBundleReceive(
+        address safeAddress,
+        bool bundleSuccess,
+        bytes calldata message
+    ) private {
+        (uint256 amount, bytes32 cctpNonce, uint32 sourceDomain) = _decodeBridgeLogFields(message);
+        LOGGER.logActionEvent(
+            ActionBase.LogType.CCTP_BUNDLE_RECEIVE,
+            abi.encode(safeAddress, amount, bundleSuccess, cctpNonce, sourceDomain)
+        );
+    }
+
     /**
-     * @notice Relay a CCTP V2 message and then attempt to execute the attested hook target with its calldata
-     * @dev Permissionless by design: any caller can relay and trigger the best‑effort hook.
-     *      - USDC mint is performed by Circle's transmitter if attestation is valid.
-     *      - Hook execution is non‑atomic and not relied upon for fund safety.
-     *        If a low‑gas caller consumes the nonce without executing the hook, the bundle can still
-     *        be executed directly on the module; in such a case, USDC has already been minted.
-     * @dev CCTP V2 message structure per Circle's BurnMessageV2.sol:
-     *      - 148-byte header + BurnMessageV2 (228 fixed bytes: version, burnToken, mintRecipient, amount,
-     *        messageSender, maxFee, feeExecuted, expirationBlock) + hookData (dynamic).
-     *      - Hook data starts at byte 376 and format is: [20‑byte target][raw calldata].
-     *      - Hook execution is best‑effort and does not revert on failure.
+     * @notice Constructor sets the MessageTransmitter and Logger addresses
+     * @param _messageTransmitter Address of the MessageTransmitter contract (Circle's or mock for testing)
+     * @param _logger Address of the Logger contract for indexer event emission
+     */
+    constructor(address _messageTransmitter, address _logger) {
+        if (_messageTransmitter == address(0) || _logger == address(0)) {
+            revert Errors.InvalidInput("CCTPBundleReceiver", "constructor");
+        }
+        MESSAGE_TRANSMITTER = _messageTransmitter;
+        LOGGER = ILogger(_logger);
+    }
+
+    /**
+     * @notice Relay a CCTP message and execute a bundle in a single transaction
+     * @dev Called by tx-orchestrator with bundle data from offchain storage
+     *
+     *      Flow:
+     *      1. Relay CCTP message via Circle's MessageTransmitter (mints USDC to Safe)
+     *      2. Discover the Safe's enabled Brava module via ERC-165 (`BravaModuleLookup`)
+     *      3. Execute bundle on the discovered module (best-effort, non-reverting)
+     *
+     *      The bundle comes from tx-orchestrator (signed by user), not from CCTP message.
+     *      This bypasses CCTP's hook data size limit.
+     *
+     * @param message Full CCTP V2 message bytes from Circle attestation
+     * @param attestation Circle attestation bytes
+     * @param safeAddress The Safe address to execute the bundle on
+     * @param bundle The bundle containing sequences for execution
+     * @param signature EIP-712 signature from a Safe owner
+     * @return relaySuccess True if receiveMessage succeeded (USDC minted)
+     * @return bundleSuccess True if bundle execution succeeded
+     * @return bundleReturnData Return data from bundle execution (useful for debugging)
+     */
+    function relayWithBundle(
+        bytes calldata message,
+        bytes calldata attestation,
+        address safeAddress,
+        IEip712TypedDataSafeModule.Bundle calldata bundle,
+        bytes calldata signature
+    ) external returns (
+        bool relaySuccess,
+        bool bundleSuccess,
+        bytes memory bundleReturnData
+    ) {
+        _validateMessageFormat(message);
+
+        relaySuccess = IMessageTransmitterV2(MESSAGE_TRANSMITTER).receiveMessage(message, attestation);
+        if (!relaySuccess) revert Errors.CCTPReceiver_RelayFailed();
+
+        (bundleSuccess, bundleReturnData) = _executeBundleBestEffort(safeAddress, bundle, signature);
+
+        _logBundleReceive(safeAddress, bundleSuccess, message);
+    }
+
+    /// @dev Discovers the Safe's currently-enabled Brava module via ERC-165 and forwards the
+    ///      bundle. Fully best-effort: both module discovery and execution are non-reverting
+    ///      so a missing/misconfigured module cannot unwind the USDC mint.
+    function _executeBundleBestEffort(
+        address safeAddress,
+        IEip712TypedDataSafeModule.Bundle calldata bundle,
+        bytes calldata signature
+    ) private returns (bool bundleSuccess, bytes memory bundleReturnData) {
+        (bool found, address module) = BravaModuleLookup.tryFindEnabledBravaModule(ISafe(safeAddress));
+        if (!found) {
+            return (false, "");
+        }
+        try IBravaSafeModule(module).executeBundle(safeAddress, bundle, signature) {
+            bundleSuccess = true;
+        } catch (bytes memory err) {
+            bundleReturnData = err;
+        }
+    }
+
+    /// @dev Reverts if the message is too short or the CCTP V2 version field is not 1.
+    function _validateMessageFormat(bytes calldata message) private pure {
+        if (message.length < MIN_MESSAGE_SIZE) revert Errors.CCTPReceiver_BadMessage();
+
+        uint32 version = uint32(bytes4(message[0:4]));
+        if (version != 1) revert Errors.CCTPReceiver_BadVersion(version);
+    }
+
+    /**
+     * @notice Simple relay without bundle execution (for USDC-only transfers or manual bundle execution)
+     * @dev Useful when bundle should be executed separately or when no bundle is needed
      * @param message Full CCTP V2 message bytes
      * @param attestation Circle attestation bytes
      * @return relaySuccess True if receiveMessage succeeded
-     * @return hookSuccess True if the hook call succeeded (false if no hook or call failed)
-     * @return hookReturnData Return data from hook target
      */
     function relay(
         bytes calldata message,
         bytes calldata attestation
-    ) external returns (
-        bool relaySuccess,
-        bool hookSuccess,
-        bytes memory hookReturnData
-    ) {
-        // Minimal format validation (version + minimum CCTP V2 message size)
-        uint256 MIN_MESSAGE_SIZE = 376; // 148 header + 228 BurnMessageV2 fixed fields
-        if (message.length < MIN_MESSAGE_SIZE) revert Errors.CCTPReceiver_BadMessage();
-        uint32 version;
-        assembly {
-            // load first 32 bytes and shift right by 224 bits to keep only the first 4 bytes
-            version := shr(224, calldataload(message.offset))
-        }
-        if (version != 1) revert Errors.CCTPReceiver_BadVersion(version);
-
-        // Relay to Circle MessageTransmitter
+    ) external returns (bool relaySuccess) {
+        _validateMessageFormat(message);
         relaySuccess = IMessageTransmitterV2(MESSAGE_TRANSMITTER).receiveMessage(message, attestation);
         if (!relaySuccess) revert Errors.CCTPReceiver_RelayFailed();
-
-        // Extract hook data from message tail and execute if present
-        bytes memory hookData = _extractHookDataFromMessage(message);
-        if (hookData.length >= 20) {
-            address hookTarget = _bytesToAddress(hookData);
-            bytes memory hookCall = _slice(hookData, 20, hookData.length - 20);
-            (hookSuccess, hookReturnData) = hookTarget.call(hookCall);
-        }
-
-        emit RelayAndHook(keccak256(message), relaySuccess, hookSuccess);
-    }
-
-    // ========================= INTERNAL HELPERS =========================
-    function _extractHookDataFromMessage(bytes calldata message) internal pure returns (bytes memory) {
-        // CCTP V2 Message Format (per Circle's BurnMessageV2.sol):
-        // Message Header: 148 bytes
-        //   - version (4) + sourceDomain (4) + destinationDomain (4) + nonce (32)
-        //   - sender (32) + recipient (32) + destinationCaller (32)
-        //   - minFinalityThreshold (4) + finalityThresholdExecuted (4)
-        // BurnMessageV2 (starts at byte 148): 228 fixed bytes + hookData
-        //   - version (4) + burnToken (32) + mintRecipient (32) + amount (32)
-        //   - messageSender (32) + maxFee (32) + feeExecuted (32) + expirationBlock (32)
-        //   - hookData (dynamic, starts at byte 228 within BurnMessageV2)
-        // Total offset: 148 + 228 = 376 bytes
-        uint256 CCTP_HEADER_SIZE = 148;
-        uint256 BURN_MESSAGE_FIXED_SIZE = 228;
-        uint256 HOOK_DATA_OFFSET = CCTP_HEADER_SIZE + BURN_MESSAGE_FIXED_SIZE; // 376
-        
-        if (message.length <= HOOK_DATA_OFFSET) return bytes("");
-        
-        // Copy hook data from offset 376 (no length prefix, just raw [target][calldata])
-        bytes memory out = new bytes(message.length - HOOK_DATA_OFFSET);
-        assembly {
-            calldatacopy(add(out, 32), add(message.offset, HOOK_DATA_OFFSET), sub(message.length, HOOK_DATA_OFFSET))
-        }
-        return out;
-    }
-
-    function _bytesToAddress(bytes memory data) internal pure returns (address addr) {
-        if (data.length < 20) revert Errors.CCTPReceiver_ShortHook();
-        assembly {
-            addr := shr(96, mload(add(data, 32)))
-        }
-    }
-
-    function _slice(bytes memory data, uint256 start, uint256 len) internal pure returns (bytes memory out) {
-        if (data.length < start + len) revert Errors.CCTPReceiver_OutOfBounds();
-        out = new bytes(len);
-        assembly {
-            let src := add(add(data, 32), start)
-            let dst := add(out, 32)
-            for { let i := 0 } lt(i, len) { i := add(i, 32) } {
-                mstore(add(dst, i), mload(add(src, i)))
-            }
-        }
     }
 }

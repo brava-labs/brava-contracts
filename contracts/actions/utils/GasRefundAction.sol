@@ -38,7 +38,7 @@ contract GasRefundAction is ActionBase {
         IERC20(refundToken).safeTransfer(address(EIP712_MODULE), amount);
 
         LOGGER.logActionEvent(
-            LogType.GAS_REFUND,
+            LogType.GAS_REFUND_RESERVATION,
             abi.encode(refundToken, address(EIP712_MODULE), amount)
         );
     }

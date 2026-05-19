@@ -31,21 +31,46 @@ interface IEip712TypedDataSafeModule {
         Sequence sequence;
     }
 
-    /// @notice Bundle structure containing multiple chain sequences
+    /// @notice Per-manager restriction: limits which ActionType values a manager may execute.
+    /// @dev Only restricted managers need entries. A manager absent from managerRestrictions is unrestricted.
+    struct ManagerRestriction {
+        address manager;
+        uint8[] allowedActionTypes;
+    }
+
+    /// @notice Atomic auth config update applied via the bundle.
+    /// @dev `newVersion == 0` is the no-update sentinel: all other fields are ignored.
+    ///      Any non-zero `newVersion` triggers a snapshot replacement on the AuthRegistry,
+    ///      which enforces version-monotonic semantics with idempotent equality.
+    ///      Owner signs the full target auth config; the registry handles the atomic state transition.
+    ///      Auth updates are NOT scoped to the bundle's chain sequences — the update applies on
+    ///      EVERY chain the bundle is submitted to. This is by design: auth state is global per Safe,
+    ///      and cross-chain propagation relies on the update being applied regardless of which chain's
+    ///      sequence is executed.
+    struct AuthUpdate {
+        uint256 newVersion;
+        address[] newManagers;
+        address[] newCoSigners;
+        uint256 managerCoSignThreshold;
+        ManagerRestriction[] managerRestrictions;
+    }
+
+    /// @notice Bundle structure containing multiple chain sequences and an optional auth config update
     struct Bundle {
         uint256 expiry;
         ChainSequence[] sequences;
+        AuthUpdate authUpdate;
     }
 
     /// @notice Executes a validated bundle for the current chain and nonce
     /// @param _safeAddr The Safe address to execute on
-    /// @param _bundle The bundle containing sequences for multiple chains
-    /// @param _signature EIP-712 signature from a Safe owner
+    /// @param _bundle The bundle containing sequences for multiple chains and an optional auth update
+    /// @param _signatures Packed EIP-712 signatures sorted by signer address ascending
     function executeBundle(
         address _safeAddr,
         Bundle calldata _bundle,
-        bytes calldata _signature
-    ) external payable;
+        bytes calldata _signatures
+    ) external;
 
     /// @notice Gets the next expected sequence nonce for a Safe
     /// @param _safeAddr Address of the Safe
@@ -62,19 +87,4 @@ interface IEip712TypedDataSafeModule {
     /// @param _bundle The bundle to hash
     /// @return The EIP-712 hash that should be signed
     function getBundleHash(address _safeAddr, Bundle calldata _bundle) external view returns (bytes32);
-
-    /// @notice Events emitted by the module
-    event BundleExecuted(address indexed safe, uint256 indexed expiry, uint256 indexed chainId, uint256 sequenceNonce);
-    event SignatureVerified(address indexed safe, address indexed signer, bytes32 indexed bundleHash);
-    event SafeDeployedForExecution(address indexed signer, address indexed safeAddress);
-    event ConfigInitialized(
-        address adminVault,
-        address sequenceExecutor,
-        address safeDeployment,
-        address tokenRegistry,
-        address feeRecipient,
-        string name,
-        string version
-    );
-    event GasRefundProcessed(address indexed safe, address indexed refundToken, uint256 refundAmount, address indexed recipient);
-} 
+}

@@ -57,7 +57,7 @@ abstract contract ShareBasedWithdraw is ActionBase {
         uint256 maxShares = _getBalance(_vaultAddress);
         uint256 sharesToWithdraw = _inputData.sharesToBurn > maxShares ? maxShares : _inputData.sharesToBurn;
 
-        require(sharesToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
+        require(sharesToWithdraw != 0, Errors.Action_ZeroAmount(_vaultAddress, protocolName(), actionType()));
 
         // Perform the withdraw
         _executeWithdraw(_vaultAddress, sharesToWithdraw, _inputData.minUnderlyingReceived);

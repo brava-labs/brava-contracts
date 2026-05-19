@@ -3,61 +3,55 @@ pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ActionBase} from "../ActionBase.sol";
-import {IActionWithBundleContext} from "../../interfaces/IActionWithBundleContext.sol";
 import {Errors} from "../../Errors.sol";
 import {ITokenMessengerV2} from "../../interfaces/ICCTP.sol";
-import {IEip712TypedDataSafeModule} from "../../interfaces/IEip712TypedDataSafeModule.sol";
+import {IAuthRegistry} from "../../interfaces/IAuthRegistry.sol";
 
-/// @title CCTPBridgeSend - Cross-chain USDC bridging with hooks
-/// @notice Bridges USDC and bundle data via CCTP V2 hooks for native destination execution
-/// @dev Uses Circle TokenMessenger V2 depositForBurnWithHook; USDC is minted to the Safe on destination
-/// @dev The action executes via delegatecall from the Safe, so address(this) is the Safe during execution
+/// @title CCTPBridgeSend - Cross-chain USDC bridging via CCTP V2
+/// @notice Bridges USDC via CCTP V2, optionally propagating the source-chain auth config snapshot
+///         to the destination chain's `AuthRegistry` in the same attested message.
+/// @dev Two modes selected by `CCTPParams.propagateAuth`:
+///        - `false`: hookless `depositForBurn`; orchestrator picks any `destinationCaller`
+///                   (typically `CCTPBundleReceiver` for non-auth flows).
+///        - `true`:  reads the full auth config (managers, co-signers, thresholds) from the local
+///                   `AUTH_REGISTRY` for `address(this)` (the Safe under delegatecall), encodes
+///                   them into the CCTP V2 `hookData`, and forces
+///                   `destinationCaller = address(AUTH_REGISTRY)`.
+/// @dev The action executes via delegatecall from the Safe, so address(this) is the Safe during execution.
 /// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
-contract CCTPBridgeSend is ActionBase, IActionWithBundleContext {
+contract CCTPBridgeSend is ActionBase {
     using SafeERC20 for IERC20;
 
-    // ========== CCTP V2 FAST TRANSFER CONSTANTS ==========
-    
-    /// @notice Finality threshold for fast transfers (enables ~8 second attestation)
     uint32 public constant FAST_FINALITY_THRESHOLD = 1000;
-    
-    /// @notice Finality threshold for standard transfers (13-19 minutes)
     uint32 public constant STANDARD_FINALITY_THRESHOLD = 2000;
-    
-    /// @notice Default maximum fee for fast transfers (1 USDC)
-    uint256 public constant DEFAULT_FAST_MAX_FEE = 1000000; // 1 USDC in 6 decimals
-    
-    /// @notice Default maximum fee for standard transfers (free)
+    uint256 public constant DEFAULT_FAST_MAX_FEE = 1000000;
     uint256 public constant DEFAULT_STANDARD_MAX_FEE = 0;
 
-    /// @notice CCTP V2 parameters with hook-based execution
-    /// @param usdcToken Address of the USDC token to bridge
-    /// @param amount Amount of USDC to bridge (in USDC units, e.g. 1000000 = $1 USDC)
-    /// @param destinationDomain Destination domain ID for CCTP (3 = Arbitrum, 6 = Base, etc.)
-    /// @param destinationCaller The destination receiver (address(this) of CCTPBundleReceiver) authorized by Circle
-    /// @param maxFee Maximum fee in USDC units (1000000 = $1 for fast, 0 = free for standard)
-    /// @param minFinalityThreshold Minimum finality threshold (1000 = fast ~8s, 2000 = standard ~13-19min)
-    /// @param hookTarget Target that will be called on destination by receiver using attested hook data
-    struct CCTPParamsV2 {
+    /// @notice Hook envelope version for auth config snapshots embedded in CCTP V2 messages.
+    uint8 internal constant AUTH_HOOK_VERSION = 1;
+
+    /// @param propagateAuth When true, reads the Safe's auth config from `AUTH_REGISTRY` and
+    ///        embeds it into the CCTP V2 hookData; receiving registry triple-checks Safe identity
+    ///        and applies the snapshot in the same attested message.
+    struct CCTPParams {
         address usdcToken;
         uint256 amount;
         uint32 destinationDomain;
-        bytes32 destinationCaller;      // Must equal bytes32(uint256(uint160(CCTPBundleReceiver)))
-        uint256 maxFee;                 // Fee for fast transfer (1000000 = $1 USDC)
-        uint32 minFinalityThreshold;    // Finality threshold (1000 = fast, 2000 = standard)
-        address hookTarget;             // Destination-chain contract to call (e.g., EIP712 module)
+        bytes32 destinationCaller;
+        uint256 maxFee;
+        uint32 minFinalityThreshold;
+        bool propagateAuth;
     }
 
-    // CCTP always transports bundle context in hook data for destination execution
-
-    /// @notice CCTP V2 TokenMessenger contract
     ITokenMessengerV2 public immutable TOKEN_MESSENGER;
+
+    /// @notice Per-chain canonical store of auth state (managers, co-signers, thresholds).
+    IAuthRegistry public immutable AUTH_REGISTRY;
 
     /// @inheritdoc ActionBase
     function actionType() public pure override returns (uint8) {
-        return 12; // CCTP Bridge Action V2
+        return 12;
     }
 
     /// @inheritdoc ActionBase
@@ -65,229 +59,180 @@ contract CCTPBridgeSend is ActionBase, IActionWithBundleContext {
         return "CCTP_V2";
     }
 
-    
-
-    constructor(address _adminVault, address _logger, address _tokenMessenger) ActionBase(_adminVault, _logger) {
-        if (_tokenMessenger == address(0)) revert Errors.InvalidInput("CCTPBridgeSend", "constructor");
+    constructor(
+        address _adminVault,
+        address _logger,
+        address _tokenMessenger,
+        address _authRegistry
+    ) ActionBase(_adminVault, _logger) {
+        if (_tokenMessenger == address(0) || _authRegistry == address(0)) {
+            revert Errors.InvalidInput("CCTPBridgeSend", "constructor");
+        }
         TOKEN_MESSENGER = ITokenMessengerV2(_tokenMessenger);
+        AUTH_REGISTRY = IAuthRegistry(_authRegistry);
     }
 
     /// @inheritdoc ActionBase
-    function executeAction(bytes memory /* _callData */, uint16 /* _strategyId */) public payable override {
-        revert Errors.CCTPBridgeSend_BundleContextRequired();
-    }
-
-    /// @inheritdoc IActionWithBundleContext
-    function executeActionWithBundleContext(
-        bytes calldata _callData,
-        IEip712TypedDataSafeModule.Bundle calldata _bundle,
-        bytes calldata _signature,
-        uint16 _strategyId
-    ) external payable override {
-        // Simplified direct tuple encoding only: abi.encode(address,uint256,uint32,bytes32,uint256,uint32)
-        CCTPParamsV2 memory cctpParams;
+    function executeAction(bytes memory _callData, uint16 _strategyId) public payable override {
+        CCTPParams memory params;
         (
-            cctpParams.usdcToken,
-            cctpParams.amount,
-            cctpParams.destinationDomain,
-            cctpParams.destinationCaller,
-            cctpParams.hookTarget,
-            cctpParams.maxFee,
-            cctpParams.minFinalityThreshold
-        ) = abi.decode(_callData, (address, uint256, uint32, bytes32, address, uint256, uint32));
+            params.usdcToken,
+            params.amount,
+            params.destinationDomain,
+            params.destinationCaller,
+            params.maxFee,
+            params.minFinalityThreshold,
+            params.propagateAuth
+        ) = abi.decode(_callData, (address, uint256, uint32, bytes32, uint256, uint32, bool));
 
-        // Validate inputs (generic invalid input error)
         if (
-            cctpParams.usdcToken == address(0) ||
-            cctpParams.amount == 0 ||
-            cctpParams.destinationDomain == 0 ||
-            cctpParams.destinationCaller == bytes32(0) ||
-            cctpParams.hookTarget == address(0) ||
-            _signature.length == 0
-        ) revert Errors.InvalidInput("CCTPBridgeSend", "executeWithBundle");
-        
-        _executeCCTPBridge(cctpParams, _bundle, _signature, _strategyId);
+            params.usdcToken == address(0) ||
+            params.amount == 0 ||
+            (!params.propagateAuth && params.destinationCaller == bytes32(0))
+        ) revert Errors.InvalidInput("CCTPBridgeSend", "executeAction");
+
+        _executeCCTPBridge(params, _strategyId);
     }
 
-    /// @notice Checks interface support for ERC165 and IActionWithBundleContext
-    function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
-        return interfaceId == type(IActionWithBundleContext).interfaceId ||
-               interfaceId == type(IERC165).interfaceId;
-    }
-
-    /// @notice Execute CCTP V2 bridge with hook data
-    /// @param cctpParams CCTP V2 parameters including fees and finality thresholds
-    /// @param bundle Bundle for cross-chain execution
-    /// @param signature Bundle signature for execution
     function _executeCCTPBridge(
-        CCTPParamsV2 memory cctpParams,
-        IEip712TypedDataSafeModule.Bundle memory bundle,
-        bytes memory signature,
+        CCTPParams memory params,
         uint16 /* strategyId */
     ) internal {
-        // address(this) is always the Safe in delegate call context
-        uint256 balanceBefore = IERC20(cctpParams.usdcToken).balanceOf(address(this));
+        uint256 balanceBefore = IERC20(params.usdcToken).balanceOf(address(this));
 
-        // Validate sufficient balance
-        if (balanceBefore < cctpParams.amount) revert Errors.CCTPBridgeSend_InsufficientBalance(balanceBefore, cctpParams.amount);
+        if (balanceBefore < params.amount) revert Errors.CCTPBridgeSend_InsufficientBalance(balanceBefore, params.amount);
 
-        // Approve USDC to TokenMessenger - Safe approves in delegate call context
-        IERC20(cctpParams.usdcToken).safeIncreaseAllowance(address(TOKEN_MESSENGER), cctpParams.amount);
+        IERC20(params.usdcToken).safeIncreaseAllowance(address(TOKEN_MESSENGER), params.amount);
 
-        // Encode hook payload for destination bundle execution: [20-byte target][raw calldata]
-        bytes memory hookData = _encodeHookData(cctpParams.hookTarget, bundle, signature);
-
-        // USDC is minted to the Safe (address(this) in delegatecall context)
         bytes32 mintRecipient = bytes32(uint256(uint160(address(this))));
 
-        // Call CCTP V2 depositForBurnWithHook
-        // Use low-level call to capture exact revert reason
-        
-        {
-            bytes memory cctpCallData = abi.encodeWithSelector(
-                ITokenMessengerV2.depositForBurnWithHook.selector,
-                cctpParams.amount,
-                cctpParams.destinationDomain,
-                mintRecipient,
-                cctpParams.usdcToken,
-                cctpParams.destinationCaller,
-                cctpParams.maxFee,
-                cctpParams.minFinalityThreshold,
-                hookData
+        if (params.propagateAuth) {
+            _bridgeWithAuth(params, mintRecipient);
+        } else {
+            _bridgeHookless(params, mintRecipient);
+        }
+
+        uint256 balanceAfter = IERC20(params.usdcToken).balanceOf(address(this));
+        if (balanceBefore - balanceAfter != params.amount) {
+            revert Errors.CCTPBridgeSend_BalanceMismatch(balanceBefore, balanceAfter, params.amount);
+        }
+
+        if (params.propagateAuth) {
+            uint256 version = AUTH_REGISTRY.getVersion(address(this));
+            LOGGER.logActionEvent(
+                LogType.CCTP_BRIDGE_SEND_WITH_AUTH,
+                abi.encode(
+                    address(this),
+                    params.amount,
+                    params.destinationDomain,
+                    bytes32(uint256(uint160(address(AUTH_REGISTRY)))),
+                    version
+                )
             );
-            
-            (bool success, bytes memory returnData) = address(TOKEN_MESSENGER).call(cctpCallData);
-            
-            if (!success) {
-                // CCTP call failed - forward the revert reason if available
-                if (returnData.length > 0) {
-                    assembly {
-                        revert(add(returnData, 0x20), mload(returnData))
-                    }
-                } else {
-                    revert Errors.CCTPBridgeSend_DepositFailed();
-                }
-            }
+        } else {
+            LOGGER.logActionEvent(
+                LogType.CCTP_BRIDGE_SEND,
+                abi.encode(
+                    address(this),
+                    params.amount,
+                    params.destinationDomain,
+                    params.destinationCaller
+                )
+            );
         }
+    }
 
-        // Verify balance change matches the burned amount
-        uint256 balanceAfter = IERC20(cctpParams.usdcToken).balanceOf(address(this));
-
-        if (balanceBefore - balanceAfter != cctpParams.amount) {
-            revert Errors.CCTPBridgeSend_BalanceMismatch(balanceBefore, balanceAfter, cctpParams.amount);
-        }
-
-        LOGGER.logActionEvent(
-            LogType.CCTP_BRIDGE_SEND,
-            abi.encode(
-                address(this),
-                cctpParams.amount,
-                cctpParams.destinationDomain,
-                cctpParams.destinationCaller,
-                true
-            )
+    function _bridgeHookless(CCTPParams memory params, bytes32 mintRecipient) private {
+        TOKEN_MESSENGER.depositForBurn(
+            params.amount,
+            params.destinationDomain,
+            mintRecipient,
+            params.usdcToken,
+            params.destinationCaller,
+            params.maxFee,
+            params.minFinalityThreshold
         );
     }
 
+    /// @dev Auth-propagating path. Reads the full auth config for `address(this)` (the Safe
+    ///      under delegatecall), encodes it into a hookVersion-1 envelope, and forces
+    ///      `destinationCaller = address(AUTH_REGISTRY)`.
+    function _bridgeWithAuth(CCTPParams memory params, bytes32 mintRecipient) private {
+        bytes memory hookData = _buildAuthHookData();
+        bytes32 destinationCaller = bytes32(uint256(uint160(address(AUTH_REGISTRY))));
 
-    // CCTP expects (CCTPParamsV2, Bundle, bytes) when executed with bundle context
-
-    /// @notice Encode bundle and signature as hook data for CCTP V2
-    function _encodeHookData(
-        address hookTarget,
-        IEip712TypedDataSafeModule.Bundle memory bundle,
-        bytes memory signature
-    ) private view returns (bytes memory) {
-        // The Safe address is address(this) under delegatecall from the Safe
-        address safeAddress = address(this);
-
-        // Build target-specific calldata that the receiver will forward to hookTarget
-        bytes memory callData = abi.encodeWithSelector(
-            IEip712TypedDataSafeModule.executeBundle.selector,
-            safeAddress,
-            bundle,
-            signature
+        TOKEN_MESSENGER.depositForBurnWithHook(
+            params.amount,
+            params.destinationDomain,
+            mintRecipient,
+            params.usdcToken,
+            destinationCaller,
+            params.maxFee,
+            params.minFinalityThreshold,
+            hookData
         );
-
-        // Prefix with the 20-byte target address as per Circle wrapper convention
-        return bytes.concat(bytes20(uint160(hookTarget)), callData);
     }
 
-    /// @notice Helper function to create fast transfer parameters
-    /// @param usdcToken USDC token address
-    /// @param amount Amount to bridge
-    /// @param destinationDomain Destination domain
-    /// @param destinationCaller Who can call receiveMessage
-    /// @param customMaxFee Custom max fee (0 = use default $1 USDC)
-    /// @return CCTPParamsV2 configured for fast transfer (~8 seconds)
+    /// @dev Reads the full auth config snapshot from `AUTH_REGISTRY` for this Safe
+    ///      and encodes it into a hook envelope for cross-chain propagation.
+    ///      This reads the registry AFTER any authUpdate in the same bundle has applied.
+    ///      That ordering is intentional and load-bearing — the destination chain
+    ///      receives the post-update state.
+    function _buildAuthHookData() private view returns (bytes memory) {
+        address safe = address(this);
+        address[] memory managers = AUTH_REGISTRY.getManagers(safe);
+
+        uint256[] memory bitmaps = new uint256[](managers.length);
+        for (uint256 i; i < managers.length; ++i) {
+            bitmaps[i] = AUTH_REGISTRY.getManagerActionBitmap(safe, managers[i]);
+        }
+
+        bytes memory payload = abi.encode(
+            safe,
+            AUTH_REGISTRY.getVersion(safe),
+            managers,
+            AUTH_REGISTRY.getCoSigners(safe),
+            AUTH_REGISTRY.getManagerCoSignThreshold(safe),
+            bitmaps
+        );
+        return abi.encode(AUTH_HOOK_VERSION, payload);
+    }
+
+
     function createFastTransferParams(
         address usdcToken,
         uint256 amount,
         uint32 destinationDomain,
         address destinationCaller,
-        address hookTarget,
-        uint256 customMaxFee
-    ) external pure returns (CCTPParamsV2 memory) {
-        return CCTPParamsV2({
+        uint256 customMaxFee,
+        bool propagateAuth
+    ) external pure returns (CCTPParams memory) {
+        return CCTPParams({
             usdcToken: usdcToken,
             amount: amount,
             destinationDomain: destinationDomain,
             destinationCaller: bytes32(uint256(uint160(destinationCaller))),
             maxFee: customMaxFee > 0 ? customMaxFee : DEFAULT_FAST_MAX_FEE,
             minFinalityThreshold: FAST_FINALITY_THRESHOLD,
-            hookTarget: hookTarget
+            propagateAuth: propagateAuth
         });
     }
 
-    /// @notice Helper function to create standard transfer parameters
-    /// @param usdcToken USDC token address
-    /// @param amount Amount to bridge
-    /// @param destinationDomain Destination domain
-    /// @param destinationCaller Who can call receiveMessage
-    /// @return CCTPParamsV2 configured for standard transfer (free but ~13-19 minutes)
     function createStandardTransferParams(
         address usdcToken,
         uint256 amount,
         uint32 destinationDomain,
         address destinationCaller,
-        address hookTarget
-    ) external pure returns (CCTPParamsV2 memory) {
-        return CCTPParamsV2({
+        bool propagateAuth
+    ) external pure returns (CCTPParams memory) {
+        return CCTPParams({
             usdcToken: usdcToken,
             amount: amount,
             destinationDomain: destinationDomain,
             destinationCaller: bytes32(uint256(uint160(destinationCaller))),
             maxFee: DEFAULT_STANDARD_MAX_FEE,
             minFinalityThreshold: STANDARD_FINALITY_THRESHOLD,
-            hookTarget: hookTarget
+            propagateAuth: propagateAuth
         });
     }
-
-    /// @notice Helper function to create CCTP parameters for hook-based execution
-    /// @param usdcToken USDC token address
-    /// @param amount Amount to bridge
-    /// @param destinationDomain Destination domain
-    /// @param destinationCaller Who can call receiveMessage (typically TypedDataModule)
-    /// @param maxFee Maximum fee for transfer
-    /// @param minFinalityThreshold Finality threshold
-    /// @return CCTPParamsV2 configured for hook execution
-    function createHookParams(
-        address usdcToken,
-        uint256 amount,
-        uint32 destinationDomain,
-        address destinationCaller,
-        address hookTarget,
-        uint256 maxFee,
-        uint32 minFinalityThreshold
-    ) external pure returns (CCTPParamsV2 memory) {
-        return CCTPParamsV2({
-            usdcToken: usdcToken,
-            amount: amount,
-            destinationDomain: destinationDomain,
-            destinationCaller: bytes32(uint256(uint160(destinationCaller))),
-            maxFee: maxFee,
-            minFinalityThreshold: minFinalityThreshold,
-            hookTarget: hookTarget
-        });
-    }
-} 
+}

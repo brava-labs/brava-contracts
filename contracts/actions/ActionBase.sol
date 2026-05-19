@@ -54,7 +54,12 @@ abstract contract ActionBase {
         BUY_COVER_WITH_PREMIUM,
         ZERO_EX_SWAP,
         GAS_REFUND,
-        CCTP_BRIDGE_SEND
+        CCTP_BRIDGE_SEND,
+        GAS_REFUND_RESERVATION,
+        SEQUENCE_COMPLETE,
+        CCTP_BUNDLE_RECEIVE,
+        CCTP_BRIDGE_SEND_WITH_AUTH,
+        CCTP_RELAY_AND_EXECUTE
     }
 
     /// @notice Initializes the ActionBase contract

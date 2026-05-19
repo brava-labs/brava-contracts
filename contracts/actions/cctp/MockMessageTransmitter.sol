@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "../../interfaces/IERC20.sol";
 
 /// @title MockMessageTransmitter - Minimal mock for CCTP send and receive
-/// @notice Stores depositForBurnWithHook inputs and mints on receiveMessage; no hook callbacks
+/// @notice Stores deposit inputs and mints on receiveMessage; no hook callbacks
 contract MockMessageTransmitter {
 	address public immutable USDC;
 	
@@ -16,6 +16,7 @@ contract MockMessageTransmitter {
 		address destinationCaller;
 		bytes hookData;
 		uint32 sourceDomain;
+		uint32 destinationDomain;
 		bool exists;
 	}
 	
@@ -39,28 +40,55 @@ contract MockMessageTransmitter {
 		IERC20(USDC).transfer(m.mintRecipient, m.amount);
 		return true;
 	}
+
+	/// @notice Simulates TokenMessenger.depositForBurn - captures data for later receive
+	function depositForBurn(
+		uint256 amount,
+		uint32 destinationDomain,
+		bytes32 mintRecipient,
+		address burnToken,
+		bytes32 destinationCaller,
+		uint256 /* maxFee */,
+		uint32 /* minFinalityThreshold */
+	) external {
+		require(burnToken == USDC, "MockMessageTransmitter: USDC only");
+		require(amount > 0, "MockMessageTransmitter: amount=0");
+		IERC20(USDC).transferFrom(msg.sender, address(this), amount);
+		uint64 nonce = messageNonce++;
+		storedMessages[nonce] = StoredMessage({
+			amount: amount,
+			mintRecipient: address(uint160(uint256(mintRecipient))),
+			destinationCaller: address(uint160(uint256(destinationCaller))),
+			hookData: "",
+			sourceDomain: 1,
+			destinationDomain: destinationDomain,
+			exists: true
+		});
+		latestStoredNonce = nonce;
+	}
 	
 	/// @notice Simulates TokenMessenger.depositForBurnWithHook - captures data for later receive
     function depositForBurnWithHook(
         uint256 amount,
-        uint32 /* destinationDomain */,
+        uint32 destinationDomain,
         bytes32 mintRecipient,
         address burnToken,
         bytes32 destinationCaller,
         uint256 /* maxFee */, 
         uint32 /* minFinalityThreshold */, 
         bytes calldata hookData
-    ) external returns (uint64 nonce) {
+    ) external {
 		require(burnToken == USDC, "MockMessageTransmitter: USDC only");
 		require(amount > 0, "MockMessageTransmitter: amount=0");
 		IERC20(USDC).transferFrom(msg.sender, address(this), amount);
-		nonce = messageNonce++;
+		uint64 nonce = messageNonce++;
 		storedMessages[nonce] = StoredMessage({
 			amount: amount,
 			mintRecipient: address(uint160(uint256(mintRecipient))),
 			destinationCaller: address(uint160(uint256(destinationCaller))),
 			hookData: hookData,
 			sourceDomain: 1,
+			destinationDomain: destinationDomain,
 			exists: true
 		});
 		latestStoredNonce = nonce;
@@ -68,6 +96,7 @@ contract MockMessageTransmitter {
 	
 	/// @notice Helper: build a minimal CCTP V2 message with correct structure for CCTPBundleReceiver
 	/// @dev CCTPBundleReceiver expects: 148-byte header + 228-byte BurnMessageV2 + hookData (total 376 bytes before hook)
+	///      Amount is placed at offset 68 within BurnMessage (= offset 216 in the full message).
 	function buildMessageWithHook(uint64 nonce) external view returns (bytes memory message) {
 		StoredMessage memory m = storedMessages[nonce];
 		require(m.exists, "MockMessageTransmitter: No message");
@@ -75,7 +104,7 @@ contract MockMessageTransmitter {
 		bytes memory header = abi.encodePacked(
 			uint32(1),                    // version (4 bytes)
 			uint32(m.sourceDomain),       // sourceDomain (4 bytes)
-			uint32(1),                    // destinationDomain (4 bytes)
+			uint32(m.destinationDomain),  // destinationDomain (4 bytes)
 			bytes32(uint256(nonce))       // nonce (32 bytes)
 		); // = 44 bytes
 		// Pad to 148 bytes (header size)
@@ -83,8 +112,13 @@ contract MockMessageTransmitter {
 		for (uint i = 0; i < 44 && i < 148; i++) {
 			paddedHeader[i] = header[i];
 		}
-		// BurnMessageV2 fixed fields (228 bytes) - all zeros is fine for mock
+		// BurnMessageV2 fixed fields (228 bytes)
+		// Amount lives at offset 68 within BurnMessage (version(4) + burnToken(32) + mintRecipient(32) = 68)
 		bytes memory burnMessage = new bytes(228);
+		bytes32 amountBytes = bytes32(m.amount);
+		for (uint i = 0; i < 32; i++) {
+			burnMessage[68 + i] = amountBytes[i];
+		}
 		// Concatenate: 148-byte header + 228-byte burn message + hookData
 		return bytes.concat(paddedHeader, burnMessage, m.hookData);
 	}

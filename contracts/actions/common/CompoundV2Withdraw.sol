@@ -54,7 +54,7 @@ abstract contract CompoundV2WithdrawBase is ActionBase {
         if (amountToWithdraw > underlyingBalance) {
             amountToWithdraw = underlyingBalance;
         }
-        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
+        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(_cTokenAddress, protocolName(), actionType()));
 
         _withdraw(_cTokenAddress, amountToWithdraw);
         balanceAfter = CTokenInterface(_cTokenAddress).balanceOf(address(this));
