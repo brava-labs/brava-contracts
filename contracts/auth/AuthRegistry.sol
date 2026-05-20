@@ -12,7 +12,7 @@ import {IMessageTransmitterV2} from "../interfaces/IMessageTransmitterV2.sol";
 import {ISafe} from "../interfaces/safe/ISafe.sol";
 import {ISafeDeployment} from "../interfaces/ISafeDeployment.sol";
 
-import {BravaModuleLookup} from "./BravaModuleLookup.sol";
+import {BravaModuleLookup} from "../libraries/BravaModuleLookup.sol";
 
 /// @title AuthRegistry
 /// @author Brava Finance

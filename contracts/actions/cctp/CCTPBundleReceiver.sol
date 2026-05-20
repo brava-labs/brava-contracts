@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
-import {BravaModuleLookup} from "../../auth/BravaModuleLookup.sol";
+import {BravaModuleLookup} from "../../libraries/BravaModuleLookup.sol";
 import {Errors} from "../../Errors.sol";
 import {IActionBase} from "../../interfaces/IActionBase.sol";
 import {IBravaSafeModule} from "../../interfaces/IBravaSafeModule.sol";
