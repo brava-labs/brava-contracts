@@ -22,7 +22,7 @@ contract YearnV2Withdraw is ShareBasedWithdraw {
         uint256 underlyingReceived = yVault.withdraw(_sharesToBurn, address(this), 1);
         require(
             underlyingReceived >= _minUnderlyingReceived,
-            Errors.Action_UnderlyingReceivedLessThanExpected(underlyingReceived, _minUnderlyingReceived)
+            Errors.Action_UnderlyingReceivedLessThanExpected(_vaultAddress, underlyingReceived, _minUnderlyingReceived)
         );
     }
 

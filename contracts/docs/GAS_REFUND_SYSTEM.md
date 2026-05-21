@@ -37,7 +37,25 @@ Key inputs:
 - Recipient selection: `0 = tx.origin` (executor EOA), `1 = fee recipient`
 - Gas pricing via adaptor: `totalWeiCost(gasUsed, outerTxCalldata)` and token conversion using the adaptor's configured Chainlink feed
 - Oracle safeguards reside in the adaptor (e.g., non-positive prices ignored, staleness checks)
-- `gasRefundOverhead` is included to account for pre/post-execution overhead (default 21,000)
+
+### Gas Refund Overhead
+
+The `gasRefundOverhead` accounts for gas consumed AFTER the measurement point (`gasStart - gasleft()`), including:
+- Refund calculation (external calls to price adaptor and oracle)
+- Token balance checks
+- USDC transfer to recipient (proxy calls, storage updates, events)
+- Remainder return transfer to Safe
+- Event emissions (logger action events for bundle executed and gas refund)
+- Return path overhead
+
+**Recommended value: 140,000 gas**
+
+This value was determined through empirical measurement and theoretical calculation:
+- Theoretical estimate: 117,800 - 153,800 gas (averaging 135,800)
+- Empirically verified on Hardhat mainnet fork
+- Accounts for worst-case scenario with 2 USDC transfers (recipient + remainder)
+
+The overhead can be tuned per-chain if needed (e.g., Arbitrum's ArbGas system may differ), but 140,000 gas provides a safe default across EVM chains.
 
 ### Gas Price Adaptors
 
@@ -51,11 +69,12 @@ Note: If the outer transaction calldata is needed (e.g., OP Stack), the adaptor 
 
 ## Events / Logging
 
-- Gas refund results are logged via the module event `GasRefundProcessed(safe, refundToken, refundAmount, recipient)` and actions may log via `Logger` using `LogType.GAS_REFUND`.
+- The module logs `LogType.GAS_REFUND` through `Logger` with payload `(safe, refundToken, paidAmount, recipient)`.
+- `GasRefundAction` logs `LogType.GAS_REFUND_RESERVATION` with payload `(refundToken, moduleAddress, reservedAmount)`.
 
 ## Guidance
 
 - Prefer stablecoins as refund tokens and add them to the registry for actions that fund refunds.
 - Set reasonable `maxRefundAmount` per chain to limit exposure.
 - Consider setting a non-zero `maxRefundAmount` whenever gas refunds are enabled to avoid unlimited refunds.
-- Monitor module events and `LogType.GAS_REFUND` logs to track refund spend and recipients.
+- Monitor `LogType.GAS_REFUND` logs for actual paid refunds and `LogType.GAS_REFUND_RESERVATION` logs for reservation/deposit intent.

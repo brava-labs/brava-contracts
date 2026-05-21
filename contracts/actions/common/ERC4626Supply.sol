@@ -77,7 +77,7 @@ abstract contract ERC4626Supply is ActionBase {
                 ? underlyingToken.balanceOf(address(this))
                 : _inputData.amount;
 
-            require(amountToDeposit != 0, Errors.Action_ZeroAmount(protocolName(), uint8(actionType())));
+            require(amountToDeposit != 0, Errors.Action_ZeroAmount(_vaultAddress, protocolName(), uint8(actionType())));
 
             // Check max deposit limit
             uint256 maxDeposit = _getMaxDeposit(_vaultAddress);
@@ -93,6 +93,7 @@ abstract contract ERC4626Supply is ActionBase {
             require(
                 shares >= _inputData.minSharesReceived,
                 Errors.Action_InsufficientSharesReceived(
+                    _vaultAddress,
                     protocolName(),
                     uint8(actionType()),
                     shares,

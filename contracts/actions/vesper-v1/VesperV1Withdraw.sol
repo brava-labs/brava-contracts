@@ -33,7 +33,7 @@ contract VesperV1Withdraw is ShareBasedWithdraw {
         uint256 underlyingReceived = underlyingToken.balanceOf(address(this)) - balanceBefore;
         require(
             underlyingReceived >= _minUnderlyingReceived,
-            Errors.Action_UnderlyingReceivedLessThanExpected(underlyingReceived, _minUnderlyingReceived)
+            Errors.Action_UnderlyingReceivedLessThanExpected(_vaultAddress, underlyingReceived, _minUnderlyingReceived)
         );
     }
 

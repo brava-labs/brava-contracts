@@ -69,7 +69,7 @@ contract AcrossV3Withdraw is ActionBase {
             ? sharesBefore - feeInTokens
             : _underlyingToShares(_inputData.withdrawAmount, l1Token);
 
-        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(protocolName(), actionType()));
+        require(amountToWithdraw != 0, Errors.Action_ZeroAmount(l1Token, protocolName(), actionType()));
 
         // Get LP balance before withdrawal for share calculation
         uint256 lpBalanceBefore = IERC20(lpToken).balanceOf(address(this));
@@ -83,6 +83,7 @@ contract AcrossV3Withdraw is ActionBase {
         require(
             sharesBurned <= _inputData.maxSharesBurned,
             Errors.Action_MaxSharesBurnedExceeded(
+                l1Token,
                 protocolName(),
                 uint8(actionType()),
                 sharesBurned,

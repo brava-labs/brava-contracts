@@ -76,6 +76,26 @@ contract SafeDeployment is Initializable, Multicall, ISafeDeployment {
         setupRegistry = ISafeSetupRegistry(_setupRegistry);
     }
 
+    /// @notice Reinitializes the contract for proxy upgrades
+    /// @dev Uses reinitializer(2) - can only be called once per upgrade
+    /// @dev This is for updating AdminVault and Logger references during redeployment
+    /// @param _adminVault The new AdminVault address
+    /// @param _logger The new Logger address
+    function reinitialize(
+        address _adminVault,
+        address _logger
+    ) external reinitializer(2) {
+        require(
+            _adminVault != address(0) && _logger != address(0), 
+            Errors.InvalidInput("SafeDeployment", "reinitialize")
+        );
+        require(_adminVault.code.length > 0, Errors.InvalidInput("SafeDeployment", "adminVault"));
+        require(_logger.code.length > 0, Errors.InvalidInput("SafeDeployment", "logger"));
+        
+        adminVault = IAdminVault(_adminVault);
+        logger = ILogger(_logger);
+    }
+
 
 
     /// @notice Deploys a Safe with the current configuration from the registry
