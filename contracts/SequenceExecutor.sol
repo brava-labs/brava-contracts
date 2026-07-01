@@ -74,50 +74,56 @@ contract SequenceExecutor {
         bool supportsBundleContext = false;
         if (hasBundleContext) {
             // Use low-level call to avoid revert if action doesn't implement ERC165
-            (bool success, bytes memory result) = actionAddress.staticcall(
+            (bool ercSuccess, bytes memory ercResult) = actionAddress.staticcall(
                 abi.encodeWithSelector(IERC165.supportsInterface.selector, type(IActionWithBundleContext).interfaceId)
             );
-            if (success && result.length >= 32) {
-                supportsBundleContext = abi.decode(result, (bool));
+            if (ercSuccess && ercResult.length >= 32) {
+                supportsBundleContext = abi.decode(ercResult, (bool));
             }
         }
-        
+
+        bool success;
+        bytes memory returnData;
         if (hasBundleContext && supportsBundleContext) {
-            _executeActionWithBundleContext(actionAddress, callData, _bundle, _signature, _strategyId);
+            (success, returnData) = _executeActionWithBundleContext(actionAddress, callData, _bundle, _signature, _strategyId);
         } else {
-            _executeActionStandard(actionAddress, callData);
+            (success, returnData) = _executeActionStandard(actionAddress, callData);
+        }
+
+        // Wrap any action failure in a SequenceExecutor-owned error, carrying the action's index
+        // and id with the original revert nested as `reason`. This pins the top-level selector to
+        // this contract so off-chain monitors can attribute the failure to a specific action and
+        // cannot be tricked by an action emitting bytes that mimic a native module-error selector.
+        if (!success) {
+            revert Errors.SequenceExecutor_ActionReverted(_index, actionId, returnData);
         }
     }
 
     // =============================
     // Standard (non-bundle) execution
     // =============================
-    function _executeActionStandard(address _actionAddress, bytes memory _fullCallData) internal {
-        if (_actionAddress == address(0)) {
-            assembly { revert(0, 0) }
-        }
-        // Delegatecall with provided calldata (non-bundle path)
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            let succeeded := delegatecall(sub(gas(), 5000), _actionAddress, add(_fullCallData, 0x20), mload(_fullCallData), 0, 0)
-            if eq(succeeded, 0) {
-                returndatacopy(0, 0, returndatasize())
-                revert(0, returndatasize())
-            }
-        }
+    /// @dev Delegatecalls the action with the provided calldata. Returns the raw outcome so the
+    ///      caller can wrap any failure with action context (see `_executeAction`).
+    function _executeActionStandard(address _actionAddress, bytes memory _fullCallData)
+        internal
+        returns (bool success, bytes memory returnData)
+    {
+        (success, returnData) = _actionAddress.delegatecall(_fullCallData);
     }
 
     // =============================
     // Bundle-context execution
     // =============================
+    /// @dev Delegatecalls the action through the bundle-context entry point. Returns the raw outcome
+    ///      so the caller can wrap any failure with action context (see `_executeAction`).
     function _executeActionWithBundleContext(
         address _actionAddress,
         bytes memory _actionCallData,
         IEip712TypedDataSafeModule.Bundle calldata _bundle,
         bytes calldata _signature,
         uint16 _strategyId
-    ) internal {
-        (bool success, bytes memory returnData) = _actionAddress.delegatecall(
+    ) internal returns (bool success, bytes memory returnData) {
+        (success, returnData) = _actionAddress.delegatecall(
             abi.encodeWithSelector(
                 IActionWithBundleContext.executeActionWithBundleContext.selector,
                 _actionCallData,
@@ -126,12 +132,5 @@ contract SequenceExecutor {
                 _strategyId
             )
         );
-        if (!success) {
-            if (returnData.length > 0) {
-                assembly { revert(add(returnData, 0x20), mload(returnData)) }
-            } else {
-                revert("Bundle action execution failed");
-            }
-        }
     }
 }

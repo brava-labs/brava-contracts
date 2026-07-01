@@ -84,6 +84,9 @@ contract Errors {
 
     // UpgradeAction errors
 
+    // SequenceExecutor errors
+    error SequenceExecutor_ActionReverted(uint256 actionIndex, bytes4 actionId, bytes reason);
+
     // EIP712TypedDataSafeModule errors
     error EIP712TypedDataSafeModule_InvalidSignature();
     error EIP712TypedDataSafeModule_BundleExpired();
