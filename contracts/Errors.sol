@@ -79,6 +79,9 @@ contract Errors {
     // SendToken errors
     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
 
+    // PullToken errors
+    error PullToken__OnlyDelegateCall();
+
     // UpgradeAction errors
 
     // EIP712TypedDataSafeModule errors

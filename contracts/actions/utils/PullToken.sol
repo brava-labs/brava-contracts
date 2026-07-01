@@ -3,12 +3,18 @@ pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Errors} from "../../Errors.sol";
 import {ActionBase} from "../ActionBase.sol";
 
 /// @title Helper action to pull a token from the specified address
 /// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract PullToken is ActionBase {
     using SafeERC20 for IERC20;
+
+    /// @notice The address of this implementation, captured at deployment
+    /// @dev Used by `onlyDelegateCall` to ensure the action only runs in a Safe's delegatecall context
+    address private immutable SELF = address(this);
+
     /// @param tokenAddr Address of token
     /// @param from From where the tokens are pulled
     /// @param amount Amount of tokens, can be type(uint).max
@@ -18,10 +24,16 @@ contract PullToken is ActionBase {
         uint256 amount;
     }
 
+    /// @notice Restricts execution to delegatecall context (address(this) is the Safe, not the implementation)
+    modifier onlyDelegateCall() {
+        require(address(this) != SELF, Errors.PullToken__OnlyDelegateCall());
+        _;
+    }
+
     constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
 
     /// @inheritdoc ActionBase
-    function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable override {
+    function executeAction(bytes memory _callData, uint16 /*_strategyId*/) public payable override onlyDelegateCall {
         Params memory inputData = _parseInputs(_callData);
 
         _pullToken(inputData.tokenAddr, inputData.from, inputData.amount);
