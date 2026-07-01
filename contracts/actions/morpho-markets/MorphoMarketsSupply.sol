@@ -130,13 +130,15 @@ contract MorphoMarketsSupply is ActionBase {
         uint256 positionAssets = (pos.supplyShares * uint256(mkt.totalSupplyAssets)) / uint256(mkt.totalSupplyShares);
         uint256 fee = _calculateFee(positionAssets, _feeBasis, lastFeeTimestamp, currentTimestamp);
 
+        // Record the fee timestamp before withdrawing/transferring the fee (checks-effects-interactions)
+        // so a callback-capable loan token cannot re-enter on a stale timestamp and collect twice.
+        ADMIN_VAULT.setFeeTimestamp(feeKey);
+
         if (fee > 0) {
             (uint256 actualFee,) = _morpho.withdraw(_marketParams, fee, 0, address(this), address(this));
             IERC20(_marketParams.loanToken).safeTransfer(ADMIN_VAULT.feeConfig().recipient, actualFee);
             feeInTokens = actualFee;
         }
-
-        ADMIN_VAULT.setFeeTimestamp(feeKey);
     }
 
     function _parseInputs(bytes memory _callData) private pure returns (Params memory inputData) {
