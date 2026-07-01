@@ -129,7 +129,9 @@ contract EIP712TypedDataSafeModule is ERC165, ReentrancyGuard {
             _feeRecipient != address(0) &&
             _usdcToken != address(0) &&
             _gasPriceAdaptor != address(0) &&
-            _authRegistry != address(0),
+            _authRegistry != address(0) &&
+            bytes(_domainName).length != 0 &&
+            bytes(_domainVersion).length != 0,
             "Invalid input"
         );
 
