@@ -31,40 +31,15 @@ interface IEip712TypedDataSafeModule {
         Sequence sequence;
     }
 
-    /// @notice Per-manager restriction: limits which ActionType values a manager may execute.
-    /// @dev Only restricted managers need entries. A manager absent from managerRestrictions is unrestricted.
-    struct ManagerRestriction {
-        address manager;
-        uint8[] allowedActionTypes;
-    }
-
-    /// @notice Atomic auth config update applied via the bundle.
-    /// @dev `newVersion == 0` is the no-update sentinel: all other fields are ignored.
-    ///      Any non-zero `newVersion` triggers a snapshot replacement on the AuthRegistry,
-    ///      which enforces version-monotonic semantics with idempotent equality.
-    ///      Owner signs the full target auth config; the registry handles the atomic state transition.
-    ///      Auth updates are NOT scoped to the bundle's chain sequences — the update applies on
-    ///      EVERY chain the bundle is submitted to. This is by design: auth state is global per Safe,
-    ///      and cross-chain propagation relies on the update being applied regardless of which chain's
-    ///      sequence is executed.
-    struct AuthUpdate {
-        uint256 newVersion;
-        address[] newManagers;
-        address[] newCoSigners;
-        uint256 managerCoSignThreshold;
-        ManagerRestriction[] managerRestrictions;
-    }
-
-    /// @notice Bundle structure containing multiple chain sequences and an optional auth config update
+    /// @notice Bundle structure containing sequences for multiple chains
     struct Bundle {
         uint256 expiry;
         ChainSequence[] sequences;
-        AuthUpdate authUpdate;
     }
 
     /// @notice Executes a validated bundle for the current chain and nonce
     /// @param _safeAddr The Safe address to execute on
-    /// @param _bundle The bundle containing sequences for multiple chains and an optional auth update
+    /// @param _bundle The bundle containing sequences for multiple chains
     /// @param _signatures Packed EIP-712 signatures sorted by signer address ascending
     function executeBundle(
         address _safeAddr,
