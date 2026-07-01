@@ -62,6 +62,10 @@ contract AcrossV3Supply is ActionBase {
 
         feeInTokens = _processFee(l1Token, _inputData.feeBasis, lpToken);
 
+        // Record the post-fee balance so a fee-only call (amount == 0) reports the real LP position
+        // rather than a zeroed-out one
+        sharesAfter = IERC20(lpToken).balanceOf(address(this));
+
         // If we have an amount to deposit, do that
         if (_inputData.amount != 0) {
             uint256 amountToDeposit = _inputData.amount == type(uint256).max
