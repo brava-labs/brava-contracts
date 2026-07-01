@@ -3,6 +3,7 @@ pragma solidity =0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Errors} from "../../Errors.sol";
 import {ActionBase} from "../ActionBase.sol";
 import {IEip712TypedDataSafeModule} from "../../interfaces/IEip712TypedDataSafeModule.sol";
 
@@ -20,6 +21,7 @@ contract GasRefundAction is ActionBase {
         address _logger,
         address _eip712Module
     ) ActionBase(_adminVault, _logger) {
+        require(_eip712Module != address(0), Errors.InvalidInput("GasRefundAction", "constructor"));
         EIP712_MODULE = IEip712TypedDataSafeModule(_eip712Module);
     }
 
