@@ -4,6 +4,7 @@ pragma solidity =0.8.28;
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {Errors} from "../Errors.sol";
@@ -32,7 +33,7 @@ import {Enum} from "../libraries/Enum.sol";
 ///      `authUpdate`. The registry survives module upgrades, so re-deploying the module does not
 ///      lose auth state.
 /// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
-contract EIP712TypedDataSafeModule is ERC165 {
+contract EIP712TypedDataSafeModule is ERC165, ReentrancyGuard {
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;
 
@@ -159,6 +160,12 @@ contract EIP712TypedDataSafeModule is ERC165 {
     ///         thresholds → apply auth update → execute sequence.
     ///         Safe deployment is resolved before signer classification so that the classification
     ///         loop always operates on a deployed Safe with a real owner list and registry state.
+    /// @dev `nonReentrant` blocks any re-entry into bundle execution within the same transaction.
+    ///      The guard is contract-wide rather than per-Safe: legitimate concurrency across Safes
+    ///      happens in separate transactions (unaffected), and no in-protocol flow nests an
+    ///      `executeBundle` inside an executing sequence — the CCTP relay enters via its own
+    ///      top-level transaction. A manager-controlled action calling back into the module is
+    ///      therefore the only re-entry path, and it is rejected.
     /// @param _safeAddr The Safe address to execute on
     /// @param _bundle The bundle containing sequences for multiple chains and optional auth update
     /// @param _signatures Packed EIP-712 signatures sorted by signer address ascending.
@@ -167,7 +174,7 @@ contract EIP712TypedDataSafeModule is ERC165 {
         address _safeAddr,
         ITyped.Bundle calldata _bundle,
         bytes calldata _signatures
-    ) external onlyInitialized {
+    ) external nonReentrant onlyInitialized {
         uint256 gasStart = gasleft();
 
         if (_bundle.expiry < block.timestamp + 1) {
