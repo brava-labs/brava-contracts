@@ -37,11 +37,16 @@ contract GasRefundAction is ActionBase {
         if (balance == 0) return;
         uint256 amount = balance < p.maxRefundAmount ? balance : p.maxRefundAmount;
         if (amount == 0) return;
+
+        // Log the amount the module actually receives so a fee-on-transfer refund token can't
+        // make the on-chain telemetry diverge from the module's real balance.
+        uint256 moduleBalanceBefore = IERC20(refundToken).balanceOf(address(EIP712_MODULE));
         IERC20(refundToken).safeTransfer(address(EIP712_MODULE), amount);
+        uint256 amountReceived = IERC20(refundToken).balanceOf(address(EIP712_MODULE)) - moduleBalanceBefore;
 
         LOGGER.logActionEvent(
             LogType.GAS_REFUND_RESERVATION,
-            abi.encode(refundToken, address(EIP712_MODULE), amount)
+            abi.encode(refundToken, address(EIP712_MODULE), amountReceived)
         );
     }
 
