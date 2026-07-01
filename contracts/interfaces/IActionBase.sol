@@ -19,7 +19,8 @@ interface IActionBase {
         COVER_ACTION,
         FEE_ACTION,
         TRANSFER_ACTION,
-        CUSTOM_ACTION
+        CUSTOM_ACTION,
+        UPGRADE_ACTION
     }
 
     /// @notice Enum representing different types of logs.
@@ -40,8 +41,6 @@ interface IActionBase {
         CCTP_BRIDGE_SEND,
         GAS_REFUND_RESERVATION,
         SEQUENCE_COMPLETE,
-        CCTP_BUNDLE_RECEIVE,
-        CCTP_BRIDGE_SEND_WITH_AUTH,
-        CCTP_RELAY_AND_EXECUTE
+        CCTP_BUNDLE_RECEIVE
     }
 }
