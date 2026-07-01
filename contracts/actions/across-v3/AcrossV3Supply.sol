@@ -60,7 +60,9 @@ contract AcrossV3Supply is ActionBase {
         // Get initial balance
         sharesBefore = IERC20(lpToken).balanceOf(address(this));
 
-        feeInTokens = _processFee(l1Token, _inputData.feeBasis, lpToken);
+        // Key the fee timestamp on the LP token (the held position). That is the token a later
+        // SendToken/swap passes to _checkFeesTaken, so both sides must agree on the same key.
+        feeInTokens = _processFee(lpToken, _inputData.feeBasis, lpToken);
 
         // Record the post-fee balance so a fee-only call (amount == 0) reports the real LP position
         // rather than a zeroed-out one
