@@ -41,6 +41,7 @@ interface IActionBase {
         CCTP_BRIDGE_SEND,
         GAS_REFUND_RESERVATION,
         SEQUENCE_COMPLETE,
-        CCTP_BUNDLE_RECEIVE
+        CCTP_BUNDLE_RECEIVE,
+        BUNDLE_AUTHORISED
     }
 }

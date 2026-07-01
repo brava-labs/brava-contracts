@@ -233,6 +233,8 @@ contract EIP712TypedDataSafeModule is ERC165, ReentrancyGuard {
             _enforceManagerRestrictions(_safeAddr, managerAddr, targetSeq.sequence);
         }
 
+        _logBundleAuthorised(_safeAddr, _bundle, signers, coSignCount);
+
         _executeChainSequence(_safeAddr, _bundle, _signatures, expectedSequenceNonce, gasStart, targetSeq);
     }
 
@@ -463,7 +465,8 @@ contract EIP712TypedDataSafeModule is ERC165, ReentrancyGuard {
             );
         }
 
-        _logSequenceComplete(_safeAddr, _bundle.expiry, _expectedSequenceNonce);
+        bytes32 bundleHash = EIP712TypedDataLib.hashBundle(_bundle);
+        _logSequenceComplete(_safeAddr, _expectedSequenceNonce, bundleHash);
     }
 
     /// @notice Delegates a sequence execution call through the Safe's module interface.
@@ -623,14 +626,55 @@ contract EIP712TypedDataSafeModule is ERC165, ReentrancyGuard {
         _logFinalGasRefund(safe, paidAmount, recipient != address(0) ? recipient : safe);
     }
 
+    /// @notice Emits a BUNDLE_AUTHORISED audit-trail event naming who signed the bundle: the single
+    ///         authorising principal (owner or manager) and any co-signers. Emitted once per executed
+    ///         leg, carrying the same bundleHash as SEQUENCE_COMPLETE so off-chain indexers can
+    ///         attribute every leg of a bundle to its signers. Owner-vs-manager is resolved off-chain
+    ///         from registry/Safe state, so no on-chain role tag is emitted.
+    /// @dev Deliberately recomputes the bundle hash and re-queries co-signer status here instead of
+    ///      threading them out of executeBundle: a gas-for-clarity trade-off that keeps the audited
+    ///      signer-classification path untouched and avoids a stack-too-deep in executeBundle.
+    /// @param safe The Safe whose bundle was authorised
+    /// @param bundle The authorised bundle; its chain-independent struct hash is emitted so off-chain
+    ///        indexers share one correlation key across every leg of the bundle
+    /// @param signers The recovered signer set — already validated as owner, manager, or co-signer
+    /// @param coSignCount Number of co-signers among `signers`, used to size the co-signer array
+    function _logBundleAuthorised(
+        address safe,
+        ITyped.Bundle calldata bundle,
+        address[] memory signers,
+        uint256 coSignCount
+    ) internal {
+        bytes32 bundleHash = EIP712TypedDataLib.hashBundle(bundle);
+        address principal;
+        address[] memory coSigners = new address[](coSignCount);
+        uint256 filled;
+        for (uint256 i; i < signers.length; ++i) {
+            address signer = signers[i];
+            if (authRegistry.isCoSigner(safe, signer)) {
+                coSigners[filled] = signer;
+                ++filled;
+            } else {
+                principal = signer;
+            }
+        }
+        ILogger(ADMIN_VAULT.LOGGER()).logActionEvent(
+            IActionBase.LogType.BUNDLE_AUTHORISED,
+            abi.encode(safe, bundleHash, principal, coSigners)
+        );
+    }
+
     /// @notice Emits a SEQUENCE_COMPLETE log event via the AdminVault's logger.
-    /// @param safe The Safe that completed the sequence
-    /// @param expiry The bundle expiry timestamp
-    /// @param sequenceNonce The consumed sequence nonce
-    function _logSequenceComplete(address safe, uint256 expiry, uint256 sequenceNonce) internal {
+    /// @param safe The Safe that completed the sequence (the Logger records the module as caller,
+    ///        so the Safe address is only available here)
+    /// @param sequenceNonce The consumed sequence nonce — how far through the bundle this leg is
+    /// @param bundleHash Chain-independent bundle struct hash. Identical on every leg of the same
+    ///        bundle regardless of chain, so off-chain indexers can link all sequences that belong
+    ///        to one signed bundle — including the two sides of each cross-chain bridge pair.
+    function _logSequenceComplete(address safe, uint256 sequenceNonce, bytes32 bundleHash) internal {
         ILogger(ADMIN_VAULT.LOGGER()).logActionEvent(
             IActionBase.LogType.SEQUENCE_COMPLETE,
-            abi.encode(safe, expiry, block.chainid, sequenceNonce)
+            abi.encode(safe, sequenceNonce, bundleHash)
         );
     }
 
