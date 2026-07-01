@@ -1,19 +1,28 @@
 # EIP-712 Typed Data Module
 
 The `EIP712TypedDataSafeModule` executes multi-signed bundles with chain-specific
-sequences. It verifies signer authority via the AuthRegistry, handles optional
-Safe deployment, enforces manager restrictions, and can process USDC gas refunds.
+sequences. It verifies signer authority against the Safe's owner list and the
+`AuthRegistry`, handles optional Safe deployment, enforces manager restrictions,
+and can process USDC gas refunds.
+
+Auth configuration (managers, co-signers, thresholds) is **not** carried in
+execution bundles. It is written exclusively through the `AuthRegistry`'s own
+Owner-signed `AuthBundle` path (`applyAuthBundle`) — see
+`AUTH_SYSTEM_OVERVIEW.md`. The module only reads from the registry.
 
 ## Core Behavior
 
 - Domain separator uses `chainId: 1` and the target Safe as the verifying
-  contract.
+  contract, so one signature is valid on every chain.
 - Per-Safe nonces are stored on the module and incremented on success.
 - A sequence is selected by `block.chainid` and the expected nonce.
 - Actions are validated against `AdminVault` and the action's `protocolName()`
   and `actionType()`.
 - Sequence execution happens via the Safe (module call →
   `execTransactionFromModule` → `delegatecall` into `SequenceExecutor`).
+- `executeBundle` is `nonReentrant`: re-entering bundle execution within the
+  same transaction reverts. Legitimate cross-Safe concurrency happens in
+  separate transactions and is unaffected.
 - If `enableGasRefund=true`, the sequence must include a refund action
   (`ActionType.FEE_ACTION`). If `enableGasRefund=false`, it must not. The
   module enforces both directions.
@@ -40,30 +49,16 @@ struct ChainSequence {
     Sequence sequence;
 }
 
-struct ManagerRestriction {
-    address manager;
-    uint8[] allowedActionTypes; // bitmap derived on-chain
-}
-
-struct AuthUpdate {
-    uint256 newVersion;           // 0 = no update
-    address[] newManagers;
-    address[] newCoSigners;
-    uint256 managerCoSignThreshold;
-    ManagerRestriction[] managerRestrictions;
-}
-
 struct Bundle {
     uint256 expiry;
     ChainSequence[] sequences;
-    AuthUpdate authUpdate;
 }
 ```
 
 ## Execution Flow
 
 ```
-executeBundle(safe, bundle, signatures)
+executeBundle(safe, bundle, signatures)   [nonReentrant]
   │
   ├─ 1. Reject expired bundles
   ├─ 2. Compute EIP-712 digest
@@ -71,13 +66,13 @@ executeBundle(safe, bundle, signatures)
   ├─ 4. Deploy Safe if target sequence has deploySafe=true and Safe doesn't exist
   ├─ 5. Classify each signer: Owner > CoSigner > Manager > Reject
   ├─ 6. Verify thresholds (owner or manager required; manager needs co-signatures)
-  ├─ 7. Apply auth update if present (owner-only, runs before sequence execution)
-  ├─ 8. Find chain sequence matching block.chainid and expected nonce
-  ├─ 9. Enforce manager restrictions (if manager-signed, no owner)
+  ├─ 7. Find chain sequence matching block.chainid and expected nonce
+  ├─ 8. Enforce manager restrictions (if manager-signed, no owner)
+  ├─ 9. Log BUNDLE_AUTHORISED (bundle hash, authorising principal, co-signers)
   ├─ 10. Validate action definitions against AdminVault
   ├─ 11. Execute sequence through Safe via delegatecall
   ├─ 12. Process gas refund if enabled
-  └─ 13. Log sequence completion
+  └─ 13. Log SEQUENCE_COMPLETE (consumed nonce + chain-independent bundle hash)
 ```
 
 ### Signature Format
@@ -101,17 +96,6 @@ At most one manager is allowed per bundle. Owner classification takes priority,
 so an address that is both a Safe owner and a registered manager/co-signer will
 always count as an Owner.
 
-### Auth Updates
-
-An `AuthUpdate` with `newVersion != 0` triggers a full auth config replacement
-on the AuthRegistry. Only owner-signed bundles (no manager) may carry updates.
-The update applies before sequence execution so that CCTP propagation actions in
-the sequence emit the post-update snapshot.
-
-Auth updates apply on **every chain** the bundle is submitted to, not just the
-chain with a matching sequence. This is by design — auth state is global per
-Safe and cross-chain propagation relies on this.
-
 ### Manager Restrictions
 
 When a bundle is signed by a manager (and no owner), the module checks each
@@ -132,6 +116,20 @@ function getBundleHash(address safe, Bundle calldata bundle) external view retur
 function getRawBundleHash(Bundle calldata bundle) external pure returns (bytes32);
 ```
 
+## Execution Audit Trail
+
+Two Logger events tie every executed leg back to the signed bundle and its
+signers:
+
+- **`BUNDLE_AUTHORISED`** — emitted once per executed leg, carrying the
+  chain-independent bundle struct hash, the authorising principal (owner or
+  manager), and the co-signer addresses. Owner-vs-manager is resolved off-chain
+  from Safe/registry state.
+- **`SEQUENCE_COMPLETE`** — emitted after the sequence executes, carrying the
+  consumed nonce and the same bundle hash, so off-chain indexers can link all
+  legs of one signed bundle across chains (including both sides of a bridge
+  pair).
+
 ## Gas Refunds
 
 - Sequences implement refunds via a dedicated action placed in the sequence and
@@ -140,8 +138,14 @@ function getRawBundleHash(Bundle calldata bundle) external pure returns (bytes32
   - `enableGasRefund=true` → refund action required
   - `enableGasRefund=false` → refund action forbidden
 - USDC is used for refund payments via a gas price adaptor oracle.
-- Recipient is tx.origin (0) or the module's fee recipient (1).
+- Recipient is tx.origin (0) or the module's fee recipient (1); any other
+  value reverts when a fee action is present.
 - `maxRefundAmount` caps the refund (0 = no cap).
+- Bundles entered through the trusted `cctpBundleReceiver` get a configurable
+  `cctpRelayOverhead` gas allowance added, covering relay work (CCTP message
+  validation, Circle's mint, module discovery) spent before the module's gas
+  snapshot. Set via `setCctpRelayRefundConfig` (AdminVault owner-gated); the
+  payout is still capped by `maxRefundAmount`.
 - Any USDC remainder on the module is returned to the Safe after refund.
 
 ## Gas Estimation
