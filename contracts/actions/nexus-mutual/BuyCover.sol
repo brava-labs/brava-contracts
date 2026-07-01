@@ -87,13 +87,18 @@ contract BuyCover is ActionBase {
             IERC20 paymentAsset = IERC20(_assetIdToTokenAddress(params.paymentAsset));
             uint256 balanceBefore = paymentAsset.balanceOf(address(this));
 
-            paymentAsset.safeIncreaseAllowance(address(COVER_BROKER), params.maxPremiumInAsset);
-            
+            // Approve the exact premium ceiling and clear it afterwards. The broker only pulls the
+            // actual premium (<= maxPremiumInAsset), so a strict set-then-clear prevents residual
+            // allowance from accumulating across cover purchases.
+            paymentAsset.forceApprove(address(COVER_BROKER), params.maxPremiumInAsset);
+
             coverId = COVER_BROKER.buyCover(params, poolAllocationRequests);
 
             uint256 balanceAfter = paymentAsset.balanceOf(address(this));
-            
+
             premiumPaid = balanceBefore - balanceAfter;
+
+            paymentAsset.forceApprove(address(COVER_BROKER), 0);
         }
 
         return (params.period, params.amount, premiumPaid, coverId);
