@@ -11,24 +11,29 @@ import {ActionBase} from "../ActionBase.sol";
 /// @notice Morpho Blue markets are NOT ERC4626; this action interacts with the Morpho Blue
 ///         singleton contract directly using market-level supply/withdraw functions.
 /// @dev The Morpho Blue singleton address is read from AdminVault via _configAddress().
-///      Each whitelisted market's loan token is registered as a pool in AdminVault.
-///      The specific market is identified by a bytes32 marketId passed in calldata.
+///      Each market is whitelisted individually: marketKey = address(uint160(uint256(marketId)))
+///      is registered as a pool in AdminVault, so authorization binds the exact market
+///      (and therefore its full MarketParams), not just the shared loan token.
 /// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract MorphoMarketsWithdraw is ActionBase {
     using SafeERC20 for IERC20;
 
+    /// @notice Virtual shares/assets used by Morpho Blue's SharesMathLib for
+    ///         share<->asset conversion; mirroring them keeps our position
+    ///         valuation identical to what Morpho enforces on-chain.
+    uint256 private constant VIRTUAL_SHARES = 1e6;
+    uint256 private constant VIRTUAL_ASSETS = 1;
+
     /// @notice Parameters for the withdraw action
-    /// @param poolId Identifies the registered loan token in AdminVault
+    /// @param marketId The Morpho Blue market identifier (keccak256 of MarketParams); the whitelist unit
     /// @param feeBasis Fee percentage to apply (in basis points, e.g., 100 = 1%)
     /// @param amount Amount of underlying loan token to withdraw (type(uint256).max for full position)
     /// @param maxSharesBurned Maximum Morpho supply shares to burn (slippage protection)
-    /// @param marketId The Morpho Blue market identifier (keccak256 of MarketParams)
     struct Params {
-        bytes4 poolId;
+        bytes32 marketId;
         uint16 feeBasis;
         uint256 amount;
         uint256 maxSharesBurned;
-        bytes32 marketId;
     }
 
     constructor(address _adminVault, address _logger) ActionBase(_adminVault, _logger) {}
@@ -38,19 +43,26 @@ contract MorphoMarketsWithdraw is ActionBase {
         Params memory inputData = _parseInputs(_callData);
         ADMIN_VAULT.checkFeeBasis(inputData.feeBasis);
 
-        address loanToken = ADMIN_VAULT.getPoolAddress(protocolName(), inputData.poolId);
+        // Authorize the exact market: marketKey is derived from the marketId and must be a
+        // whitelisted pool. This binds approval to the full MarketParams, not the shared loan token.
+        address marketKey = address(uint160(uint256(inputData.marketId)));
+        bytes4 poolId = _poolIdFromAddress(marketKey);
+        require(
+            ADMIN_VAULT.getPoolAddress(protocolName(), poolId) == marketKey,
+            Errors.InvalidInput(protocolName(), "marketId")
+        );
+
         IMorphoBlue morpho = IMorphoBlue(_configAddress());
         Id id = Id.wrap(inputData.marketId);
         MarketParams memory marketParams = morpho.idToMarketParams(id);
-        require(marketParams.loanToken == loanToken, Errors.InvalidInput(protocolName(), "marketId"));
 
         (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) = _withdrawFromMarket(
-            inputData, morpho, id, marketParams
+            inputData, morpho, id, marketParams, marketKey
         );
 
         LOGGER.logActionEvent(
             LogType.BALANCE_UPDATE,
-            _encodeBalanceUpdate(_strategyId, inputData.poolId, sharesBefore, sharesAfter, feeInTokens)
+            _encodeBalanceUpdate(_strategyId, poolId, sharesBefore, sharesAfter, feeInTokens)
         );
     }
 
@@ -58,11 +70,12 @@ contract MorphoMarketsWithdraw is ActionBase {
         Params memory _inputData,
         IMorphoBlue _morpho,
         Id _id,
-        MarketParams memory _marketParams
+        MarketParams memory _marketParams,
+        address _marketKey
     ) private returns (uint256 sharesBefore, uint256 sharesAfter, uint256 feeInTokens) {
         sharesBefore = _morpho.position(_id, address(this)).supplyShares;
 
-        feeInTokens = _processMorphoFee(_morpho, _id, _marketParams, _inputData.feeBasis);
+        feeInTokens = _processMorphoFee(_morpho, _id, _marketParams, _marketKey, _inputData.feeBasis);
 
         uint256 sharesBurned;
 
@@ -108,7 +121,9 @@ contract MorphoMarketsWithdraw is ActionBase {
     }
 
     /// @notice Computes the maximum withdrawable amount from a Morpho Blue market
-    /// @dev Capped by both the user's position value and available market liquidity
+    /// @dev Capped by both the user's position value and available market liquidity.
+    ///      Position value uses Morpho's toAssetsDown (virtual shares, rounded down)
+    ///      so the cap is always achievable when Morpho rounds shares up on withdraw.
     function _getMaxWithdraw(
         IMorphoBlue _morpho,
         Id _id
@@ -117,22 +132,31 @@ contract MorphoMarketsWithdraw is ActionBase {
         if (pos.supplyShares == 0) return 0;
 
         Market memory mkt = _morpho.market(_id);
-        uint256 positionAssets = (pos.supplyShares * uint256(mkt.totalSupplyAssets)) / uint256(mkt.totalSupplyShares);
+        uint256 positionAssets = _toAssetsDown(pos.supplyShares, mkt);
         uint256 availableLiquidity = uint256(mkt.totalSupplyAssets) - uint256(mkt.totalBorrowAssets);
 
         return positionAssets < availableLiquidity ? positionAssets : availableLiquidity;
     }
 
+    /// @notice Converts supply shares to assets, matching Morpho Blue's
+    ///         SharesMathLib.toAssetsDown semantics
+    function _toAssetsDown(uint256 _shares, Market memory _mkt) private pure returns (uint256) {
+        return (_shares * (uint256(_mkt.totalSupplyAssets) + VIRTUAL_ASSETS))
+            / (uint256(_mkt.totalSupplyShares) + VIRTUAL_SHARES);
+    }
+
     /// @notice Processes fees for a Morpho Blue position by withdrawing underlying from the market
     /// @dev Morpho Blue positions are not ERC20 tokens, so fees are taken in the underlying
-    ///      loan token by partially withdrawing from the supply position.
+    ///      loan token by partially withdrawing from the supply position. The fee timestamp is
+    ///      keyed per-market (marketKey), so markets sharing a loan token accrue independently.
     function _processMorphoFee(
         IMorphoBlue _morpho,
         Id _id,
         MarketParams memory _marketParams,
+        address _marketKey,
         uint256 _feeBasis
     ) private returns (uint256 feeInTokens) {
-        address feeKey = _marketParams.loanToken;
+        address feeKey = _marketKey;
         uint256 lastFeeTimestamp = ADMIN_VAULT.getLastFeeTimestamp(feeKey);
 
         if (lastFeeTimestamp == 0) {
@@ -154,7 +178,7 @@ contract MorphoMarketsWithdraw is ActionBase {
         _morpho.accrueInterest(_marketParams);
         Market memory mkt = _morpho.market(_id);
 
-        uint256 positionAssets = (pos.supplyShares * uint256(mkt.totalSupplyAssets)) / uint256(mkt.totalSupplyShares);
+        uint256 positionAssets = _toAssetsDown(pos.supplyShares, mkt);
         uint256 fee = _calculateFee(positionAssets, _feeBasis, lastFeeTimestamp, currentTimestamp);
 
         // Record the fee timestamp before withdrawing/transferring the fee (checks-effects-interactions)
