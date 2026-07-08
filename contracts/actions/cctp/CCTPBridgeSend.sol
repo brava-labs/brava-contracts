@@ -6,18 +6,10 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ActionBase} from "../ActionBase.sol";
 import {Errors} from "../../Errors.sol";
 import {ITokenMessengerV2} from "../../interfaces/ICCTP.sol";
-import {IAuthRegistry} from "../../interfaces/IAuthRegistry.sol";
 
 /// @title CCTPBridgeSend - Cross-chain USDC bridging via CCTP V2
-/// @notice Bridges USDC via CCTP V2, optionally propagating the source-chain auth config snapshot
-///         to the destination chain's `AuthRegistry` in the same attested message.
-/// @dev Two modes selected by `CCTPParams.propagateAuth`:
-///        - `false`: hookless `depositForBurn`; orchestrator picks any `destinationCaller`
-///                   (typically `CCTPBundleReceiver` for non-auth flows).
-///        - `true`:  reads the full auth config (managers, co-signers, thresholds) from the local
-///                   `AUTH_REGISTRY` for `address(this)` (the Safe under delegatecall), encodes
-///                   them into the CCTP V2 `hookData`, and forces
-///                   `destinationCaller = address(AUTH_REGISTRY)`.
+/// @notice Bridges USDC via CCTP V2 using a hookless `depositForBurn`; the orchestrator picks the
+///         `destinationCaller` (typically `CCTPBundleReceiver`).
 /// @dev The action executes via delegatecall from the Safe, so address(this) is the Safe during execution.
 /// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract CCTPBridgeSend is ActionBase {
@@ -28,12 +20,6 @@ contract CCTPBridgeSend is ActionBase {
     uint256 public constant DEFAULT_FAST_MAX_FEE = 1000000;
     uint256 public constant DEFAULT_STANDARD_MAX_FEE = 0;
 
-    /// @notice Hook envelope version for auth config snapshots embedded in CCTP V2 messages.
-    uint8 internal constant AUTH_HOOK_VERSION = 1;
-
-    /// @param propagateAuth When true, reads the Safe's auth config from `AUTH_REGISTRY` and
-    ///        embeds it into the CCTP V2 hookData; receiving registry triple-checks Safe identity
-    ///        and applies the snapshot in the same attested message.
     struct CCTPParams {
         address usdcToken;
         uint256 amount;
@@ -41,13 +27,9 @@ contract CCTPBridgeSend is ActionBase {
         bytes32 destinationCaller;
         uint256 maxFee;
         uint32 minFinalityThreshold;
-        bool propagateAuth;
     }
 
     ITokenMessengerV2 public immutable TOKEN_MESSENGER;
-
-    /// @notice Per-chain canonical store of auth state (managers, co-signers, thresholds).
-    IAuthRegistry public immutable AUTH_REGISTRY;
 
     /// @inheritdoc ActionBase
     function actionType() public pure override returns (uint8) {
@@ -62,14 +44,12 @@ contract CCTPBridgeSend is ActionBase {
     constructor(
         address _adminVault,
         address _logger,
-        address _tokenMessenger,
-        address _authRegistry
+        address _tokenMessenger
     ) ActionBase(_adminVault, _logger) {
-        if (_tokenMessenger == address(0) || _authRegistry == address(0)) {
+        if (_tokenMessenger == address(0)) {
             revert Errors.InvalidInput("CCTPBridgeSend", "constructor");
         }
         TOKEN_MESSENGER = ITokenMessengerV2(_tokenMessenger);
-        AUTH_REGISTRY = IAuthRegistry(_authRegistry);
     }
 
     /// @inheritdoc ActionBase
@@ -81,15 +61,23 @@ contract CCTPBridgeSend is ActionBase {
             params.destinationDomain,
             params.destinationCaller,
             params.maxFee,
-            params.minFinalityThreshold,
-            params.propagateAuth
-        ) = abi.decode(_callData, (address, uint256, uint32, bytes32, uint256, uint32, bool));
+            params.minFinalityThreshold
+        ) = abi.decode(_callData, (address, uint256, uint32, bytes32, uint256, uint32));
 
         if (
             params.usdcToken == address(0) ||
             params.amount == 0 ||
-            (!params.propagateAuth && params.destinationCaller == bytes32(0))
+            params.destinationCaller == bytes32(0)
         ) revert Errors.InvalidInput("CCTPBridgeSend", "executeAction");
+
+        // Pin the bridged asset to the chain's USDC, configured per-chain in AdminVault. CCTP V2's
+        // TokenMessenger can burn other registered tokens (e.g. EURC), so matching against an
+        // admin-set address stops an authorised manager from bridging the wrong asset. The bytecode
+        // stays chain-agnostic: a new chain is enabled with a single setActionConfig, no redeploy.
+        address expectedUsdc = _configAddress();
+        if (params.usdcToken != expectedUsdc) {
+            revert Errors.CCTPBridgeSend_UnexpectedToken(params.usdcToken, expectedUsdc);
+        }
 
         _executeCCTPBridge(params, _strategyId);
     }
@@ -106,43 +94,6 @@ contract CCTPBridgeSend is ActionBase {
 
         bytes32 mintRecipient = bytes32(uint256(uint160(address(this))));
 
-        if (params.propagateAuth) {
-            _bridgeWithAuth(params, mintRecipient);
-        } else {
-            _bridgeHookless(params, mintRecipient);
-        }
-
-        uint256 balanceAfter = IERC20(params.usdcToken).balanceOf(address(this));
-        if (balanceBefore - balanceAfter != params.amount) {
-            revert Errors.CCTPBridgeSend_BalanceMismatch(balanceBefore, balanceAfter, params.amount);
-        }
-
-        if (params.propagateAuth) {
-            uint256 version = AUTH_REGISTRY.getVersion(address(this));
-            LOGGER.logActionEvent(
-                LogType.CCTP_BRIDGE_SEND_WITH_AUTH,
-                abi.encode(
-                    address(this),
-                    params.amount,
-                    params.destinationDomain,
-                    bytes32(uint256(uint160(address(AUTH_REGISTRY)))),
-                    version
-                )
-            );
-        } else {
-            LOGGER.logActionEvent(
-                LogType.CCTP_BRIDGE_SEND,
-                abi.encode(
-                    address(this),
-                    params.amount,
-                    params.destinationDomain,
-                    params.destinationCaller
-                )
-            );
-        }
-    }
-
-    function _bridgeHookless(CCTPParams memory params, bytes32 mintRecipient) private {
         TOKEN_MESSENGER.depositForBurn(
             params.amount,
             params.destinationDomain,
@@ -152,60 +103,29 @@ contract CCTPBridgeSend is ActionBase {
             params.maxFee,
             params.minFinalityThreshold
         );
-    }
 
-    /// @dev Auth-propagating path. Reads the full auth config for `address(this)` (the Safe
-    ///      under delegatecall), encodes it into a hookVersion-1 envelope, and forces
-    ///      `destinationCaller = address(AUTH_REGISTRY)`.
-    function _bridgeWithAuth(CCTPParams memory params, bytes32 mintRecipient) private {
-        bytes memory hookData = _buildAuthHookData();
-        bytes32 destinationCaller = bytes32(uint256(uint160(address(AUTH_REGISTRY))));
-
-        TOKEN_MESSENGER.depositForBurnWithHook(
-            params.amount,
-            params.destinationDomain,
-            mintRecipient,
-            params.usdcToken,
-            destinationCaller,
-            params.maxFee,
-            params.minFinalityThreshold,
-            hookData
-        );
-    }
-
-    /// @dev Reads the full auth config snapshot from `AUTH_REGISTRY` for this Safe
-    ///      and encodes it into a hook envelope for cross-chain propagation.
-    ///      This reads the registry AFTER any authUpdate in the same bundle has applied.
-    ///      That ordering is intentional and load-bearing — the destination chain
-    ///      receives the post-update state.
-    function _buildAuthHookData() private view returns (bytes memory) {
-        address safe = address(this);
-        address[] memory managers = AUTH_REGISTRY.getManagers(safe);
-
-        uint256[] memory bitmaps = new uint256[](managers.length);
-        for (uint256 i; i < managers.length; ++i) {
-            bitmaps[i] = AUTH_REGISTRY.getManagerActionBitmap(safe, managers[i]);
+        uint256 balanceAfter = IERC20(params.usdcToken).balanceOf(address(this));
+        if (balanceBefore - balanceAfter != params.amount) {
+            revert Errors.CCTPBridgeSend_BalanceMismatch(balanceBefore, balanceAfter, params.amount);
         }
 
-        bytes memory payload = abi.encode(
-            safe,
-            AUTH_REGISTRY.getVersion(safe),
-            managers,
-            AUTH_REGISTRY.getCoSigners(safe),
-            AUTH_REGISTRY.getManagerCoSignThreshold(safe),
-            bitmaps
+        LOGGER.logActionEvent(
+            LogType.CCTP_BRIDGE_SEND,
+            abi.encode(
+                address(this),
+                params.amount,
+                params.destinationDomain,
+                params.destinationCaller
+            )
         );
-        return abi.encode(AUTH_HOOK_VERSION, payload);
     }
-
 
     function createFastTransferParams(
         address usdcToken,
         uint256 amount,
         uint32 destinationDomain,
         address destinationCaller,
-        uint256 customMaxFee,
-        bool propagateAuth
+        uint256 customMaxFee
     ) external pure returns (CCTPParams memory) {
         return CCTPParams({
             usdcToken: usdcToken,
@@ -213,8 +133,7 @@ contract CCTPBridgeSend is ActionBase {
             destinationDomain: destinationDomain,
             destinationCaller: bytes32(uint256(uint160(destinationCaller))),
             maxFee: customMaxFee > 0 ? customMaxFee : DEFAULT_FAST_MAX_FEE,
-            minFinalityThreshold: FAST_FINALITY_THRESHOLD,
-            propagateAuth: propagateAuth
+            minFinalityThreshold: FAST_FINALITY_THRESHOLD
         });
     }
 
@@ -222,8 +141,7 @@ contract CCTPBridgeSend is ActionBase {
         address usdcToken,
         uint256 amount,
         uint32 destinationDomain,
-        address destinationCaller,
-        bool propagateAuth
+        address destinationCaller
     ) external pure returns (CCTPParams memory) {
         return CCTPParams({
             usdcToken: usdcToken,
@@ -231,8 +149,7 @@ contract CCTPBridgeSend is ActionBase {
             destinationDomain: destinationDomain,
             destinationCaller: bytes32(uint256(uint160(destinationCaller))),
             maxFee: DEFAULT_STANDARD_MAX_FEE,
-            minFinalityThreshold: STANDARD_FINALITY_THRESHOLD,
-            propagateAuth: propagateAuth
+            minFinalityThreshold: STANDARD_FINALITY_THRESHOLD
         });
     }
 }

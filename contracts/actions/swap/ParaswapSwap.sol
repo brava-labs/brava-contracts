@@ -87,45 +87,73 @@ contract ParaswapSwap is ActionBase {
         // _strategyId is ignored, as this action is not strategy-specific
         _strategyId;
 
-        // Extract the destination token from swapCallData
-        address extractedDestToken = extractSwapDestination(params.swapCallData);
+        // Decode both the source and destination tokens from swapCallData
+        (address extractedSrcToken, address extractedDestToken) = extractSwapTokens(params.swapCallData);
 
-        // Verify the destination token is approved in the registry
+        // Verify the input token is approved and matches the declared tokenIn. This pins the asset
+        // the router is allowed to spend to the one the Safe approved, even if a residual allowance exists.
+        require(
+            TOKEN_REGISTRY.isApprovedToken(params.tokenIn),
+            Errors.Paraswap__TokenNotApproved(params.tokenIn)
+        );
+        require(
+            extractedSrcToken == params.tokenIn,
+            Errors.Paraswap__SourceTokenMismatch(params.tokenIn, extractedSrcToken)
+        );
+
+        // Verify the destination token is approved and matches the declared tokenOut
         require(
             TOKEN_REGISTRY.isApprovedToken(extractedDestToken),
             Errors.Paraswap__TokenNotApproved(extractedDestToken)
         );
-        
-        // Validate the extracted destination token against our expectations
         require(
             extractedDestToken == params.tokenOut,
             Errors.Paraswap__TokenMismatch(params.tokenOut, extractedDestToken)
         );
-        
+
         // Execute the swap
         _paraswapSwap(params);
+    }
+
+    /// @notice Extracts the source token from swap call data
+    /// @param _swapCallData The calldata for the swap
+    /// @return The extracted source token address
+    function extractSwapSource(bytes memory _swapCallData) public pure returns (address) {
+        (address srcToken, ) = extractSwapTokens(_swapCallData);
+        return srcToken;
     }
 
     /// @notice Extracts the destination token from swap call data
     /// @param _swapCallData The calldata for the swap
     /// @return The extracted destination token address
     function extractSwapDestination(bytes memory _swapCallData) public pure returns (address) {
+        (, address destToken) = extractSwapTokens(_swapCallData);
+        return destToken;
+    }
+
+    /// @notice Decodes the source and destination tokens from Augustus swap calldata
+    /// @param _swapCallData The calldata for the swap
+    /// @return srcToken The source token the router will spend
+    /// @return destToken The destination token the router will return
+    /// @dev Every supported Augustus swap struct lays out srcToken immediately before destToken,
+    ///      so the source address sits exactly one 32-byte word ahead of the destination address.
+    function extractSwapTokens(bytes memory _swapCallData) public pure returns (address srcToken, address destToken) {
         // Make sure we have enough data to extract the selector
         require(_swapCallData.length >= 4, Errors.Paraswap__InvalidCalldata());
-        
+
         // Extract the function selector from the first 4 bytes
-        bytes4 selector = bytes4(_swapCallData[0]) | (bytes4(_swapCallData[1]) >> 8) | 
+        bytes4 selector = bytes4(_swapCallData[0]) | (bytes4(_swapCallData[1]) >> 8) |
                           (bytes4(_swapCallData[2]) >> 16) | (bytes4(_swapCallData[3]) >> 24);
-        
-        // Default position for data extraction
+
+        // Position of the destination token word, measured from the start of the calldata
         uint256 destTokenPosition;
-        
+
         // Set position based on function selector
         if (selector == SWAP_EXACT_AMOUNT_IN_SELECTOR) {
             // swapExactAmountIn
             destTokenPosition = 68;
         } else if (selector == UNISWAP_V3_SWAP_SELECTOR) {
-            // swapExactAmountInOnUniswapV3 
+            // swapExactAmountInOnUniswapV3
             destTokenPosition = 132;
         } else if (selector == CURVE_V1_SWAP_SELECTOR) {
             // swapExactAmountInOnCurveV1
@@ -143,19 +171,21 @@ contract ParaswapSwap is ActionBase {
             // Unknown selector, revert
             revert Errors.Paraswap__UnsupportedSelector(selector);
         }
-        
-        // Extract the destination token
-        address destToken;
-        
+
+        // srcToken is encoded one 32-byte word before destToken in every supported struct
+        uint256 srcTokenPosition = destTokenPosition - 32;
+
+        // Ensure the calldata is long enough to read the destination word in full; this also
+        // covers the earlier source word, preventing out-of-bounds reads on truncated calldata
+        require(_swapCallData.length >= destTokenPosition + 32, Errors.Paraswap__InvalidCalldata());
+
         assembly {
             // The actual data in _swapCallData starts at memory position add(_swapCallData, 32)
             let dataPtr := add(_swapCallData, 32)
-            
-            // Extract the destination token address at the specified position
+
+            srcToken := and(mload(add(dataPtr, srcTokenPosition)), 0xffffffffffffffffffffffffffffffffffffffff)
             destToken := and(mload(add(dataPtr, destTokenPosition)), 0xffffffffffffffffffffffffffffffffffffffff)
         }
-        
-        return destToken;
     }
 
     /// @notice Executes the Paraswap swap
@@ -172,8 +202,10 @@ contract ParaswapSwap is ActionBase {
         IERC20 tokenIn = IERC20(_params.tokenIn);
         IERC20 tokenOut = IERC20(_params.tokenOut);
 
-        // Approve spending of input token
-        tokenIn.safeIncreaseAllowance(address(AUGUSTUS_ROUTER), _params.fromAmount);
+        // Approve the router for exactly the input amount. Augustus routes can leave part of the
+        // input unspent, so a strict set-then-clear avoids residual allowances accumulating across
+        // swaps and stays compatible with tokens that require a zero reset (e.g. USDT).
+        tokenIn.forceApprove(address(AUGUSTUS_ROUTER), _params.fromAmount);
 
         // Record balance before swap
         uint256 balanceBefore = tokenOut.balanceOf(address(this));
@@ -195,6 +227,9 @@ contract ParaswapSwap is ActionBase {
             amountReceived >= _params.minToAmount,
             Errors.Paraswap__InsufficientOutput(amountReceived, _params.minToAmount)
         );
+
+        // Clear any allowance left unused by the router
+        tokenIn.forceApprove(address(AUGUSTUS_ROUTER), 0);
 
         LOGGER.logActionEvent(
             LogType.PARASWAP_SWAP,

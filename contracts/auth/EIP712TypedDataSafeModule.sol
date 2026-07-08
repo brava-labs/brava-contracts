@@ -4,6 +4,7 @@ pragma solidity =0.8.28;
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {Errors} from "../Errors.sol";
@@ -27,12 +28,12 @@ import {Enum} from "../libraries/Enum.sol";
 ///         Verifies packed multi-signatures against Safe owners, co-signers, and managers
 ///         (sourced from AuthRegistry) and forwards validated sequences to the sequence executor.
 ///         Includes optional gas refund functionality with economic protections.
-/// @dev Auth state is owned by the per-chain AuthRegistry. The module reads from the registry for
-///      the signer gate and writes through the registry when an Owner-signed bundle carries an
-///      `authUpdate`. The registry survives module upgrades, so re-deploying the module does not
-///      lose auth state.
+/// @dev Auth state is owned by the per-chain AuthRegistry. The module only reads from the registry
+///      for the signer gate; auth config is written exclusively through the registry's own
+///      Owner-signed AuthBundle path. The registry survives module upgrades, so re-deploying the
+///      module does not lose auth state.
 /// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
-contract EIP712TypedDataSafeModule is ERC165 {
+contract EIP712TypedDataSafeModule is ERC165, ReentrancyGuard {
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;
 
@@ -79,6 +80,18 @@ contract EIP712TypedDataSafeModule is ERC165 {
     uint256 public gasRefundOverhead;
     /// @notice Address of the gas price adaptor contract providing refund rate quotes.
     address public gasPriceAdaptor;
+
+    /// @notice Trusted CCTP relay entry point. When this address is the caller of `executeBundle`,
+    ///         the refund includes `cctpRelayOverhead` to cover gas spent before this module captures
+    ///         its `gasStart` snapshot — CCTP message validation, Circle's `receiveMessage` mint, and
+    ///         Brava module discovery. Settable post-deploy by the AdminVault owner so the relay entry
+    ///         can be retargeted without redeploying the module.
+    address public cctpBundleReceiver;
+
+    /// @notice Extra fixed gas allowance refunded on the CCTP relay path (see `cctpBundleReceiver`).
+    ///         Approximate by design — dominated by Circle's `receiveMessage` — and the per-bundle
+    ///         `maxRefundAmount` still caps total payout. Calibrate per chain.
+    uint256 public cctpRelayOverhead;
 
     /// @notice Per-chain canonical store of managers, co-signers, and thresholds.
     IAuthRegistry public authRegistry;
@@ -128,7 +141,9 @@ contract EIP712TypedDataSafeModule is ERC165 {
             _feeRecipient != address(0) &&
             _usdcToken != address(0) &&
             _gasPriceAdaptor != address(0) &&
-            _authRegistry != address(0),
+            _authRegistry != address(0) &&
+            bytes(_domainName).length != 0 &&
+            bytes(_domainVersion).length != 0,
             "Invalid input"
         );
 
@@ -145,6 +160,23 @@ contract EIP712TypedDataSafeModule is ERC165 {
         isInitialized = true;
     }
 
+    /// @notice Sets the trusted CCTP relay entry point and the gas-refund overhead allowance applied
+    ///         to bundles entered through it.
+    /// @dev Gated by the AdminVault `OWNER_ROLE` — the production governance authority — not by
+    ///      `CONFIG_SETTER` (deploy-time only). Kept out of `initializeConfig` so the relay entry can
+    ///      be retargeted or its allowance recalibrated without redeploying the module and
+    ///      re-enabling it on every Safe. Pass `address(0)` to disable the allowance.
+    /// @param _cctpBundleReceiver Trusted CCTP relay contract whose calls qualify for the allowance.
+    /// @param _cctpRelayOverhead Fixed gas allowance added to refunds entered via the relay.
+    function setCctpRelayRefundConfig(
+        address _cctpBundleReceiver,
+        uint256 _cctpRelayOverhead
+    ) external onlyInitialized {
+        require(ADMIN_VAULT.hasRole(ADMIN_VAULT.OWNER_ROLE(), msg.sender), "Unauthorized");
+        cctpBundleReceiver = _cctpBundleReceiver;
+        cctpRelayOverhead = _cctpRelayOverhead;
+    }
+
     /// @notice ERC-165 interface support check.
     /// @param interfaceId The interface identifier to query
     /// @return True if this contract supports the given interface
@@ -156,18 +188,24 @@ contract EIP712TypedDataSafeModule is ERC165 {
 
     /// @notice Executes a validated bundle for the current chain and nonce.
     ///         Flow: recover signers → deploy Safe if requested → classify signers → verify
-    ///         thresholds → apply auth update → execute sequence.
+    ///         thresholds → execute sequence.
     ///         Safe deployment is resolved before signer classification so that the classification
     ///         loop always operates on a deployed Safe with a real owner list and registry state.
+    /// @dev `nonReentrant` blocks any re-entry into bundle execution within the same transaction.
+    ///      The guard is contract-wide rather than per-Safe: legitimate concurrency across Safes
+    ///      happens in separate transactions (unaffected), and no in-protocol flow nests an
+    ///      `executeBundle` inside an executing sequence — the CCTP relay enters via its own
+    ///      top-level transaction. A manager-controlled action calling back into the module is
+    ///      therefore the only re-entry path, and it is rejected.
     /// @param _safeAddr The Safe address to execute on
-    /// @param _bundle The bundle containing sequences for multiple chains and optional auth update
+    /// @param _bundle The bundle containing sequences for multiple chains
     /// @param _signatures Packed EIP-712 signatures sorted by signer address ascending.
     ///        Each signature is 65 bytes (r[32] || s[32] || v[1]).
     function executeBundle(
         address _safeAddr,
         ITyped.Bundle calldata _bundle,
         bytes calldata _signatures
-    ) external onlyInitialized {
+    ) external nonReentrant onlyInitialized {
         uint256 gasStart = gasleft();
 
         if (_bundle.expiry < block.timestamp + 1) {
@@ -186,8 +224,6 @@ contract EIP712TypedDataSafeModule is ERC165 {
 
         _verifyThresholds(_safeAddr, hasOwner, hasManager, coSignCount);
 
-        _applyAuthUpdate(_safeAddr, _bundle.authUpdate, hasOwner, hasManager, signers[0]);
-
         (bool hasSequence, ITyped.ChainSequence memory targetSeq) = _tryFindChainSequence(
             _bundle.sequences, block.chainid, expectedSequenceNonce
         );
@@ -196,6 +232,8 @@ contract EIP712TypedDataSafeModule is ERC165 {
         if (hasManager && !hasOwner) {
             _enforceManagerRestrictions(_safeAddr, managerAddr, targetSeq.sequence);
         }
+
+        _logBundleAuthorised(_safeAddr, _bundle, signers, coSignCount);
 
         _executeChainSequence(_safeAddr, _bundle, _signatures, expectedSequenceNonce, gasStart, targetSeq);
     }
@@ -304,7 +342,9 @@ contract EIP712TypedDataSafeModule is ERC165 {
     /// @param _safeAddr The deployed Safe whose owner list is used for classification
     /// @param _signers Recovered signer addresses (from _recoverSigners)
     /// @return hasOwner True if at least one signer is a Safe owner
-    /// @return hasManager True if at least one signer is a registered manager
+    /// @return hasManager True if exactly one signer is a registered manager. At most one manager is
+    ///         permitted per bundle — a second manager signature reverts with
+    ///         EIP712TypedDataSafeModule_MultipleManagers.
     /// @return managerAddr The manager address (address(0) if no manager)
     /// @return coSignCount Number of co-signer signatures (does NOT include owner or manager)
     function _classifySigners(
@@ -381,41 +421,6 @@ contract EIP712TypedDataSafeModule is ERC165 {
         }
     }
 
-    /// @notice Applies an auth config update from the bundle if present (newVersion != 0).
-    ///         Only Owner-signed bundles (no manager) may carry auth updates.
-    ///         Intentionally runs BEFORE the chain-sequence check and BEFORE sequence execution so that:
-    ///         (a) an Owner bundle can propagate auth to any chain it's submitted on (cross-chain auth),
-    ///         (b) any `CCTPBridgeSend(propagateAuth=true)` in the sequence emits the post-update snapshot.
-    ///      Replay safety: version-monotonic + expiry + per-Safe nonce (on sequence execution).
-    /// @param _safeAddr The Safe to update auth config for
-    /// @param _update The auth update payload (newVersion == 0 means no-op)
-    /// @param _hasOwner Whether an owner signature is present
-    /// @param _hasManager Whether a manager signature is present
-    /// @param _firstSigner The lowest-address signer (signers are sorted ascending). Emitted in the
-    ///        revert for diagnostic correlation — it is NOT necessarily the signer who "caused" the
-    ///        failure (e.g. a cosigner could be the lowest address).
-    function _applyAuthUpdate(
-        address _safeAddr,
-        ITyped.AuthUpdate calldata _update,
-        bool _hasOwner,
-        bool _hasManager,
-        address _firstSigner
-    ) internal {
-        if (_update.newVersion == 0) return;
-
-        if (!_hasOwner || _hasManager) {
-            revert Errors.EIP712TypedDataSafeModule_OnlyOwnerCanUpdateAuth(_firstSigner);
-        }
-        authRegistry.setAuthConfig(
-            _safeAddr,
-            _update.newVersion,
-            _update.newManagers,
-            _update.newCoSigners,
-            _update.managerCoSignThreshold,
-            _update.managerRestrictions
-        );
-    }
-
     /// @notice Executes the chain sequence for the current chain.
     /// @param _safeAddr The Safe to execute through
     /// @param _bundle The full bundle (needed for execThroughSafe passthrough)
@@ -460,7 +465,8 @@ contract EIP712TypedDataSafeModule is ERC165 {
             );
         }
 
-        _logSequenceComplete(_safeAddr, _bundle.expiry, _expectedSequenceNonce);
+        bytes32 bundleHash = EIP712TypedDataLib.hashBundle(_bundle);
+        _logSequenceComplete(_safeAddr, _expectedSequenceNonce, bundleHash);
     }
 
     /// @notice Delegates a sequence execution call through the Safe's module interface.
@@ -563,7 +569,9 @@ contract EIP712TypedDataSafeModule is ERC165 {
     /// @notice Calculates and executes a gas refund in USDC using the gas price adaptor's rate.
     /// @param safe The Safe that owns the USDC used for the refund
     /// @param maxRefundAmount Bundle-level cap on the refund amount (0 = no cap)
-    /// @param refundRecipient 0 = refund to tx.origin, non-zero = refund to FEE_RECIPIENT
+    /// @param refundRecipient 0 = refund to tx.origin, 1 = refund to FEE_RECIPIENT. Only 0 or 1 are
+    ///        valid; any other value is rejected upstream in _validateSequenceActionsAndDetectRefund
+    ///        when a fee action is present.
     /// @param gasStart The gasleft() snapshot captured at the start of bundle execution
     function _executeGasRefund(
         address safe,
@@ -582,7 +590,14 @@ contract EIP712TypedDataSafeModule is ERC165 {
         (uint256 ratePerGas, uint256 fixedFee) = _getRefundRate();
 
         if (ratePerGas > 0) {
-            uint256 gasUsed = gasStart > gasleft() ? (gasStart - gasleft() + gasRefundOverhead) : 0;
+            uint256 overhead = gasRefundOverhead;
+            // The CCTP relay path spends gas on message validation, Circle's receiveMessage mint, and
+            // module discovery before gasStart is captured; add the configured allowance so the
+            // relayer is refunded for that out-of-band work. maxRefundAmount still caps the payout.
+            if (cctpBundleReceiver != address(0) && msg.sender == cctpBundleReceiver) {
+                overhead += cctpRelayOverhead;
+            }
+            uint256 gasUsed = gasStart > gasleft() ? (gasStart - gasleft() + overhead) : 0;
 
             if (gasUsed > 0) {
                 refundAmount = (gasUsed * ratePerGas) / 1e18 + fixedFee;
@@ -611,14 +626,55 @@ contract EIP712TypedDataSafeModule is ERC165 {
         _logFinalGasRefund(safe, paidAmount, recipient != address(0) ? recipient : safe);
     }
 
+    /// @notice Emits a BUNDLE_AUTHORISED audit-trail event naming who signed the bundle: the single
+    ///         authorising principal (owner or manager) and any co-signers. Emitted once per executed
+    ///         leg, carrying the same bundleHash as SEQUENCE_COMPLETE so off-chain indexers can
+    ///         attribute every leg of a bundle to its signers. Owner-vs-manager is resolved off-chain
+    ///         from registry/Safe state, so no on-chain role tag is emitted.
+    /// @dev Deliberately recomputes the bundle hash and re-queries co-signer status here instead of
+    ///      threading them out of executeBundle: a gas-for-clarity trade-off that keeps the audited
+    ///      signer-classification path untouched and avoids a stack-too-deep in executeBundle.
+    /// @param safe The Safe whose bundle was authorised
+    /// @param bundle The authorised bundle; its chain-independent struct hash is emitted so off-chain
+    ///        indexers share one correlation key across every leg of the bundle
+    /// @param signers The recovered signer set — already validated as owner, manager, or co-signer
+    /// @param coSignCount Number of co-signers among `signers`, used to size the co-signer array
+    function _logBundleAuthorised(
+        address safe,
+        ITyped.Bundle calldata bundle,
+        address[] memory signers,
+        uint256 coSignCount
+    ) internal {
+        bytes32 bundleHash = EIP712TypedDataLib.hashBundle(bundle);
+        address principal;
+        address[] memory coSigners = new address[](coSignCount);
+        uint256 filled;
+        for (uint256 i; i < signers.length; ++i) {
+            address signer = signers[i];
+            if (authRegistry.isCoSigner(safe, signer)) {
+                coSigners[filled] = signer;
+                ++filled;
+            } else {
+                principal = signer;
+            }
+        }
+        ILogger(ADMIN_VAULT.LOGGER()).logActionEvent(
+            IActionBase.LogType.BUNDLE_AUTHORISED,
+            abi.encode(safe, bundleHash, principal, coSigners)
+        );
+    }
+
     /// @notice Emits a SEQUENCE_COMPLETE log event via the AdminVault's logger.
-    /// @param safe The Safe that completed the sequence
-    /// @param expiry The bundle expiry timestamp
-    /// @param sequenceNonce The consumed sequence nonce
-    function _logSequenceComplete(address safe, uint256 expiry, uint256 sequenceNonce) internal {
+    /// @param safe The Safe that completed the sequence (the Logger records the module as caller,
+    ///        so the Safe address is only available here)
+    /// @param sequenceNonce The consumed sequence nonce — how far through the bundle this leg is
+    /// @param bundleHash Chain-independent bundle struct hash. Identical on every leg of the same
+    ///        bundle regardless of chain, so off-chain indexers can link all sequences that belong
+    ///        to one signed bundle — including the two sides of each cross-chain bridge pair.
+    function _logSequenceComplete(address safe, uint256 sequenceNonce, bytes32 bundleHash) internal {
         ILogger(ADMIN_VAULT.LOGGER()).logActionEvent(
             IActionBase.LogType.SEQUENCE_COMPLETE,
-            abi.encode(safe, expiry, block.chainid, sequenceNonce)
+            abi.encode(safe, sequenceNonce, bundleHash)
         );
     }
 
@@ -642,7 +698,9 @@ contract EIP712TypedDataSafeModule is ERC165 {
 
     /// @notice Validates each action in a sequence against its on-chain definition and detects gas refund actions.
     /// @param _sequence The sequence whose actions are being validated
-    /// @param _refundRecipient Non-zero if the bundle expects a gas refund (used to detect refund actions)
+    /// @param _refundRecipient Selects the gas-refund recipient: 0 = tx.origin, 1 = FEE_RECIPIENT. When a
+    ///        fee action is present any value other than 0 or 1 reverts with
+    ///        EIP712TypedDataSafeModule_InvalidRefundRecipient.
     /// @return actionIds The validated action ID selectors
     /// @return hasRefundAction True if one of the actions is a gas refund action
     function _validateSequenceActionsAndDetectRefund(ITyped.Sequence memory _sequence, uint8 _refundRecipient)
@@ -736,8 +794,6 @@ contract EIP712TypedDataSafeModule is ERC165 {
             _deploySafeForEstimation(_safeAddr, msg.sender);
         }
 
-        _applySimulationAuthUpdate(_safeAddr, _bundle.authUpdate);
-
         (bytes4[] memory actionIds, bool hasRefundAction) = _validateSequenceActionsAndDetectRefund(
             targetSequence.sequence,
             targetSequence.refundRecipient
@@ -779,24 +835,6 @@ contract EIP712TypedDataSafeModule is ERC165 {
                 revert Errors.EIP712TypedDataSafeModule_SafeDeploymentFailed();
             }
         }
-    }
-
-    /// @notice Applies an auth update during gas estimation (no owner/manager gating).
-    /// @param _safeAddr The Safe to update auth config for
-    /// @param _update The auth update payload (newVersion == 0 means no-op)
-    function _applySimulationAuthUpdate(
-        address _safeAddr,
-        ITyped.AuthUpdate calldata _update
-    ) internal {
-        if (_update.newVersion == 0) return;
-        authRegistry.setAuthConfig(
-            _safeAddr,
-            _update.newVersion,
-            _update.newManagers,
-            _update.newCoSigners,
-            _update.managerCoSignThreshold,
-            _update.managerRestrictions
-        );
     }
 
     /// @notice Rejects direct ETH transfers to prevent accidental locking.

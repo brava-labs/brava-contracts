@@ -128,7 +128,7 @@ contract UpgradeAction is ActionBase {
 
     /// @inheritdoc ActionBase
     function actionType() public pure override returns (uint8) {
-        return uint8(ActionType.CUSTOM_ACTION);
+        return uint8(ActionType.UPGRADE_ACTION);
     }
 
     /// @inheritdoc ActionBase

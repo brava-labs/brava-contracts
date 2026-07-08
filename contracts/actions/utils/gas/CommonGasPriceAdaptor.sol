@@ -32,11 +32,28 @@ abstract contract CommonGasPriceAdaptor is IGasPriceAdaptor {
     /// @return valid True if valid token configuration
     function _getConversionExponent(address refundToken) internal view returns (uint256 exponent, bool valid) {
         uint256 oracleDecimals = IAggregatorV3(ethUsdOracle).decimals();
-        uint256 tokenDecimals = IERC20Metadata(refundToken).decimals();
-        if (tokenDecimals > 18 + oracleDecimals) {
+        (uint256 tokenDecimals, bool hasDecimals) = _tryGetTokenDecimals(refundToken);
+        if (!hasDecimals || tokenDecimals > 18 + oracleDecimals) {
             return (0, false);
         }
         return (18 + oracleDecimals - tokenDecimals, true);
+    }
+
+    /// @notice Read a refund token's `decimals()` without reverting. A token that omits `decimals()`,
+    ///         reverts, or returns malformed data yields `valid = false`, so the refund degrades to
+    ///         zero rather than reverting the whole bundle.
+    /// @param refundToken Token address to query.
+    /// @return decimals The token decimals (0 when invalid).
+    /// @return valid True when a well-formed `decimals()` value was returned.
+    function _tryGetTokenDecimals(address refundToken) private view returns (uint256 decimals, bool valid) {
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, bytes memory data) = refundToken.staticcall(
+            abi.encodeWithSelector(IERC20Metadata.decimals.selector)
+        );
+        if (!success || data.length < 32) {
+            return (0, false);
+        }
+        return (abi.decode(data, (uint8)), true);
     }
 
     /// @notice Convert wei amount to token amount using ETH/USD price

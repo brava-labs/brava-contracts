@@ -21,6 +21,10 @@ contract AssignToken is ActionBase {
     /// @param token Address of the token to assign
     /// @param balanceBefore Previous cumulative balance for this strategy (provided by ts-client)
     /// @param balanceAfter New cumulative balance for this strategy
+    /// @dev `balanceBefore` is trusted off-chain input: it represents the indexer's prior cumulative
+    ///      balance for which there is no on-chain source of truth, so it is emitted for delta
+    ///      accounting only and is not validated here. `balanceAfter` is the only field checked
+    ///      against the Safe's actual holdings. Submitting this action requires an authorised signer.
     struct Params {
         address token;
         uint256 balanceBefore;

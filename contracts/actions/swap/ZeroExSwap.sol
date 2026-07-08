@@ -51,6 +51,10 @@ contract ZeroExSwap is ActionBase {
         _strategyId;
 
         require(
+            TOKEN_REGISTRY.isApprovedToken(params.tokenIn),
+            Errors.ZeroEx__TokenNotApproved(params.tokenIn)
+        );
+        require(
             TOKEN_REGISTRY.isApprovedToken(params.tokenOut),
             Errors.ZeroEx__TokenNotApproved(params.tokenOut)
         );

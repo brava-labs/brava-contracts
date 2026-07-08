@@ -8,7 +8,7 @@ import {IEip712TypedDataSafeModule as ITyped} from "./IEip712TypedDataSafeModule
 ///         on a given Safe. Intentionally minimal — only the bundle execution entry point — so that
 ///         the `interfaceId` stays stable across module upgrades that add features but keep the
 ///         primary entry point shape.
-/// @dev Bridge relay paths (`CCTPBundleReceiver`, `AuthRegistry.relayCCTPAndExecute`) use
+/// @dev The bridge relay path (`CCTPBundleReceiver`) uses
 ///      `BravaModuleLookup` to find the unique enabled module on a Safe that returns true from
 ///      `supportsInterface(type(IBravaSafeModule).interfaceId)`. This decouples relay infrastructure
 ///      from any single module address, so module upgrades require no redeploys downstream.

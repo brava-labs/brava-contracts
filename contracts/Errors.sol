@@ -67,6 +67,7 @@ contract Errors {
     error Paraswap__InsufficientOutput(uint256 _amountReceived, uint256 _minToAmount);
     error Paraswap__TokenNotApproved(address token);
     error Paraswap__TokenMismatch(address expected, address actual);
+    error Paraswap__SourceTokenMismatch(address expected, address actual);
     error Paraswap__InvalidCalldata();
     error Paraswap__UnsupportedSelector(bytes4 selector);
 
@@ -79,7 +80,13 @@ contract Errors {
     // SendToken errors
     error Action_InvalidRecipient(string _protocolName, uint8 _actionType);
 
+    // PullToken errors
+    error PullToken__OnlyDelegateCall();
+
     // UpgradeAction errors
+
+    // SequenceExecutor errors
+    error SequenceExecutor_ActionReverted(uint256 actionIndex, bytes4 actionId, bytes reason);
 
     // EIP712TypedDataSafeModule errors
     error EIP712TypedDataSafeModule_InvalidSignature();
@@ -88,7 +95,6 @@ contract Errors {
     error EIP712TypedDataSafeModule_ActionMismatch(uint256 actionIndex, string expectedProtocol, uint8 expectedType, string actualProtocol, uint8 actualType);
     error EIP712TypedDataSafeModule_ExecutionFailed();
     error EIP712TypedDataSafeModule_SignerNotAuthorised(address signer);
-    error EIP712TypedDataSafeModule_OnlyOwnerCanUpdateAuth(address lowestSigner);
     error EIP712TypedDataSafeModule_InsufficientCoSignatures(uint256 provided, uint256 required);
     error EIP712TypedDataSafeModule_DuplicateSigner(address signer);
     error EIP712TypedDataSafeModule_SignersNotSorted();
@@ -116,8 +122,8 @@ contract Errors {
     error TokenRegistry_TokenNotApproved();
 
     // AuthRegistry errors
-    error AuthRegistry_NotEnabledModule(address safe, address caller);
     error AuthRegistry_StaleVersion(uint256 provided, uint256 current);
+    error AuthRegistry_VersionJumpTooLarge(uint256 current, uint256 provided, uint256 maxIncrease);
     error AuthRegistry_ConflictingConfig(uint256 version);
     error AuthRegistry_TooManyManagers(uint256 count, uint256 max);
     error AuthRegistry_TooManyCoSigners(uint256 count, uint256 max);
@@ -128,27 +134,27 @@ contract Errors {
     error AuthRegistry_CoSignerIsManager(address addr);
     error AuthRegistry_RestrictionForNonManager(address manager);
     error AuthRegistry_EmptyRestriction(address manager);
-    error AuthRegistry_BitmapLengthMismatch(uint256 managersLength, uint256 bitmapsLength);
     error AuthRegistry_DuplicateRestriction(address manager);
-    error AuthRegistry_CCTPRelayFailed();
-    error AuthRegistry_BadHookEnvelope();
-    error AuthRegistry_UnknownHookVersion(uint8 version);
-    error AuthRegistry_HookSafeMismatch(bytes32 burnSender, bytes32 mintRecipient, address hookSafe);
-    error AuthRegistry_HookMessageTooShort();
-    error AuthRegistry_SafeMintRecipientMismatch(address safe, bytes32 mintRecipient);
-    error AuthRegistry_SafeOwnerMismatch(address safe, address ownerAddress, address predicted);
     error AuthRegistry_VersionZero();
+    error AuthRegistry_BundleExpired();
+    error AuthRegistry_InvalidSignatureLength(uint256 length);
+    error AuthRegistry_SignerNotOwner(address safe, address signer);
 
     // CCTPBundleReceiver errors
     error CCTPReceiver_BadMessage();
     error CCTPReceiver_BadVersion(uint32 provided);
+    error CCTPReceiver_BadBurnVersion(uint32 provided);
+    error CCTPReceiver_UntrustedSender(bytes32 sender);
+    error CCTPReceiver_UntrustedRecipient(bytes32 recipient);
     error CCTPReceiver_RelayFailed();
     error CCTPReceiver_ShortHook();
     error CCTPReceiver_OutOfBounds();
+    error CCTPReceiver_SafeMintRecipientMismatch(address safe, bytes32 mintRecipient);
 
     // CCTPBridgeSend errors
     error CCTPBridgeSend_InsufficientBalance(uint256 balance, uint256 amount);
     error CCTPBridgeSend_BalanceMismatch(uint256 beforeBalance, uint256 afterBalance, uint256 expectedDelta);
+    error CCTPBridgeSend_UnexpectedToken(address provided, address expected);
 
     // BravaModuleLookup errors
     error MultipleBravaModules(address first, address second);

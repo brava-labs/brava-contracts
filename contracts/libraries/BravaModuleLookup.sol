@@ -9,8 +9,8 @@ import {ISafe} from "../interfaces/safe/ISafe.sol";
 
 /// @title BravaModuleLookup
 /// @notice Discovers the unique Brava module currently enabled on a Safe by ERC-165 introspection.
-///         Used by bridge relays (`CCTPBundleReceiver`, `AuthRegistry.relayCCTPAndExecute`) so
-///         they never hold a module address and survive module upgrades unchanged.
+///         Used by the bridge relay (`CCTPBundleReceiver`) so it never holds a module address and
+///         survives module upgrades unchanged.
 /// @dev Iterates a single page (`MAX_MODULES_SCANNED`) of `getModulesPaginated` starting at the
 ///      sentinel and matches any module whose `supportsInterface(IBravaSafeModule.interfaceId)`
 ///      returns true. Reverts on zero or more than one match — the Safe owner resolves both states
