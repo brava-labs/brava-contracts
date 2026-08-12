@@ -12,7 +12,7 @@ deployed the Safe. They hold the Safe's signing key and have ultimate authority:
 
 - Full control over auth configuration (managers, co-signers, thresholds)
 - Can execute any sequence of actions without co-signing requirements
-- Can update auth config on the current chain and propagate it cross-chain
+- Signs one chain-agnostic auth config that any relayer can apply on any chain
 - Can withdraw funds via the EmergencyWithdrawModule at any time
 
 The owner does **not** perform day-to-day DeFi operations. Their role is setup,
@@ -27,7 +27,7 @@ by Brava on behalf of the custodian.
 - Executes sequences (supply, withdraw, swap, bridge, etc.) via signed bundles
 - May require co-signer approval depending on the threshold set by the owner
 - Can be scoped to specific action types (e.g. only supply/withdraw, not swaps)
-- **Cannot** modify auth config — only the owner can add/remove managers
+- **Cannot** modify auth config — only an owner-signed AuthBundle can
 - At most one manager signature per bundle (enforced by the module)
 
 ### Co-signer
@@ -50,25 +50,28 @@ The owner (or the Brava relayer on behalf of the owner) deploys a Safe via
 
 ### 2. Auth Configuration
 
-The owner signs a bundle carrying an `AuthUpdate` to register:
+The owner signs an EIP-712 `AuthBundle` — separate from execution bundles —
+carrying a complete auth config snapshot:
 
 - **Managers** — addresses that will execute day-to-day operations
 - **Co-signers** — addresses required to co-approve manager bundles
 - **Co-sign threshold** — how many co-signers a manager bundle needs
 - **Manager restrictions** (optional) — per-manager action type limits
 
-This auth config is stored in the `AuthRegistry`, not in the module itself.
-The registry is a separate contract so that auth state survives module upgrades.
+Any relayer submits the signed bundle to `AuthRegistry.applyAuthBundle` — the
+registry's **single write path**. The signature, not the caller, carries the
+authority. Auth state is stored in the `AuthRegistry`, not in the module, so it
+survives module upgrades.
 
-The owner can propagate the same auth config to other chains in two ways:
+Cross-chain propagation is by construction: the AuthBundle's EIP-712 domain
+binds to the **Safe** (chainId fixed at 1), not to any chain or contract
+deployment, so the same signed payload is relayable on every chain — including
+chains added after signing. Auth config never travels over a bridge; CCTP
+messages carry no auth data.
 
-1. **Same bundle, multiple chains** — the bundle contains chain sequences for
-   each target chain. When submitted on each chain, the auth update applies
-   before any sequence executes.
-2. **CCTP propagation** — a `CCTPBridgeSend` action with `propagateAuth=true`
-   encodes the current auth snapshot into the CCTP hook data. The destination
-   chain's `AuthRegistry` receives the Circle-attested message and applies the
-   snapshot, optionally executing a bundle in the same transaction.
+If the Safe is not yet deployed on a chain, ownership is proven by matching the
+signer's deterministic CREATE2 Safe address, so auth config can land before the
+Safe lazily deploys during its first bundle execution.
 
 ### 3. Day-to-Day Operations
 
@@ -86,20 +89,14 @@ The module validates:
 5. **Action validity** — each action ID must exist in AdminVault and match the
    declared `protocolName` and `actionType`
 6. **Nonce** — per-Safe monotonic nonce prevents replay
+7. **Reentrancy** — `executeBundle` is `nonReentrant`; a bundle cannot be
+   re-entered mid-sequence within the same transaction
 
 ### 4. Auth Updates
 
-Only the **owner** can update auth config. The update is carried inside the
-bundle's `authUpdate` field with a monotonically increasing version number.
-Auth updates apply **before** sequence execution so that:
-
-- A `CCTPBridgeSend(propagateAuth=true)` in the sequence emits the post-update
-  snapshot
-- The update applies on every chain the bundle is submitted to, not just the
-  chain with a sequence
-
-A manager **cannot** carry an auth update — the module reverts if a manager
-signature is present and `authUpdate.newVersion != 0`.
+Only the **owner** can update auth config, by signing a new `AuthBundle` with a
+higher version number and having it relayed to `applyAuthBundle`. Execution
+bundles cannot carry auth updates — the two signing flows are fully separate.
 
 ### 5. Manager Restrictions
 
@@ -124,12 +121,11 @@ the bundle on each target chain. The module picks the sequence matching
 `block.chainid` and the Safe's current nonce.
 
 For fund movement between chains, the CCTP bridge actions handle Circle's
-cross-chain transfer protocol. The `relayCCTPAndExecute` path on AuthRegistry
-combines three operations into a single attested message:
-
-1. Mint USDC on the destination chain
-2. Apply an auth config snapshot (if present in hook data)
-3. Execute a bundle through the destination Safe's module
+cross-chain transfer protocol. The destination entry point is
+`CCTPBundleReceiver`: a permissionless relay mints the attested USDC to the
+Safe and best-effort executes a separately-signed bundle. CCTP messages carry
+**no** auth data — auth config is applied per-chain through the registry's
+`applyAuthBundle` path only.
 
 ### 7. Emergency Recovery
 
@@ -144,25 +140,29 @@ path is disabled, the Safe owner can still:
 The module is stateless, has no admin, and has no dependency on any
 Brava-controlled contract. Both the caller and recipient must be Safe owners.
 
-## Auth Registry: Three Write Paths
+## Auth Registry: Single Write Path
 
-The AuthRegistry has three ways to receive an auth config update, all sharing
-the same validation and application logic:
+The AuthRegistry has exactly one way to receive an auth config update:
 
 | Path | Trigger | Trust Source | Bundle Execution |
 |------|---------|-------------|-----------------|
-| `setAuthConfig` | Module call after owner bundle verification | Module must be enabled on the Safe | N/A (already in module flow) |
-| `receiveCCTPAuthUpdate` | Permissionless relay of Circle attestation | CCTP message with burn/mint/hook triple-check | No |
-| `relayCCTPAndExecute` | Permissionless relay of Circle attestation | Same as above, plus best-effort bundle forward | Yes (best-effort) |
+| `applyAuthBundle` | Permissionless relay of an Owner-signed AuthBundle | EIP-712 signature by a Safe owner (or, pre-deployment, the CREATE2-derived owner) | No (auth only) |
 
-All three paths enforce:
+Every application enforces:
 
 - Version must be monotonically increasing (stale versions revert)
+- Version cannot jump forward by more than `MAX_VERSION_INCREASE` (10) — bounds
+  version-space exhaustion while letting a chain skip missed versions
 - Same version with identical config is idempotent (no-op)
 - Same version with different config is a conflict (reverts)
 - Max 10 managers, max 10 co-signers per Safe
 - No zero addresses, no address in both manager and co-signer sets
-- Threshold cannot exceed co-signer count
+- Threshold cannot exceed co-signer count. A threshold of **0 with co-signers
+  present is permitted**: it registers a dormant co-signer set for staged
+  onboarding (the co-signer can be exercised in simulation without gating live
+  execution); the threshold is raised in a later update
+- Bundle expiry (`expiry`) bounds how long an unrelayed signed config stays
+  submittable
 
 ## Signer Classification Priority
 
@@ -187,7 +187,8 @@ Auth config versions are per-Safe monotonic counters:
 
 - **Version 0** is reserved (the "uninitialized" sentinel)
 - **First config** must use version >= 1
-- Each subsequent update must use a version strictly greater than the current
+- Each subsequent update must use a version strictly greater than the current,
+  at most `MAX_VERSION_INCREASE` (10) ahead
 - Submitting the same version with the same config is a no-op (idempotent)
 - Submitting the same version with different config reverts (conflict)
 

@@ -73,10 +73,14 @@ abstract contract ActionBase is IActionBase {
         IERC20 vault = IERC20(_feeToken);
         uint256 balance = vault.balanceOf(address(this));
         uint256 fee = _calculateFee(balance, _feePercentage, lastFeeTimestamp, currentTimestamp);
+
+        // Record the fee timestamp before the external transfer (checks-effects-interactions) so a
+        // callback-capable fee token cannot re-enter on a stale timestamp and collect the period twice.
+        ADMIN_VAULT.setFeeTimestamp(_pool);
+
         if (fee > 0) {
             vault.safeTransfer(ADMIN_VAULT.feeConfig().recipient, fee);
         }
-        ADMIN_VAULT.setFeeTimestamp(_pool);
         return fee;
     }
 

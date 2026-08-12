@@ -85,6 +85,10 @@ abstract contract ERC4626Supply is ActionBase {
                 ? maxDeposit 
                 : amountToDeposit;
 
+            // A vault reporting maxDeposit == 0 would otherwise deposit nothing and emit a misleading
+            // zero-amount supply; reject it the same way the withdraw path does
+            require(amountToDeposit != 0, Errors.Action_ZeroAmount(_vaultAddress, protocolName(), uint8(actionType())));
+
             // Perform the deposit
             _increaseAllowance(address(underlyingToken), _vaultAddress, amountToDeposit);
             uint256 shares = _deposit(_vaultAddress, amountToDeposit);

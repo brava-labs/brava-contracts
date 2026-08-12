@@ -16,6 +16,13 @@ Follow-up audit covering additional protocol integrations added after the core a
 
 - [View Report (PDF)](https://github.com/sigp/public-audits/blob/master/reports/brava/module-integrations/report.pdf)
 
+### Sigma Prime -- Core Auth Changes Audit
+
+Follow-up audit of the authentication and execution changes: the EIP-712 typed-data Safe module, AuthRegistry, CCTP bundle relay, emergency withdrawals, and the gas refund system, plus an LLM-assisted scan of the full codebase.
+
+- [View Report (PDF)](https://github.com/sigp/public-audits/blob/master/reports/brava/core-auth/Sigma_Prime_Brava_Core_Auth_Changes_Security_Assessment_Report_v3_0.pdf)
+- Assessed commits: cycle 1 at `01d8274`, cycle 2 at `017f1345` (an audit-time source snapshot that predates this repository's history), and resolutions at `826d0ab`. All resolution commits cited in the report are on `main`.
+
 ## Upcoming
 
 Further audit reports will be linked here as they are completed and approved for public release.

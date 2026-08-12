@@ -29,16 +29,18 @@ contract MapleWithdrawQueue is ShareBasedWithdraw {
         uint256 /* _minUnderlyingReceived */
     ) internal override {
         IMaplePool pool = IMaplePool(_vaultAddress);
-        
-        // Get the withdrawal manager address from the pool
+
         address withdrawalManager = IMaplePoolManager(pool.manager()).withdrawalManager();
-        
-        // Get the next request ID which will be our request ID once submitted
-        (uint256 requestId, ) = IMapleWithdrawalManager(withdrawalManager).queue();
-        
-        // Submit a withdrawal request for the specified number of shares
+
+        // Submit the withdrawal request. Maple escrows the shares and appends the
+        // request to its FIFO queue; the underlying assets are released later when
+        // Maple's pool delegate processes the queue.
         pool.requestRedeem(_sharesToBurn, address(this));
-        
+
+        // The request just submitted is the newest entry in the queue, so the
+        // queue's lastRequestId identifies it.
+        (, uint256 requestId) = IMapleWithdrawalManager(withdrawalManager).queue();
+
         LOGGER.logActionEvent(
             LogType.WITHDRAWAL_REQUEST,
             abi.encode(_vaultAddress, _sharesToBurn, requestId)

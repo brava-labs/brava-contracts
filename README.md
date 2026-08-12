@@ -102,10 +102,11 @@ Detailed technical documentation is available in [`contracts/docs/`](contracts/d
 
 ## Security Audits
 
-Previous audit reports by [Sigma Prime](https://sigmaprime.io/):
+Audit reports by [Sigma Prime](https://sigmaprime.io/):
 
 - [Core Protocol Audit](https://github.com/sigp/public-audits/blob/master/reports/brava/report.pdf)
 - [Module Integrations Add-on Audit](https://github.com/sigp/public-audits/blob/master/reports/brava/module-integrations/report.pdf)
+- [Core Auth Changes Audit](https://github.com/sigp/public-audits/blob/master/reports/brava/core-auth/Sigma_Prime_Brava_Core_Auth_Changes_Security_Assessment_Report_v3_0.pdf)
 
 See the [`audits/`](audits/) directory for full details. We prioritize security and transparency, working with leading audit firms to ensure the safety of user funds.
 

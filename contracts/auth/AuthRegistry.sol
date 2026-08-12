@@ -1,38 +1,31 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity =0.8.28;
 
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {Errors} from "../Errors.sol";
-import {IActionBase} from "../interfaces/IActionBase.sol";
-import {IBravaSafeModule} from "../interfaces/IBravaSafeModule.sol";
-import {IEip712TypedDataSafeModule as ITyped} from "../interfaces/IEip712TypedDataSafeModule.sol";
+import {IAuthRegistry} from "../interfaces/IAuthRegistry.sol";
 import {ILogger} from "../interfaces/ILogger.sol";
-import {IMessageTransmitterV2} from "../interfaces/IMessageTransmitterV2.sol";
-import {ISafe} from "../interfaces/safe/ISafe.sol";
+import {IOwnerManager} from "../interfaces/safe/IOwnerManager.sol";
 import {ISafeDeployment} from "../interfaces/ISafeDeployment.sol";
-
-import {BravaModuleLookup} from "../libraries/BravaModuleLookup.sol";
+import {EIP712TypedDataLib} from "../libraries/EIP712TypedDataLib.sol";
 
 /// @title AuthRegistry
 /// @author Brava Finance
 /// @notice Per-chain registry of authorised managers, co-signers, and co-signing thresholds per Safe,
 ///         plus a monotonic version counter. Canonical state consulted by the EIP-712 module's signer gate.
-/// @dev Three write paths share the same `_apply` enforcement (length cap, zero/duplicate checks,
-///      version-monotonic with idempotent equality, threshold validation):
-///        1. `setAuthConfig`            — module-only; caller must currently be enabled as a module
-///                                        on the target Safe. Survives module upgrades because the
-///                                        registry never binds to a single module address.
-///        2. `receiveCCTPAuthUpdate`    — permissionless; verifies a Circle attestation and
-///                                        triple-checks burnSender == hookSafe == mintRecipient
-///                                        before applying the snapshot. No bundle execution.
-///        3. `relayCCTPAndExecute`      — permissionless; same trust path as (2), then best-effort
-///                                        forwards an EIP-712-signed bundle to the destination
-///                                        Safe's currently-enabled Brava module (discovered via
-///                                        ERC-165). Combines fund mint, auth propagation, and
-///                                        bundle execution into a single attested message.
+/// @dev The single write path is `applyAuthBundle`: a permissionless relayer entry that verifies an
+///      Owner-signed EIP-712 `AuthBundle` against the chain-agnostic domain (chainId=1,
+///      verifyingContract=Safe) and snapshot-replaces the config via `_apply` (length cap,
+///      zero/duplicate checks, version-monotonic with idempotent equality, threshold validation).
+///      Because the domain binds to the Safe — not to this registry or the module — the same signed
+///      payload is relayable on every chain, including chains added after signing, and survives
+///      module or registry redeployment.
+/// @dev When the Safe is not yet deployed on this chain, ownership is proven by matching the
+///      signer's deterministic CREATE2 Safe address (`predictSafeAddress`). This allows auth config
+///      to land before the Safe lazily deploys during its first bundle execution.
 /// @notice Auth-config state changes are logged via the shared Logger (logId 209).
-///         CCTP relay outcomes are logged separately via LogType.CCTP_RELAY_AND_EXECUTE.
 /// @notice Found a vulnerability? Please contact security@brava.finance - we appreciate responsible disclosure and reward ethical hackers
 contract AuthRegistry {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -43,39 +36,28 @@ contract AuthRegistry {
     /// @notice Hard cap on the number of co-signers per Safe.
     uint256 public constant MAX_COSIGNERS_PER_SAFE = 10;
 
+    /// @notice Largest forward gap allowed between the current and the applied auth version. Versions
+    ///         may skip ahead (a chain that missed an intermediate version need not replay it) but not
+    ///         by more than this, which bounds how fast the version space can be consumed: exhausting
+    ///         it would take on the order of `type(uint256).max / MAX_VERSION_INCREASE` applications.
+    uint256 public constant MAX_VERSION_INCREASE = 10;
+
     /// @notice AdminVaultEvent logId emitted on every state mutation.
     uint256 private constant LOG_ID_AUTH_CONFIG_UPDATED = 209;
 
-    /// @notice CCTP V2 message header size in bytes.
-    uint256 private constant MESSAGE_HEADER_SIZE = 148;
-
-    /// @notice CCTP V2 BurnMessage fixed-fields size in bytes (preceding the optional hookData).
-    uint256 private constant BURN_MESSAGE_FIXED_SIZE = 228;
-
-    /// @notice Byte offset of the source-domain field within a CCTP V2 message.
-    uint256 private constant SOURCE_DOMAIN_OFFSET = 4;
-
-    /// @notice Byte offset of the nonce field within a CCTP V2 message (bytes32).
-    uint256 private constant NONCE_OFFSET = 12;
-
-    /// @notice Byte offset of `BurnMessage.mintRecipient` within a CCTP V2 message.
-    uint256 private constant BURN_MINT_RECIPIENT_OFFSET = 184;
-
-    /// @notice Byte offset of `BurnMessage.messageSender` (the burner) within a CCTP V2 message.
-    uint256 private constant BURN_MESSAGE_SENDER_OFFSET = 248;
-
-    /// @notice Minimum valid hook envelope size: `abi.encode(uint8, bytes)` with empty bytes payload
-    ///         occupies 3 head words (hookVersion, offset, length).
-    uint256 private constant HOOK_ENVELOPE_MIN_SIZE = 96;
+    /// @notice Length of a single packed ECDSA signature (r[32] || s[32] || v[1]).
+    uint256 private constant SIGNATURE_LENGTH = 65;
 
     /// @notice Logger contract receiving all auth config update events.
     ILogger public immutable LOGGER;
 
-    /// @notice Circle MessageTransmitter V2 — sole trusted source for cross-chain auth updates.
-    address public immutable MESSAGE_TRANSMITTER;
-
-    /// @notice Safe factory for deterministic CREATE2 deployment in the relay path.
+    /// @notice Safe factory used to prove ownership of not-yet-deployed Safes via CREATE2 prediction.
     ISafeDeployment public immutable SAFE_DEPLOYMENT;
+
+    /// @notice EIP-712 domain name used in the domain separator.
+    string public domainName;
+    /// @notice EIP-712 domain version used in the domain separator.
+    string public domainVersion;
 
     struct AuthConfig {
         uint256 version;
@@ -89,297 +71,86 @@ contract AuthRegistry {
     ///         A zero bitmap means unrestricted (manager can execute any action type).
     mapping(address safe => mapping(address manager => uint256)) private _actionTypeBitmaps;
 
-    /// @notice Initializes the registry with its logger, Circle transmitter, and Safe deployment helper.
-    /// @param _logger Logger contract receiving auth config update and relay events.
-    /// @param _messageTransmitter Circle MessageTransmitter V2 used to verify CCTP messages.
-    /// @param _safeDeployment Safe deployment helper used for optimistic relay-time Safe deployment.
-    constructor(address _logger, address _messageTransmitter, address _safeDeployment) {
+    /// @notice Initializes the registry with its logger, Safe deployment helper, and EIP-712 domain.
+    /// @param _logger Logger contract receiving auth config update events.
+    /// @param _safeDeployment Safe deployment helper used for CREATE2 owner verification.
+    /// @param _domainName EIP-712 domain name (must match the bundle-executing module's domain).
+    /// @param _domainVersion EIP-712 domain version (must match the bundle-executing module's domain).
+    constructor(
+        address _logger,
+        address _safeDeployment,
+        string memory _domainName,
+        string memory _domainVersion
+    ) {
         require(
-            _logger != address(0) && _messageTransmitter != address(0) && _safeDeployment != address(0),
+            _logger != address(0) &&
+                _safeDeployment != address(0) &&
+                bytes(_domainName).length > 0 &&
+                bytes(_domainVersion).length > 0,
             "Invalid input"
         );
         LOGGER = ILogger(_logger);
-        MESSAGE_TRANSMITTER = _messageTransmitter;
         SAFE_DEPLOYMENT = ISafeDeployment(_safeDeployment);
+        domainName = _domainName;
+        domainVersion = _domainVersion;
     }
 
     // =============================
-    // Path 1 — owner-signed bundle (via module)
+    // Write path — Owner-signed AuthBundle
     // =============================
-    /// @notice Replaces the full auth config for a Safe at a new version. Intended caller is the
-    ///         EIP-712 module after it has verified the bundle signer is an Owner of the Safe.
+    /// @notice Verifies an Owner-signed EIP-712 AuthBundle and snapshot-replaces the Safe's auth
+    ///         config at the carried version. Permissionless: the signature, not the caller,
+    ///         carries the authority, so any relayer can submit a stored bundle on any chain.
+    /// @dev Replay semantics are intentional and version-bound: the same signature applies the same
+    ///      snapshot on every chain (idempotent at equal version) and becomes inert everywhere once
+    ///      a higher version exists (`_apply` reverts stale versions). Ownership is checked against
+    ///      the live Safe owner list, so a signature from a removed owner stops verifying.
     /// @param _safe Safe whose auth config is being replaced.
-    /// @param _newVersion Monotonic config version to apply.
-    /// @param _newManagers Complete replacement manager set.
-    /// @param _newCoSigners Complete replacement co-signer set.
-    /// @param _managerCoSignThreshold Number of co-signers required for manager-signed bundles.
-    /// @param _managerRestrictions Per-manager action type restrictions (only restricted managers listed).
-    function setAuthConfig(
+    /// @param _bundle Owner-signed auth bundle (expiry + full config snapshot).
+    /// @param _signature Single packed 65-byte ECDSA signature (r[32] || s[32] || v[1]) by a Safe owner.
+    function applyAuthBundle(
         address _safe,
-        uint256 _newVersion,
-        address[] calldata _newManagers,
-        address[] calldata _newCoSigners,
-        uint256 _managerCoSignThreshold,
-        ITyped.ManagerRestriction[] calldata _managerRestrictions
+        IAuthRegistry.AuthBundle calldata _bundle,
+        bytes calldata _signature
     ) external {
-        if (!ISafe(_safe).isModuleEnabled(msg.sender)) {
-            revert Errors.AuthRegistry_NotEnabledModule(_safe, msg.sender);
+        if (_bundle.expiry < block.timestamp + 1) {
+            revert Errors.AuthRegistry_BundleExpired();
         }
-        _apply(_safe, _newVersion, _newManagers, _newCoSigners, _managerCoSignThreshold, _managerRestrictions);
-    }
-
-    // =============================
-    // Path 2 — CCTP cross-chain copy (permissionless relay, no bundle)
-    // =============================
-    /// @notice Receives a Circle-attested CCTP V2 message carrying an auth config snapshot from the
-    ///         source chain and copies it locally.
-    /// @param _message Encoded CCTP V2 message containing the burn message and optional hook data.
-    /// @param _attestation Circle attestation proving the message was finalized.
-    function receiveCCTPAuthUpdate(
-        bytes calldata _message,
-        bytes calldata _attestation
-    ) external {
-        (bytes32 burnSender, bytes32 mintRecipient, bytes calldata hookData) = _parseCCTPMessage(_message);
-
-        if (!IMessageTransmitterV2(MESSAGE_TRANSMITTER).receiveMessage(_message, _attestation)) {
-            revert Errors.AuthRegistry_CCTPRelayFailed();
+        if (_signature.length != SIGNATURE_LENGTH) {
+            revert Errors.AuthRegistry_InvalidSignatureLength(_signature.length);
         }
 
-        _applyHookSnapshot(hookData, burnSender, mintRecipient);
-    }
+        bytes32 digest = EIP712TypedDataLib.hashAuthBundleForSigning(domainName, domainVersion, _safe, _bundle);
+        address signer = ECDSA.recover(digest, _signature);
 
-    // =============================
-    // Path 3 — combined CCTP relay + bundle execution
-    // =============================
-    /// @notice Mints USDC, optionally applies an auth config snapshot from `_message`'s hookData,
-    ///         and then best-effort executes `_bundle` through the destination Safe's currently-enabled
-    ///         Brava module.
-    /// @param _message Encoded CCTP V2 message containing the mint recipient and optional hook data.
-    /// @param _attestation Circle attestation proving the message was finalized.
-    /// @param _safe Destination Safe expected to receive the minted funds and execute the bundle.
-    /// @param _ownerAddress Owner EOA for optimistic Safe deployment. If non-zero and the Safe
-    ///        doesn't exist yet, the relay deploys it after auth apply and before bundle execution.
-    ///        Verified via `predictSafeAddress(ownerAddress) == _safe`. Pass `address(0)` to skip.
-    /// @param _bundle EIP-712 bundle forwarded to the enabled Brava module.
-    /// @param _signatures Signatures authorizing `_bundle` execution.
-    /// @return authApplied True when hook data contained and applied an auth snapshot.
-    /// @return bundleSuccess True when a Brava module was found and executed `_bundle` without reverting.
-    /// @return bundleReturnData Revert data returned by the Brava module when bundle execution fails.
-    function relayCCTPAndExecute(
-        bytes calldata _message,
-        bytes calldata _attestation,
-        address _safe,
-        address _ownerAddress,
-        ITyped.Bundle calldata _bundle,
-        bytes calldata _signatures
-    ) external returns (bool authApplied, bool bundleSuccess, bytes memory bundleReturnData) {
-        (bytes32 cctpNonce, uint32 sourceDomain) = _decodeMessageMetadata(_message);
-        _assertSafeMatchesMintRecipient(_message, _safe);
-        authApplied = _receiveAndMaybeApply(_message, _attestation);
+        _assertSignerIsOwner(_safe, signer);
 
-        if (_ownerAddress != address(0)) {
-            _optimisticDeploySafe(_safe, _ownerAddress);
-        }
-
-        address module;
-        (module, bundleSuccess, bundleReturnData) = _executeBundleBestEffort(_safe, _bundle, _signatures);
-
-        LOGGER.logActionEvent(
-            IActionBase.LogType.CCTP_RELAY_AND_EXECUTE,
-            abi.encode(_safe, module, authApplied, bundleSuccess, sourceDomain, cctpNonce)
+        _apply(
+            _safe,
+            _bundle.authUpdate.newVersion,
+            _bundle.authUpdate.newManagers,
+            _bundle.authUpdate.newCoSigners,
+            _bundle.authUpdate.managerCoSignThreshold,
+            _bundle.authUpdate.managerRestrictions
         );
     }
 
-    /// @notice Deploys a Safe when the relay can prove the supplied owner derives the target address.
-    /// @dev Deploys the Safe if it doesn't exist, after verifying the owner address produces the
-    ///      expected Safe address via CREATE2.
-    /// @param _safe Safe address that must match the deployment helper's prediction.
-    /// @param _ownerAddress Owner EOA used by the deployment helper to derive the Safe address.
-    function _optimisticDeploySafe(address _safe, address _ownerAddress) private {
-        address predicted = SAFE_DEPLOYMENT.predictSafeAddress(_ownerAddress);
-        if (predicted != _safe) {
-            revert Errors.AuthRegistry_SafeOwnerMismatch(_safe, _ownerAddress, predicted);
-        }
-        if (!SAFE_DEPLOYMENT.isSafeDeployed(_ownerAddress)) {
-            SAFE_DEPLOYMENT.deploySafe(_ownerAddress);
-        }
-    }
-
-    /// @notice Receives a CCTP message and applies its hook snapshot when one is present.
-    /// @dev Mints USDC via the Circle attestation and applies any hook-carried snapshot.
-    /// @param _message Encoded CCTP V2 message containing the burn message and optional hook data.
-    /// @param _attestation Circle attestation proving the message was finalized.
-    /// @return authApplied True when hook data contained and applied an auth snapshot.
-    function _receiveAndMaybeApply(
-        bytes calldata _message,
-        bytes calldata _attestation
-    ) private returns (bool authApplied) {
-        (bytes32 burnSender, bytes32 mintRecipient, bytes calldata hookData) = _parseCCTPMessage(_message);
-
-        if (!IMessageTransmitterV2(MESSAGE_TRANSMITTER).receiveMessage(_message, _attestation)) {
-            revert Errors.AuthRegistry_CCTPRelayFailed();
-        }
-
-        if (hookData.length > HOOK_ENVELOPE_MIN_SIZE - 1) {
-            _applyHookSnapshot(hookData, burnSender, mintRecipient);
-            authApplied = true;
-        }
-    }
-
-    /// @notice Attempts bundle execution through the Safe's currently enabled Brava module.
-    /// @dev Looks up the Safe's enabled Brava module via ERC-165 and forwards the bundle.
-    ///      Best-effort: if the module reverts (including ABI mismatch if the module's
-    ///      executeBundle signature changed — see IBravaSafeModule interfaceId coupling),
-    ///      bundleSuccess=false with revert data. Callers distinguish "no module" from
-    ///      "module reverted" via the module return value (address(0) vs non-zero).
-    /// @param _safe Safe whose enabled Brava module should execute the bundle.
-    /// @param _bundle EIP-712 bundle forwarded to the enabled Brava module.
-    /// @param _signatures Signatures authorizing `_bundle` execution.
-    /// @return module Enabled Brava module used for execution, or address(0) when none is found.
-    /// @return bundleSuccess True when a Brava module was found and executed `_bundle` without reverting.
-    /// @return bundleReturnData Revert data returned by the Brava module when bundle execution fails.
-    function _executeBundleBestEffort(
-        address _safe,
-        ITyped.Bundle calldata _bundle,
-        bytes calldata _signatures
-    ) private returns (address module, bool bundleSuccess, bytes memory bundleReturnData) {
-        bool found;
-        (found, module) = BravaModuleLookup.tryFindEnabledBravaModule(ISafe(_safe));
-        if (!found) {
-            return (address(0), false, "");
-        }
-        try IBravaSafeModule(module).executeBundle(_safe, _bundle, _signatures) {
-            bundleSuccess = true;
-        } catch (bytes memory err) {
-            bundleReturnData = err;
-        }
-    }
-
-    // =============================
-    // Internal: CCTP message parsing
-    // =============================
-    /// @notice Parses the CCTP V2 burn message fields needed by the registry.
-    /// @param _message Encoded CCTP V2 message containing a burn message.
-    /// @return burnSender Safe address encoded as the burn message sender.
-    /// @return mintRecipient Safe address encoded as the mint recipient.
-    /// @return hookData Optional hook payload appended to the burn message.
-    function _parseCCTPMessage(bytes calldata _message)
-        private
-        pure
-        returns (bytes32 burnSender, bytes32 mintRecipient, bytes calldata hookData)
-    {
-        uint256 hookDataOffset = MESSAGE_HEADER_SIZE + BURN_MESSAGE_FIXED_SIZE;
-        if (_message.length < hookDataOffset) {
-            revert Errors.AuthRegistry_HookMessageTooShort();
-        }
-
-        burnSender = bytes32(_message[BURN_MESSAGE_SENDER_OFFSET:BURN_MESSAGE_SENDER_OFFSET + 32]);
-        mintRecipient = bytes32(_message[BURN_MINT_RECIPIENT_OFFSET:BURN_MINT_RECIPIENT_OFFSET + 32]);
-        hookData = _message[hookDataOffset:];
-    }
-
-    /// @notice Decodes message header fields used for relay logging.
-    /// @dev CCTP V2 nonces are bytes32 (hashes, not counters). Stored as-is for event logging.
-    /// @param _message Encoded CCTP V2 message containing the header metadata.
-    /// @return cctpNonce CCTP nonce read from the message header.
-    /// @return sourceDomain Circle source domain read from the message header.
-    function _decodeMessageMetadata(bytes calldata _message)
-        private
-        pure
-        returns (bytes32 cctpNonce, uint32 sourceDomain)
-    {
-        sourceDomain = uint32(bytes4(_message[SOURCE_DOMAIN_OFFSET:SOURCE_DOMAIN_OFFSET + 4]));
-        cctpNonce = bytes32(_message[NONCE_OFFSET:NONCE_OFFSET + 32]);
-    }
-
-    /// @notice Requires the requested Safe to match the Circle-attested mint recipient.
-    /// @dev Asserts that the caller-supplied `_safe` matches the CCTP message's mintRecipient.
-    ///      This is a guardrail ensuring the caller targets the correct Safe — the actual mint
-    ///      destination is controlled solely by the Circle-attested message, not by this check.
-    /// @param _message Encoded CCTP V2 message containing the mint recipient.
-    /// @param _safe Safe address expected to match the message's mint recipient.
-    function _assertSafeMatchesMintRecipient(bytes calldata _message, address _safe) private pure {
-        bytes32 mintRecipient = bytes32(_message[BURN_MINT_RECIPIENT_OFFSET:BURN_MINT_RECIPIENT_OFFSET + 32]);
-        if (address(uint160(uint256(mintRecipient))) != _safe) {
-            revert Errors.AuthRegistry_SafeMintRecipientMismatch(_safe, mintRecipient);
-        }
-    }
-
-    /// @notice Applies the auth snapshot carried in a CCTP hook envelope.
-    /// @dev Decodes the hook envelope and applies the carried snapshot after enforcing the
-    ///      Safe-identity triple-check.
-    /// @param hookData ABI-encoded hook envelope carrying an auth snapshot.
-    /// @param burnSender Safe address encoded as the burn message sender.
-    /// @param mintRecipient Safe address encoded as the mint recipient.
-    function _applyHookSnapshot(
-        bytes calldata hookData,
-        bytes32 burnSender,
-        bytes32 mintRecipient
-    ) private {
-        if (hookData.length < HOOK_ENVELOPE_MIN_SIZE) revert Errors.AuthRegistry_BadHookEnvelope();
-        (uint8 hookVersion, bytes memory payload) = abi.decode(hookData, (uint8, bytes));
-        if (hookVersion != 1) revert Errors.AuthRegistry_UnknownHookVersion(hookVersion);
-
-        (
-            address safe,
-            uint256 newVersion,
-            address[] memory newManagers,
-            address[] memory newCoSigners,
-            uint256 managerCoSignThreshold,
-            uint256[] memory managerBitmaps
-        ) = abi.decode(payload, (address, uint256, address[], address[], uint256, uint256[]));
-
-        bytes32 safeAsBytes32 = bytes32(uint256(uint160(safe)));
-        if (burnSender != safeAsBytes32 || mintRecipient != safeAsBytes32) {
-            revert Errors.AuthRegistry_HookSafeMismatch(burnSender, mintRecipient, safe);
-        }
-
-        ITyped.ManagerRestriction[] memory restrictions = _bitmapsToRestrictions(newManagers, managerBitmaps);
-        _apply(safe, newVersion, newManagers, newCoSigners, managerCoSignThreshold, restrictions);
-    }
-
-    /// @notice Converts parallel arrays of managers and bitmaps into ManagerRestriction structs.
-    /// @dev Only managers with non-zero bitmaps produce a restriction entry.
-    function _bitmapsToRestrictions(
-        address[] memory _managers,
-        uint256[] memory _bitmaps
-    ) private pure returns (ITyped.ManagerRestriction[] memory) {
-        if (_managers.length != _bitmaps.length) {
-            revert Errors.AuthRegistry_BitmapLengthMismatch(_managers.length, _bitmaps.length);
-        }
-        uint256 restrictedCount;
-        for (uint256 i; i < _bitmaps.length; ++i) {
-            if (_bitmaps[i] != 0) ++restrictedCount;
-        }
-
-        ITyped.ManagerRestriction[] memory restrictions = new ITyped.ManagerRestriction[](restrictedCount);
-        uint256 idx;
-        for (uint256 i; i < _bitmaps.length; ++i) {
-            if (_bitmaps[i] == 0) continue;
-
-            uint256 bitCount;
-            uint256 temp = _bitmaps[i];
-            while (temp != 0) {
-                ++bitCount;
-                temp &= temp - 1;
+    /// @notice Requires the recovered signer to be an owner of the Safe.
+    /// @dev For a deployed Safe the live owner list is authoritative. For a not-yet-deployed Safe,
+    ///      ownership is proven by the signer's deterministic CREATE2 Safe address matching `_safe`
+    ///      — the same derivation the deployment factory uses, so no other EOA can produce it.
+    /// @param _safe Safe whose ownership is being checked.
+    /// @param _signer Recovered AuthBundle signer.
+    function _assertSignerIsOwner(address _safe, address _signer) private view {
+        if (_safe.code.length > 0) {
+            if (!IOwnerManager(_safe).isOwner(_signer)) {
+                revert Errors.AuthRegistry_SignerNotOwner(_safe, _signer);
             }
-
-            uint8[] memory actionTypes = new uint8[](bitCount);
-            uint256 writeIdx;
-            for (uint16 bit; bit < 256; ++bit) {
-                if ((_bitmaps[i] >> bit) & 1 == 1) {
-                    actionTypes[writeIdx++] = uint8(bit);
-                    if (writeIdx == bitCount) break;
-                }
-            }
-
-            restrictions[idx] = ITyped.ManagerRestriction({
-                manager: _managers[i],
-                allowedActionTypes: actionTypes
-            });
-            ++idx;
+            return;
         }
-        return restrictions;
+        if (SAFE_DEPLOYMENT.predictSafeAddress(_signer) != _safe) {
+            revert Errors.AuthRegistry_SignerNotOwner(_safe, _signer);
+        }
     }
 
     // =============================
@@ -404,7 +175,7 @@ contract AuthRegistry {
         address[] memory _newManagers,
         address[] memory _newCoSigners,
         uint256 _managerCoSignThreshold,
-        ITyped.ManagerRestriction[] memory _restrictions
+        IAuthRegistry.ManagerRestriction[] memory _restrictions
     ) internal {
         _validateSnapshot(_newVersion, _newManagers, _newCoSigners, _managerCoSignThreshold);
 
@@ -419,6 +190,12 @@ contract AuthRegistry {
                 revert Errors.AuthRegistry_ConflictingConfig(_newVersion);
             }
             return;
+        }
+        // _newVersion > currentVersion here, so the subtraction cannot underflow. Bounding the forward
+        // jump stops a single update from leaping to a near-`type(uint256).max` version that would
+        // leave no reachable higher version and freeze the auth config; gaps within the cap stay legal.
+        if (_newVersion - currentVersion > MAX_VERSION_INCREASE) {
+            revert Errors.AuthRegistry_VersionJumpTooLarge(currentVersion, _newVersion, MAX_VERSION_INCREASE);
         }
 
         uint256 oldLen = state.managers.length();
@@ -451,7 +228,7 @@ contract AuthRegistry {
     function _applyRestrictions(
         address _safe,
         address[] memory _newManagers,
-        ITyped.ManagerRestriction[] memory _restrictions
+        IAuthRegistry.ManagerRestriction[] memory _restrictions
     ) private {
         for (uint256 i; i < _newManagers.length; ++i) {
             _actionTypeBitmaps[_safe][_newManagers[i]] = 0;
@@ -488,6 +265,13 @@ contract AuthRegistry {
 
     /// @notice Validates the auth snapshot before it is compared with or written to storage.
     /// @dev Validates snapshot-level invariants that do not depend on existing registry state.
+    /// @dev A threshold of 0 with co-signers present is intentionally permitted: it registers a
+    ///      "dormant" co-signer set that does not yet gate manager bundles. This lets a new co-signer
+    ///      be onboarded (added to the Safe's config so their detection and signing can be exercised
+    ///      in simulation) without their signature becoming mandatory for live execution — so staged
+    ///      onboarding never blocks managers/testers. The threshold is raised in a later auth update
+    ///      once the co-signer is verified. Only an over-large threshold (more than the co-signer
+    ///      count) is rejected, since that would be permanently unsatisfiable.
     /// @param _newVersion Monotonic config version to apply.
     /// @param _newManagers Complete replacement manager set.
     /// @param _newCoSigners Complete replacement co-signer set.
@@ -572,7 +356,7 @@ contract AuthRegistry {
         address[] memory _managers,
         address[] memory _coSigners,
         uint256 _managerThreshold,
-        ITyped.ManagerRestriction[] memory _restrictions
+        IAuthRegistry.ManagerRestriction[] memory _restrictions
     ) internal view returns (bool) {
         if (state.managerCoSignThreshold != _managerThreshold) return false;
         if (!_setMatches(state.managers, _managers)) return false;
@@ -589,7 +373,7 @@ contract AuthRegistry {
     function _restrictionsMatch(
         address _safe,
         address[] memory _managers,
-        ITyped.ManagerRestriction[] memory _restrictions
+        IAuthRegistry.ManagerRestriction[] memory _restrictions
     ) private view returns (bool) {
         for (uint256 i; i < _managers.length; ++i) {
             uint256 expectedBitmap = 0;
@@ -692,5 +476,23 @@ contract AuthRegistry {
     /// @return The action type bitmap.
     function getManagerActionBitmap(address _safe, address _manager) external view returns (uint256) {
         return _actionTypeBitmaps[_safe][_manager];
+    }
+
+    /// @notice Computes the EIP-712 domain separator for a given Safe.
+    /// @param _safeAddr The Safe address used as the verifyingContract
+    /// @return The domain separator hash
+    function getDomainSeparator(address _safeAddr) external view returns (bytes32) {
+        return EIP712TypedDataLib.domainSeparator(domainName, domainVersion, _safeAddr);
+    }
+
+    /// @notice Computes the full EIP-712 signing hash for an auth bundle (domain separator + struct hash).
+    /// @param _safeAddr The Safe address used as verifyingContract in the domain
+    /// @param _bundle The auth bundle to hash
+    /// @return The digest that the Safe owner must sign
+    function getAuthBundleHash(
+        address _safeAddr,
+        IAuthRegistry.AuthBundle calldata _bundle
+    ) external view returns (bytes32) {
+        return EIP712TypedDataLib.hashAuthBundleForSigning(domainName, domainVersion, _safeAddr, _bundle);
     }
 }
